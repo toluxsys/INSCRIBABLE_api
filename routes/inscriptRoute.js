@@ -4,7 +4,7 @@ const { unlinkSync } = require("fs");
 const path = require("path");
 const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
-const Inscription = require("../modal/inscription");
+const Inscription = require("../model/inscription");
 const { compressImage } = require("../controllers/compressImage");
 const { createHDWallet } = require("../controllers/createWallet");
 const {
