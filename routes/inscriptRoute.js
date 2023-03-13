@@ -61,10 +61,10 @@ router.route(`/send/utxo`).post(async (req, res) => {
   try {
     const inscriptionId = req.body.id;
     const passKey = req.body.passKey;
-    const network = req.body.network;
+    const network = req.body.networkName;
     const verified = await verify(inscriptionId, passKey);
 
-    if (!verified) {
+    if (verified === false) {
       return res.status(400).json({ message: "Invalid Pass Key" });
     }
 
@@ -88,6 +88,8 @@ router.route(`/send/utxo`).post(async (req, res) => {
         }, available: ${balance / 1e8}`,
       });
     }
+
+    //@note recieverAddress should be gotten from bitcoinD's api
     let recieverAddress;
     if (network === "mainnet") {
       recieverAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
@@ -120,7 +122,7 @@ router.route(`/create`).post(async (req, res) => {
   try {
     const inscriptionId = req.body.id;
     const passKey = req.body.passKey;
-    const network = req.body.network;
+    const network = req.body.networkName;
     const verified = await verify(inscriptionId, passKey);
 
     if (!verified) {
@@ -218,9 +220,8 @@ const init = async (file, feeRate, networkName) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
-    const salt = await bcrypt.genSalt(10);
     const passKey = nanoid(32);
-    const enKey = await bcrypt.hash(passKey, salt);
+    const enKey = await bcrypt.hash(passKey, 10);
     const inscriptionId = uuidv4();
     const count = await Inscription.find({}, { _id: 0 });
 
