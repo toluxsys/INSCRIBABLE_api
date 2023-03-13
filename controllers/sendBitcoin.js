@@ -67,14 +67,8 @@ const chechAddress = async (address, network) => {
 const sendBitcoin = async (payAddressId, recieverAddress, network, amount) => {
   //const { transactions } = await init(network);
   try {
-    let block_c;
     let serviceChargeAddress;
     let broadcastLink;
-    if (network === "testnet") {
-      block_c = "test3";
-    } else if (network === "mainnet") {
-      block_c = "main";
-    }
 
     if (network === "testnet") {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
@@ -98,27 +92,12 @@ const sendBitcoin = async (payAddressId, recieverAddress, network, amount) => {
     const transaction = new bitcore.Transaction();
     let totalAmountAvailable = 0;
 
-    let inputs = [];
+    let input = [];
     const unSpent = await axios.get(
       `https://mempool.space/${network}/api/address/${sourceAddress}/utxo`
     );
 
     let utxos = unSpent.data;
-    let outputs = [];
-    let scripts = [];
-
-    for (const tx of utxos) {
-      const outScriptHash = await axios.get(
-        `https://api.blockcypher.com/v1/btc/${block_c}/txs/${tx.txid}`
-      );
-      const txOut = outScriptHash.data.outputs;
-      outputs.push(txOut);
-    }
-
-    for (let j = 0; j <= outputs.length - 1; j++) {
-      const out_tx = await outputs[j];
-      scripts.push(out_tx[j].script);
-    }
 
     for (const element of utxos) {
       let utxo = {};
@@ -126,10 +105,10 @@ const sendBitcoin = async (payAddressId, recieverAddress, network, amount) => {
       utxo.address = bitcore.Address.fromString(sourceAddress);
       utxo.txId = element.txid;
       utxo.vout = element.vout;
-      utxo.script = scripts[0];
+      utxo.script = bitcore.Script.buildPublicKeyHashOut(sourceAddress);
       totalAmountAvailable += element.value;
       inputCount += 1;
-      inputs.push(utxo);
+      input.push(utxo);
     }
 
     const transactionSize =
@@ -140,7 +119,7 @@ const sendBitcoin = async (payAddressId, recieverAddress, network, amount) => {
       throw new Error("Balance is too low for this transaction");
     }
     //Set transaction input
-    transaction.from(inputs);
+    transaction.from(input);
     // set the recieving address and the amount to send
     transaction.to(bitcore.Address.fromString(recieverAddress), amount);
     // Set change address - Address to receive the left over funds after transfer
@@ -151,11 +130,12 @@ const sendBitcoin = async (payAddressId, recieverAddress, network, amount) => {
     transaction.sign(await addressDetails.privateKey);
     //serialize Transactions
     const txHex = transaction.serialize({ disableDustOutputs: true });
-    const hx = JSON.stringify(txHex);
 
-    return { link: broadcastLink, rawTx: hx };
+    //const txId = await transactions.postTx({ txHex });
+
+    return { link: broadcastLink, rawTx: txHex };
   } catch (e) {
-    throw new Error(e.message);
+    throw new Error(e);
   }
 };
 
@@ -168,13 +148,13 @@ module.exports = {
 
 // const start = async () => {
 //   const { transactions } = await init();
-//   console.log(
-//     await chechAddress("myw8oeMuXAcd1CWv21hMSPFumwjJXVXjZX", "testnet")
-//   );
-
 //   // console.log(
-//   //   await sendBitcoin(0, "myw8oeMuXAcd1CWv21hMSPFumwjJXVXjZX", "testnet", 100)
+//   //   await chechAddress("mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M", "testnet")
 //   // );
+
+//   console.log(
+//     await sendBitcoin(0, "mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M", "testnet", 100)
+//   );
 // };
 
 // start();

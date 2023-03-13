@@ -88,9 +88,14 @@ router.route(`/send/utxo`).post(async (req, res) => {
         }, available: ${balance / 1e8}`,
       });
     }
+    let recieverAddress;
+    if (network === "mainnet") {
+      recieverAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
+    } else {
+      recieverAddress = "mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M";
+    }
 
     //const recieverAddress = await inscriptionPaymentAddress();
-    const recieverAddress = "myw8oeMuXAcd1CWv21hMSPFumwjJXVXjZX";
     const txDetails = await sendBitcoin(
       payAddressId,
       recieverAddress,

@@ -29,7 +29,7 @@ const createWallet = (networkName) => {
 
 const createHDWallet = async (networkName, path) => {
   let network = getNetwork(networkName);
-  let passPhrase = new Mnemonic(Mnemonic.Words.ENGLISH);
+  let passPhrase = new Mnemonic(process.env.MNEMONIC);
   let xpriv = passPhrase
     .toHDPrivateKey(passPhrase.toString(), network)
     .derive(`m/${path}/0/0`);
@@ -42,4 +42,4 @@ const createHDWallet = async (networkName, path) => {
 
 module.exports = { createWallet, createHDWallet };
 
-// console.log(createHDWallet("testnet", 1));
+//console.log(createHDWallet("testnet", 0));
