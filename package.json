@@ -7,9 +7,6 @@
     "dev": "nodemon -L",
     "start": "node server.js"
   },
-  "engines": {
-    "node": ">=16.17.1"
-  },
   "dependencies": {
     "@mempool/mempool.js": "^2.3.0",
     "axios": "^1.3.4",
