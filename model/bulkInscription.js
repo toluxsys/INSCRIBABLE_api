@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const inscriptionSchema = new mongoose.Schema(
+const bulkInscription = new mongoose.Schema(
   {
     id: String,
     inscribed: Boolean,
@@ -12,10 +12,8 @@ const inscriptionSchema = new mongoose.Schema(
       immutable: true,
     },
     inscriptionDetails: {
-      imageSizeIn: Number,
-      imageSizeOut: Number,
-      fileName: String,
-      comPercentage: Number,
+      largestFile: Number,
+      totalAmount: Number,
       receciverDetails: Array,
       payAddress: String,
       payAddressId: Number,
@@ -27,13 +25,11 @@ const inscriptionSchema = new mongoose.Schema(
       creationBlock: Number,
     },
     cost: {
-      serviceCharge: Number,
-      inscriptionCost: Number,
-      total: Number,
+      type: Object,
     },
-    inscription: { type: Object },
+    inscription: { type: Array },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Incription", inscriptionSchema);
+module.exports = mongoose.model("BulkInscription", bulkInscription);

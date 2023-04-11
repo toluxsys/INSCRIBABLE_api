@@ -1,4 +1,3 @@
-const axios = require("axios");
 const bitcore = require("bitcore-lib");
 const mempoolJS = require("@mempool/mempool.js");
 const dotenv = require("dotenv");
@@ -37,16 +36,16 @@ const getWalletBalance = async (address, network) => {
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
-      console.log(element);
+      console.log(`Balance:`, element);
     }
 
     return totalAmountAvailable;
   } catch (e) {
-    throw new Error(e.message);
+    console.log(e.message);
   }
 };
 
-const chechAddress = async (address, network) => {
+const checkAddress = async (address, network) => {
   try {
     const { addresses } = await init(network);
     const response = await addresses.getAddressTxsUtxo({ address });
@@ -64,8 +63,33 @@ const chechAddress = async (address, network) => {
   }
 };
 
-const sendBitcoin = async (payAddressId, recieverAddress, network, amount) => {
-  //const { transactions } = await init(network);
+const createTransaction = async (
+  input,
+  recieverDetails,
+  changeAddr,
+  fee,
+  privateKey
+) => {
+  try {
+    const transaction = new bitcore.Transaction();
+    recieverDetails.forEach((element) => {
+      transaction.to(
+        bitcore.Address.fromString(element.address),
+        element.amount
+      );
+    });
+    transaction.from(input);
+    transaction.change(bitcore.Address.fromString(changeAddr));
+    transaction.fee(fee);
+    transaction.sign(privateKey);
+    const txHex = transaction.serialize({ disableDustOutputs: true });
+    return txHex;
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const sendBitcoin = async (payAddressId, recieverDetails, network) => {
   try {
     let serviceChargeAddress;
     let broadcastLink;
@@ -86,18 +110,13 @@ const sendBitcoin = async (payAddressId, recieverAddress, network, amount) => {
     const sourceAddress = await addressDetails.address;
     let fee = 0;
     let inputCount = 0;
-    let outputCount = 2;
-
-    const recommendedFee = await getRecomendedFee();
-    const transaction = new bitcore.Transaction();
-    let totalAmountAvailable = 0;
-
+    let outputCount = recieverDetails.length + 1;
+    let amount = 0;
+    let available = await checkAddress(sourceAddress, network);
+    let recommendedFee = await getRecomendedFee();
     let input = [];
-    const unSpent = await axios.get(
-      `https://mempool.space/${network}/api/address/${sourceAddress}/utxo`
-    );
-
-    let utxos = unSpent.data;
+    let utxos = available.utxos;
+    let totalAmountAvailable = available.totalAmountAvailable;
 
     for (const element of utxos) {
       let utxo = {};
@@ -106,55 +125,69 @@ const sendBitcoin = async (payAddressId, recieverAddress, network, amount) => {
       utxo.txId = element.txid;
       utxo.vout = element.vout;
       utxo.script = bitcore.Script.buildPublicKeyHashOut(sourceAddress);
-      totalAmountAvailable += element.value;
       inputCount += 1;
       input.push(utxo);
+    }
+
+    for (const details of recieverDetails) {
+      amount += details.amount;
     }
 
     const transactionSize =
       inputCount * 180 + outputCount * 34 + 10 - inputCount;
 
-    fee = transactionSize * recommendedFee.hourFee; // satoshi per byte
-    if (totalAmountAvailable - amount - fee < 0) {
+    fee = transactionSize * recommendedFee.halfHourFee;
+    console.log("fee", fee);
+    console.log("total Available", totalAmountAvailable);
+
+    if (totalAmountAvailable - amount - fee === 0) {
       throw new Error("Balance is too low for this transaction");
     }
-    //Set transaction input
-    transaction.from(input);
-    // set the recieving address and the amount to send
-    transaction.to(bitcore.Address.fromString(recieverAddress), amount);
-    // Set change address - Address to receive the left over funds after transfer
-    transaction.change(bitcore.Address.fromString(serviceChargeAddress));
-    //manually set transaction fees: 20 satoshis per byte
-    transaction.fee(fee);
-    // Sign transaction with your private key
-    transaction.sign(await addressDetails.privateKey);
-    //serialize Transactions
-    const txHex = transaction.serialize({ disableDustOutputs: true });
 
-    //const txId = await transactions.postTx({ txHex });
+    const txHex = await createTransaction(
+      input,
+      recieverDetails,
+      serviceChargeAddress,
+      fee,
+      addressDetails.privateKey
+    );
 
     return { link: broadcastLink, rawTx: txHex };
   } catch (e) {
-    throw new Error(e);
+    throw new Error(e.message);
   }
 };
 
 module.exports = {
   getRecomendedFee,
   getWalletBalance,
-  chechAddress,
+  checkAddress,
   sendBitcoin,
 };
 
 // const start = async () => {
-//   const { transactions } = await init();
-//   // console.log(
-//   //   await chechAddress("mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M", "testnet")
+//   // const { transactions } = await init();
+//   // const available = await chechAddress(
+//   //   "msgfzF5z2K9xtAbtFoiYwEaStZCnS3TXJy",
+//   //   "testnet"
 //   // );
+//   // console.log(available.utxos[0].status.confirmed);
+//   // console.log(available.totalAmountAvailable);
 
-//   console.log(
-//     await sendBitcoin(0, "mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M", "testnet", 100)
-//   );
+//   const details = [
+//     {
+//       address: `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+//       amount: 50,
+//     },
+//     {
+//       address: `msgfzF5z2K9xtAbtFoiYwEaStZCnS3TXJy`,
+//       amount: 50,
+//     },
+//   ];
+
+//   console.log(await sendBitcoin(0, details, "testnet"));
+
+//   //console.log(await getRecomendedFee());
 // };
 
 // start();

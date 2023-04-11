@@ -1,0 +1,557 @@
+const express = require("express");
+const fileUpload = require("express-fileupload");
+const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
+const axios = require("axios");
+const path = require("path");
+const bcrypt = require("bcrypt");
+const { v4: uuidv4 } = require("uuid");
+const dotenv = require("dotenv").config();
+const { filesFromPaths } = require("files-from-path");
+const Inscription = require("../model/inscription");
+const Ids = require("../model/ids");
+const BulkInscription = require("../model/bulkInscription");
+const {
+  compressImage,
+  compressAndSave,
+  compressAndSaveBulk,
+} = require("../helpers/compressImage");
+const {
+  createHDWallet,
+  addWalletToOrd,
+  utxoDetails,
+} = require("../helpers/createWallet");
+const {
+  getRecomendedFee,
+  getWalletBalance,
+} = require("../helpers/sendBitcoin");
+
+const {
+  sendBitcoin,
+  createLegacyAddress,
+  createTaprootAddress,
+} = require("../helpers/sendBitcoin2");
+const { getType } = require("../helpers/getType");
+
+const router = express.Router();
+
+router.use(
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: path.join(process.cwd(), `tmp`),
+    createParentPath: true,
+  })
+);
+
+router.use(express.urlencoded({ extended: false }));
+router.use(express.json());
+
+module.exports.upload = async (req, res) => {
+  try {
+    const file = req.files.unCompImage;
+    const feeRate = parseInt(req.body.feeRate);
+    const networkName = req.body.networkName;
+    const details = await init(file, feeRate, networkName);
+    res.status(200).json({
+      message: "image compresed",
+      compImage: details.compImage,
+      cost: details.inscriptionCost,
+      paymentAddress: details.paymentAddress,
+      passKey: details.passKey,
+      inscriptionId: details.inscriptionId,
+    });
+  } catch (e) {
+    console.log(e.message);
+    if (
+      e.message === "Cannot read properties of undefined (reading 'compImage')"
+    ) {
+      return res.status(400).json({ message: "bad request" });
+    }
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+module.exports.uploadMultiple = async (req, res) => {
+  try {
+    const files = req.files.unCompImage;
+    const feeRate = parseInt(req.body.feeRate);
+    const networkName = req.body.networkName;
+    const details = await initBulk(files, feeRate, networkName);
+    res.status(200).json({
+      message: "image compresed",
+      cost: details.totalCost,
+      paymentAddress: details.paymentAddress,
+      passKey: details.passKey,
+      inscriptionId: details.inscriptionId,
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+module.exports.sendUtxo = async (req, res) => {
+  try {
+    const inscriptionId = req.body.id;
+    const passKey = req.body.passKey;
+    const network = req.body.networkName;
+    const inscriptionType = getType(inscriptionId);
+
+    let verified;
+    let inscription;
+    let instance;
+    let addrCount;
+    let details;
+    let amount;
+    let payAddress;
+    let addressFromId;
+    let payAddressId;
+    let balance;
+    let txDetails;
+
+    if (inscriptionType === "single") {
+      verified = await verify(inscriptionId, passKey, inscriptionType);
+      if (verified === false) {
+        return res.status(400).json({ message: "Invalid Pass Key" });
+      }
+      inscription = await Inscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+      addrCount = 1;
+      amount = instance.cost.inscriptionCost;
+      payAddressId = instance.inscriptionDetails.payAddressId;
+      payAddress = instance.inscriptionDetails.payAddress;
+      addressFromId = (await createLegacyAddress(network, payAddressId))
+        .p2pkh_addr;
+
+      balance = await getWalletBalance(payAddress, network);
+
+      if (addressFromId !== payAddress) {
+        return res.status(400).json({ message: "Invalid address from ID" });
+      }
+
+      if (balance < instance.cost.total * 1e8) {
+        return res.status(400).json({
+          message: `Inscription cost not paid. Required to pay: ${
+            instance.cost.total
+          }, available: ${balance / 1e8}`,
+        });
+      }
+      details = await utxoDetails(inscriptionId, addrCount, amount, network);
+
+      txDetails = await sendBitcoin(network, payAddressId, details);
+      instance.inscriptionDetails.receciverDetails = details;
+      await instance.save();
+      return res.status(200).json({
+        message: "utxo sent",
+        details: txDetails,
+      });
+    } else if (inscriptionType === "bulk") {
+      verified = await verify(inscriptionId, passKey, type);
+      if (verified === false) {
+        return res.status(400).json({ message: "Invalid Pass Key" });
+      }
+      inscription = await BulkInscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+      addrCount = instance.inscriptionDetails.totalAmount;
+      amount = instance.cost.costPerInscription.inscriptionCost;
+      payAddressId = instance.inscriptionDetails.payAddressId;
+      payAddress = instance.inscriptionDetails.payAddress;
+      addressFromId = (await createHDWallet(network, payAddressId)).address;
+
+      balance = await getWalletBalance(payAddress, network);
+
+      if (addressFromId !== payAddress) {
+        return res.status(400).json({ message: "Invalid address from ID" });
+      }
+
+      if (balance < instance.cost.total * 1e8) {
+        return res.status(400).json({
+          message: `Inscription cost not paid. Required to pay: ${
+            instance.cost.total
+          }, available: ${balance / 1e8}`,
+        });
+      }
+      details = await utxoDetails(inscriptionId, addrCount, amount, network);
+      console.log(`details:`, details);
+
+      txDetails = await sendBitcoin(payAddressId, details, network);
+      console.log(txDetails);
+      instance.inscriptionDetails.receciverDetails = details;
+      await instance.save();
+      return res.status(200).json({
+        message: "utxo sent",
+        details: txDetails,
+      });
+    }
+
+    //console.log(balance, instance.cost.total);
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+module.exports.inscribe = async (req, res) => {
+  try {
+    const inscriptionId = req.body.id;
+    const passKey = req.body.passKey;
+    const receciverAddress = req.body.address;
+    const type = getType(inscriptionId);
+    let verified;
+    let inscription;
+    let instance;
+    let newInscription;
+
+    const result = await axios.post(
+      process.env.ORD_API_URL + `/ord/wallet/balance`,
+      { walletName: inscriptionId }
+    );
+    const balance = result.data.userResponse.data;
+
+    if (type === "single") {
+      verified = await verify(inscriptionId, passKey, type);
+      if (!verified) {
+        return res.status(400).json({ message: "Invalid Pass Key" });
+      }
+      inscription = await Inscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+
+      if (balance < instance.cost.inscriptionCost * 1e8) {
+        return res.status(400).json({
+          message: `utxo not sent. Required to pay: ${
+            instance.cost.inscriptionCost
+          }, available: ${balance / 1e8}`,
+        });
+      }
+
+      newInscription = await axios.post(
+        process.env.ORD_API_URL + `/ord/create/inscribe`,
+        {
+          feeRate: instance.feeRate,
+          receiverAddress: receciverAddress,
+          cid: instance.inscriptionDetails.cid,
+          inscriptionId: inscriptionId,
+          type: type,
+          imageName: instance.inscriptionDetails.fileName,
+        }
+      );
+      if (newInscription.data.message !== "ok") {
+        return res.status(400).json({ message: newInscription.data.message });
+      }
+    } else if (type === "bulk") {
+      verified = await verify(inscriptionId, passKey, type);
+      if (!verified) {
+        return res.status(400).json({ message: "Invalid Pass Key" });
+      }
+      inscription = await BulkInscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+      if (balance < instance.cost.inscriptionCost * 1e8) {
+        return res.status(400).json({
+          message: `utxo not sent. Required to pay: ${
+            instance.cost.inscriptionCost
+          }, available: ${balance / 1e8}`,
+        });
+      }
+
+      newInscription = await axios.post(
+        process.env.ORD_API_URL + `/ord/inscribe`,
+        {
+          feeRate: instance.feeRate,
+          receiverAddress: receciverAddress,
+          cid: instance.inscriptionDetails.cid,
+          inscriptionId: inscriptionId,
+          type: type,
+        }
+      );
+      if (newInscription.data.message !== "ok") {
+        return res.status(400).json({ message: newInscription.data.message });
+      }
+    }
+
+    instance.inscription = newInscription.data.userResponse.data;
+    if (receciverAddress === undefined || receciverAddress === null) {
+      instance.inscribed = true;
+      await instance.save();
+      return res.status(200).json({
+        message: "inscription Created",
+        data: { details: newInscription.data.userResponse.data, sent: false },
+      });
+    } else {
+      instance.sent = true;
+      instance.inscribed = true;
+      await instance.save();
+      return res.status(200).json({
+        message: "inscription Created",
+        data: { details: newInscription.data.userResponse.data, sent: true },
+      });
+    }
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+module.exports.sendInscription = async (req, res) => {
+  try {
+    const id = req.body.id;
+    const passKey = req.body.passKey;
+    const inscriptions = req.body.inscriptions; // inscriptions in an array of objects containing the inscription id to be sent and the receiver address;
+    const verified = await verify(id, passKey);
+    if (!verified) {
+      return res.status(400).json({ message: `Invalid Pass Key` });
+    }
+    const result = await axios.post(
+      process.env.process.env.ORD_API_URL + `/ord/sendInscription`,
+      { inscriptions: inscriptions, inscriptionId: id }
+    );
+
+    if (result.data.message !== `ok`) {
+      return res.status(400).json({ message: result.data.message });
+    }
+
+    return res.status(200).json({
+      message: "inscription sent",
+      txId: result.data.userResponse.data,
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+module.exports.getRecFee = async (req, res) => {
+  try {
+    const recomendedFee = await getRecomendedFee();
+    return res.status(200).json({
+      message: "ok",
+      fees: recomendedFee,
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+module.exports.inscriptionCalc = async (req, res) => {
+  try {
+    const file = req.files.unCompImage;
+    const feeRate = parseInt(req.body.feeRate);
+    const details = await getInscriptionCost(file, feeRate);
+
+    return res.status(200).json({
+      message: "ok",
+      details,
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+const init = async (file, feeRate, networkName) => {
+  try {
+    const id = await import("nanoid");
+    const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
+    const passKey = nanoid(32);
+    const enKey = await bcrypt.hash(passKey, 10);
+    const inscriptionId = `s${uuidv4()}`;
+    const count = await Ids.find({}, { _id: 0 });
+
+    const fileName = new Date().getTime().toString() + path.extname(file.name);
+    const savePath = path.join(
+      process.cwd(),
+      "src",
+      "img",
+      "uncompressed",
+      fileName
+    );
+    await file.mv(savePath);
+    const compImage = await compressAndSave(fileName);
+    const inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut * 1e3);
+
+    const payDetails = await createLegacyAddress(networkName, count.length);
+    let paymentAddress = payDetails.p2pkh_addr;
+
+    const walletKey = await addWalletToOrd(inscriptionId);
+    const blockHeight = await axios.post(
+      process.env.ORD_API_URL + `/ord/create/getLatestBlock`
+    );
+
+    const inscription = new Inscription({
+      id: inscriptionId,
+      inscribed: false,
+      feeRate: feeRate,
+      encryptedPassKey: enKey,
+
+      inscriptionDetails: {
+        imageSizeIn: compImage.sizeIn,
+        imageSizeOut: compImage.sizeOut,
+        fileName: fileName,
+        comPercentage: compImage.comPercentage,
+        payAddress: paymentAddress,
+        payAddressId: count.length,
+        cid: compImage.cid,
+      },
+      walletDetails: {
+        keyPhrase: walletKey,
+        walletName: inscriptionId,
+        creationBlock: blockHeight.data.userResponse.data,
+      },
+      cost: inscriptionCost,
+      feeRate: feeRate,
+    });
+
+    const savedInscription = await inscription.save();
+    const ids = new Ids({ id: savedInscription._id, type: "single" });
+    await ids.save();
+
+    return {
+      compImage,
+      inscriptionCost,
+      paymentAddress,
+      passKey,
+      inscriptionId,
+    };
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const initBulk = async (files, feeRate, networkName) => {
+  try {
+    const id = await import("nanoid");
+    const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
+    const passKey = nanoid(32);
+    const enKey = await bcrypt.hash(passKey, 10);
+    const inscriptionId = `b${uuidv4()}`;
+    const count = await Ids.find({}, { _id: 0 });
+    const serviceCharge = parseInt(process.env.SERVICE_CHARGE) / 1e8;
+    let ext;
+
+    if (!existsSync(`./src/bulk/${inscriptionId}`)) {
+      mkdirSync(`./src/bulk/${inscriptionId}`);
+    }
+
+    files.forEach(async (file, index) => {
+      ext = path.extname(file.name);
+      const fileName = `${index + 1}` + path.extname(file.name);
+      const savePath = path.join(
+        process.cwd(),
+        "src",
+        "bulk",
+        `${inscriptionId}`,
+        fileName
+      );
+      await file.mv(savePath);
+    });
+
+    const data = await compressAndSaveBulk(inscriptionId);
+    const costPerInscription = inscriptionPrice(feeRate, data.largestFile);
+    const totalCost = costPerInscription.total * files.length;
+    const payDetails = await createLegacyAddress(networkName, count.length);
+    let paymentAddress = await payDetails.p2pkh_addr;
+
+    const walletKey = await addWalletToOrd(inscriptionId);
+    const blockHeight = await axios.post(
+      process.env.ORD_API_URL + `/ord/create/getLatestBlock`
+    );
+
+    const bulkInscription = new BulkInscription({
+      id: inscriptionId,
+      inscribed: false,
+      feeRate: feeRate,
+      encryptedPassKey: enKey,
+
+      inscriptionDetails: {
+        largestFile: data.largestFile,
+        totalAmount: files.length,
+        payAddress: paymentAddress,
+        payAddressId: count.length,
+        cid: data.cid,
+      },
+      cost: {
+        serviceCharge: serviceCharge * files.length,
+        costPerInscription: costPerInscription,
+        total: totalCost,
+      },
+      walletDetails: {
+        keyPhrase: walletKey,
+        walletName: inscriptionId,
+        creationBlock: blockHeight.data.userResponse.data,
+      },
+    });
+
+    const savedInscription = await bulkInscription.save();
+
+    const ids = new Ids({ id: savedInscription._id, type: "bulk" });
+    await ids.save();
+
+    return {
+      data: data,
+      costPerInscription: costPerInscription.total,
+      totalCost: totalCost,
+      paymentAddress: paymentAddress,
+      passKey: passKey,
+      inscriptionId: inscriptionId,
+    };
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const verify = async (inscriptionId, passKey, type) => {
+  let inscription;
+  if (type === `single`) {
+    inscription = await Inscription.where("id").equals(inscriptionId);
+    return await bcrypt.compare(passKey, inscription[0].encryptedPassKey);
+  } else if (type === `bulk`) {
+    inscription = await BulkInscription.where("id").equals(inscriptionId);
+    return await bcrypt.compare(passKey, inscription[0].encryptedPassKey);
+  }
+};
+
+const inscriptionPrice = (feeRate, fileSize) => {
+  const serviceCharge = parseInt(process.env.SERVICE_CHARGE) / 1e8;
+  const sats = feeRate * fileSize;
+  const inscriptionCost = (sats + 1e4 + 800) / 1e8; // 1e4 is the amount of sats each ordinal has and 6e2 is the dust Limit
+  const total = serviceCharge + inscriptionCost;
+  return { serviceCharge, inscriptionCost, total };
+};
+
+const getInscriptionCost = async (file, feeRate) => {
+  try {
+    const fileName = new Date().getTime().toString() + path.extname(file.name);
+    const savePath = path.join(
+      process.cwd(),
+      "src",
+      "img",
+      "uncompressed",
+      fileName
+    );
+    await file.mv(savePath);
+    const compImage = await compressImage(fileName);
+    const unCompInscriptionCost = inscriptionPrice(
+      feeRate,
+      compImage.sizeIn * 1e3
+    );
+    const compInscriptionCost = inscriptionPrice(
+      feeRate,
+      compImage.sizeOut * 1e3
+    );
+
+    const sizeIn = compImage.sizeIn;
+    const sizeOut = compImage.sizeOut;
+    const compPercentage = compImage.comPercentage;
+    unlinkSync(compImage.outPath);
+    return {
+      compImage: {
+        sizeIn,
+        sizeOut,
+        compPercentage,
+      },
+      unCompressed: unCompInscriptionCost.inscriptionCost,
+      compressed: compInscriptionCost.inscriptionCost,
+    };
+  } catch (e) {
+    console.log(e);
+  }
+};
