@@ -35,7 +35,7 @@ module.exports.upload = async (req, res) => {
     const feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     const optimize = req.body.optimize;
-    const details = await init(file, feeRate, networkName);
+    const details = await init(file, feeRate, networkName, optimize);
     res.status(200).json({
       message: "image compresed",
       compImage: details.compImage,
