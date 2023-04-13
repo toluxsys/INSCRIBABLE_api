@@ -8,6 +8,12 @@ const inscriptionIds = new mongoose.Schema(
     type: {
       type: String,
     },
+    startTime: {
+      type: Date,
+    },
+    status: {
+      type: String,
+    },
   },
   { timestamps: true }
 );

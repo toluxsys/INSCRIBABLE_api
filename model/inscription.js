@@ -2,34 +2,24 @@ const mongoose = require("mongoose");
 
 const inscriptionSchema = new mongoose.Schema(
   {
-    id: String,
-    inscribed: Boolean,
-    sent: Boolean,
-    feeRate: Number,
+    id: { type: String },
+    inscribed: { type: Boolean },
+    sent: { type: Boolean },
+    feeRate: { type: Number },
+    utxoTxid: { type: String },
     encryptedPassKey: {
       type: String,
       required: true,
       immutable: true,
     },
     inscriptionDetails: {
-      imageSizeIn: Number,
-      imageSizeOut: Number,
-      fileName: String,
-      comPercentage: Number,
-      receciverDetails: Array,
-      payAddress: String,
-      payAddressId: Number,
-      cid: String,
+      type: Object,
     },
     walletDetails: {
-      keyPhrase: String,
-      walletName: String,
-      creationBlock: Number,
+      type: Object,
     },
     cost: {
-      serviceCharge: Number,
-      inscriptionCost: Number,
-      total: Number,
+      type: Object,
     },
     inscription: { type: Object },
   },

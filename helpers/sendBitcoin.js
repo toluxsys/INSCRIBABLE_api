@@ -176,16 +176,12 @@ module.exports = {
 
 //   const details = [
 //     {
-//       address: `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
-//       amount: 50,
-//     },
-//     {
-//       address: `msgfzF5z2K9xtAbtFoiYwEaStZCnS3TXJy`,
-//       amount: 50,
+//       address: `bc1qv45cdwvj5kxn0y4kkudl50hnycas8n8379tulc`,
+//       amount: 13000,
 //     },
 //   ];
 
-//   console.log(await sendBitcoin(0, details, "testnet"));
+//   console.log(await sendBitcoin(35, details, "mainnet"));
 
 //   //console.log(await getRecomendedFee());
 // };

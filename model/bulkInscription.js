@@ -2,32 +2,26 @@ const mongoose = require("mongoose");
 
 const bulkInscription = new mongoose.Schema(
   {
-    id: String,
-    inscribed: Boolean,
-    sent: Boolean,
-    feeRate: Number,
+    id: { type: String },
+    inscribed: { type: Boolean },
+    sent: { type: Boolean },
+    feeRate: { type: Number },
+    utxoTxid: { type: String },
     encryptedPassKey: {
       type: String,
       required: true,
       immutable: true,
     },
     inscriptionDetails: {
-      largestFile: Number,
-      totalAmount: Number,
-      receciverDetails: Array,
-      payAddress: String,
-      payAddressId: Number,
-      cid: String,
+      type: Object,
     },
     walletDetails: {
-      keyPhrase: String,
-      walletName: String,
-      creationBlock: Number,
+      type: Object,
     },
     cost: {
       type: Object,
     },
-    inscription: { type: Array },
+    inscription: { type: Object },
   },
   { timestamps: true }
 );

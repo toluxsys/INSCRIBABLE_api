@@ -71,6 +71,9 @@ const utxoDetails = async (walletName, count, amount, networkName) => {
       `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
       `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
       `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
+      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
+      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
     ];
     let utxoDetails = [];
 
@@ -93,7 +96,7 @@ const utxoDetails = async (walletName, count, amount, networkName) => {
       }
     } else if (networkName === `testnet`) {
       testnetAddresses.forEach((address) => {
-        let details = { address: address, amount: amount * 1e8 };
+        let details = { address: address, value: parseInt(amount * 1e8) };
         utxoDetails.push(details);
       });
     }

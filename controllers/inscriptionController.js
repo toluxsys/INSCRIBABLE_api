@@ -1,12 +1,9 @@
-const express = require("express");
-const fileUpload = require("express-fileupload");
 const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
 const path = require("path");
 const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
-const { filesFromPaths } = require("files-from-path");
 const Inscription = require("../model/inscription");
 const Ids = require("../model/ids");
 const BulkInscription = require("../model/bulkInscription");
@@ -32,19 +29,6 @@ const {
 } = require("../helpers/sendBitcoin2");
 const { getType } = require("../helpers/getType");
 
-const router = express.Router();
-
-router.use(
-  fileUpload({
-    useTempFiles: true,
-    tempFileDir: path.join(process.cwd(), `tmp`),
-    createParentPath: true,
-  })
-);
-
-router.use(express.urlencoded({ extended: false }));
-router.use(express.json());
-
 module.exports.upload = async (req, res) => {
   try {
     const file = req.files.unCompImage;
@@ -60,7 +44,7 @@ module.exports.upload = async (req, res) => {
       inscriptionId: details.inscriptionId,
     });
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
     if (
       e.message === "Cannot read properties of undefined (reading 'compImage')"
     ) {
@@ -76,7 +60,7 @@ module.exports.uploadMultiple = async (req, res) => {
     const feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     const details = await initBulk(files, feeRate, networkName);
-    res.status(200).json({
+    return res.status(200).json({
       message: "image compresed",
       cost: details.totalCost,
       paymentAddress: details.paymentAddress,
@@ -96,6 +80,8 @@ module.exports.sendUtxo = async (req, res) => {
     const network = req.body.networkName;
     const inscriptionType = getType(inscriptionId);
 
+    let timer;
+
     let verified;
     let inscription;
     let instance;
@@ -107,6 +93,8 @@ module.exports.sendUtxo = async (req, res) => {
     let payAddressId;
     let balance;
     let txDetails;
+    let startTime;
+    let ids;
 
     if (inscriptionType === "single") {
       verified = await verify(inscriptionId, passKey, inscriptionType);
@@ -121,29 +109,11 @@ module.exports.sendUtxo = async (req, res) => {
       payAddress = instance.inscriptionDetails.payAddress;
       addressFromId = (await createLegacyAddress(network, payAddressId))
         .p2pkh_addr;
-
-      balance = await getWalletBalance(payAddress, network);
-
+      ids = await Ids.where("id").equals(instance._id);
+      startTime = ids.startTime;
       if (addressFromId !== payAddress) {
         return res.status(400).json({ message: "Invalid address from ID" });
       }
-
-      if (balance < instance.cost.total * 1e8) {
-        return res.status(400).json({
-          message: `Inscription cost not paid. Required to pay: ${
-            instance.cost.total
-          }, available: ${balance / 1e8}`,
-        });
-      }
-      details = await utxoDetails(inscriptionId, addrCount, amount, network);
-
-      txDetails = await sendBitcoin(network, payAddressId, details);
-      instance.inscriptionDetails.receciverDetails = details;
-      await instance.save();
-      return res.status(200).json({
-        message: "utxo sent",
-        details: txDetails,
-      });
     } else if (inscriptionType === "bulk") {
       verified = await verify(inscriptionId, passKey, type);
       if (verified === false) {
@@ -155,35 +125,45 @@ module.exports.sendUtxo = async (req, res) => {
       amount = instance.cost.costPerInscription.inscriptionCost;
       payAddressId = instance.inscriptionDetails.payAddressId;
       payAddress = instance.inscriptionDetails.payAddress;
-      addressFromId = (await createHDWallet(network, payAddressId)).address;
-
-      balance = await getWalletBalance(payAddress, network);
-
+      addressFromId = (await createLegacyAddress(network, payAddressId))
+        .p2pkh_addr;
+      ids = await Ids.where("id").equals(instance._id);
+      startTime = ids.startTime;
       if (addressFromId !== payAddress) {
         return res.status(400).json({ message: "Invalid address from ID" });
       }
+    }
 
-      if (balance < instance.cost.total * 1e8) {
-        return res.status(400).json({
-          message: `Inscription cost not paid. Required to pay: ${
-            instance.cost.total
-          }, available: ${balance / 1e8}`,
-        });
-      }
-      details = await utxoDetails(inscriptionId, addrCount, amount, network);
-      console.log(`details:`, details);
-
-      txDetails = await sendBitcoin(payAddressId, details, network);
-      console.log(txDetails);
-      instance.inscriptionDetails.receciverDetails = details;
-      await instance.save();
-      return res.status(200).json({
-        message: "utxo sent",
-        details: txDetails,
+    balance = await getWalletBalance(payAddress, network);
+    if (balance < instance.cost.total * 1e8) {
+      return res.status(400).json({
+        message: `inscription cost not received. Available: ${
+          balance / 1e8
+        }, Required: ${instance.cost.total}`,
       });
     }
 
-    //console.log(balance, instance.cost.total);
+    details = await utxoDetails(inscriptionId, addrCount, amount, network);
+    txDetails = await sendBitcoin(network, payAddressId, details);
+    const txHash = await axios.post(
+      process.env.ORD_API_URL + `/ord/broadcastTransaction`,
+      { txHex: txDetails.rawTx, networkName: network }
+    );
+    if (txHash.data.message !== "ok") {
+      return res.status(500).json({
+        message: txHash.data.message,
+      });
+    }
+    instance.inscriptionDetails.receciverDetails = details;
+    ids.status = `utxo sent`;
+    await instance.save();
+    return res.status(200).json({
+      message: "ok",
+      userResponse: {
+        details: txDetails,
+        txId: txHash.data.userResponse.data,
+      },
+    });
   } catch (e) {
     console.log(e);
     return res.status(500).json({ message: e.message });
@@ -200,6 +180,8 @@ module.exports.inscribe = async (req, res) => {
     let inscription;
     let instance;
     let newInscription;
+    let imageName;
+    let ids;
 
     const result = await axios.post(
       process.env.ORD_API_URL + `/ord/wallet/balance`,
@@ -214,29 +196,8 @@ module.exports.inscribe = async (req, res) => {
       }
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-
-      if (balance < instance.cost.inscriptionCost * 1e8) {
-        return res.status(400).json({
-          message: `utxo not sent. Required to pay: ${
-            instance.cost.inscriptionCost
-          }, available: ${balance / 1e8}`,
-        });
-      }
-
-      newInscription = await axios.post(
-        process.env.ORD_API_URL + `/ord/create/inscribe`,
-        {
-          feeRate: instance.feeRate,
-          receiverAddress: receciverAddress,
-          cid: instance.inscriptionDetails.cid,
-          inscriptionId: inscriptionId,
-          type: type,
-          imageName: instance.inscriptionDetails.fileName,
-        }
-      );
-      if (newInscription.data.message !== "ok") {
-        return res.status(400).json({ message: newInscription.data.message });
-      }
+      imageName = instance.inscriptionDetails.fileName;
+      ids = await Ids.where("id").equals(instance._id);
     } else if (type === "bulk") {
       verified = await verify(inscriptionId, passKey, type);
       if (!verified) {
@@ -244,45 +205,41 @@ module.exports.inscribe = async (req, res) => {
       }
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-      if (balance < instance.cost.inscriptionCost * 1e8) {
-        return res.status(400).json({
-          message: `utxo not sent. Required to pay: ${
-            instance.cost.inscriptionCost
-          }, available: ${balance / 1e8}`,
-        });
-      }
-
-      newInscription = await axios.post(
-        process.env.ORD_API_URL + `/ord/inscribe`,
-        {
-          feeRate: instance.feeRate,
-          receiverAddress: receciverAddress,
-          cid: instance.inscriptionDetails.cid,
-          inscriptionId: inscriptionId,
-          type: type,
-        }
-      );
-      if (newInscription.data.message !== "ok") {
-        return res.status(400).json({ message: newInscription.data.message });
-      }
+      ids = await Ids.where("id").equals(instance._id);
     }
 
+    if (balance < instance.cost.inscriptionCost * 1e8) {
+      return res.status(400).json({
+        message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+      });
+    }
+
+    newInscription = await axios.post(
+      process.env.ORD_API_URL + `/ord/create/inscribe`,
+      {
+        feeRate: instance.feeRate,
+        receiverAddress: receciverAddress,
+        cid: instance.inscriptionDetails.cid,
+        inscriptionId: inscriptionId,
+        type: type,
+        imageName: imageName,
+      }
+    );
+    if (newInscription.data.message !== "ok") {
+      return res.status(400).json({ message: newInscription.data.message });
+    }
     instance.inscription = newInscription.data.userResponse.data;
+    ids.status = `inscription complete`;
+    await ids.save();
     if (receciverAddress === undefined || receciverAddress === null) {
       instance.inscribed = true;
       await instance.save();
-      return res.status(200).json({
-        message: "inscription Created",
-        data: { details: newInscription.data.userResponse.data, sent: false },
-      });
+      return;
     } else {
       instance.sent = true;
       instance.inscribed = true;
       await instance.save();
-      return res.status(200).json({
-        message: "inscription Created",
-        data: { details: newInscription.data.userResponse.data, sent: true },
-      });
+      return;
     }
   } catch (e) {
     console.log(e);
@@ -373,7 +330,7 @@ const init = async (file, feeRate, networkName) => {
 
     const walletKey = await addWalletToOrd(inscriptionId);
     const blockHeight = await axios.post(
-      process.env.ORD_API_URL + `/ord/create/getLatestBlock`
+      process.env.ORD_API_URL + `/ord/getLatestBlock`
     );
 
     const inscription = new Inscription({
@@ -401,7 +358,12 @@ const init = async (file, feeRate, networkName) => {
     });
 
     const savedInscription = await inscription.save();
-    const ids = new Ids({ id: savedInscription._id, type: "single" });
+    const ids = new Ids({
+      id: savedInscription._id,
+      type: "single",
+      startTime: new Date.now(),
+      status: `sending utxo`,
+    });
     await ids.save();
 
     return {
@@ -425,7 +387,6 @@ const initBulk = async (files, feeRate, networkName) => {
     const inscriptionId = `b${uuidv4()}`;
     const count = await Ids.find({}, { _id: 0 });
     const serviceCharge = parseInt(process.env.SERVICE_CHARGE) / 1e8;
-    let ext;
 
     if (!existsSync(`./src/bulk/${inscriptionId}`)) {
       mkdirSync(`./src/bulk/${inscriptionId}`);
@@ -448,7 +409,7 @@ const initBulk = async (files, feeRate, networkName) => {
     const costPerInscription = inscriptionPrice(feeRate, data.largestFile);
     const totalCost = costPerInscription.total * files.length;
     const payDetails = await createLegacyAddress(networkName, count.length);
-    let paymentAddress = await payDetails.p2pkh_addr;
+    let paymentAddress = payDetails.p2pkh_addr;
 
     const walletKey = await addWalletToOrd(inscriptionId);
     const blockHeight = await axios.post(
@@ -482,7 +443,12 @@ const initBulk = async (files, feeRate, networkName) => {
 
     const savedInscription = await bulkInscription.save();
 
-    const ids = new Ids({ id: savedInscription._id, type: "bulk" });
+    const ids = new Ids({
+      id: savedInscription._id,
+      type: "bulk",
+      startTime: Date.now(),
+      status: `sending utxo(s)`,
+    });
     await ids.save();
 
     return {
