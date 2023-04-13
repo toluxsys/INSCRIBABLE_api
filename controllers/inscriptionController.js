@@ -325,7 +325,7 @@ const init = async (file, feeRate, networkName, optimize) => {
     );
     await file.mv(savePath);
 
-    if (optimize === true) {
+    if (optimize === `true`) {
       const compImage = await compressAndSave(fileName, true);
       const inscriptionCost = inscriptionPrice(
         feeRate,
@@ -382,7 +382,7 @@ const init = async (file, feeRate, networkName, optimize) => {
         passKey,
         inscriptionId,
       };
-    } else {
+    } else if (optimize === `false`) {
       const image = await compressAndSave(fileName, false);
       const inscriptionCost = inscriptionPrice(
         feeRate,
