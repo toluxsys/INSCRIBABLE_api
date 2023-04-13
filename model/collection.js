@@ -5,25 +5,20 @@ const collection = new mongoose.Schema(
     id: {
       type: String,
     },
-    mintComplete: {
-      type: Boolean,
-      default: false,
+    status: {
+      type: String,
     },
     collectionDetails: {
-      collectionName: String,
-      collectionAmount: Number,
-      collectionDescription: Number,
-      cid: String,
+      type: Object,
+    },
+    cids: {
+      type: Object,
     },
     walletDetails: {
-      keyPhrase: String,
-      walletName: String,
-      creationBlock: Number,
+      type: Object,
     },
     cost: {
-      serviceCharge: Number,
-      inscriptionCost: Number,
-      total: Number,
+      type: Object,
     },
     inscription: { type: Object },
   },

@@ -34,6 +34,7 @@ module.exports.upload = async (req, res) => {
     const file = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
+    const optimize = req.body.optimize;
     const details = await init(file, feeRate, networkName);
     res.status(200).json({
       message: "image compresed",
@@ -59,6 +60,7 @@ module.exports.uploadMultiple = async (req, res) => {
     const files = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
+    const optimize = req.body.optimize;
     const details = await initBulk(files, feeRate, networkName);
     return res.status(200).json({
       message: "image compresed",
@@ -249,7 +251,7 @@ module.exports.inscribe = async (req, res) => {
 
 module.exports.sendInscription = async (req, res) => {
   try {
-    const id = req.body.id;
+    const id = req.body.inscriptionId;
     const passKey = req.body.passKey;
     const inscriptions = req.body.inscriptions; // inscriptions in an array of objects containing the inscription id to be sent and the receiver address;
     const verified = await verify(id, passKey);
@@ -304,7 +306,7 @@ module.exports.inscriptionCalc = async (req, res) => {
   }
 };
 
-const init = async (file, feeRate, networkName) => {
+const init = async (file, feeRate, networkName, optimize) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
@@ -322,63 +324,126 @@ const init = async (file, feeRate, networkName) => {
       fileName
     );
     await file.mv(savePath);
-    const compImage = await compressAndSave(fileName);
-    const inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut * 1e3);
 
-    const payDetails = await createLegacyAddress(networkName, count.length);
-    let paymentAddress = payDetails.p2pkh_addr;
+    if (optimize === true) {
+      const compImage = await compressAndSave(fileName, true);
+      const inscriptionCost = inscriptionPrice(
+        feeRate,
+        compImage.sizeOut * 1e3
+      );
 
-    const walletKey = await addWalletToOrd(inscriptionId);
-    const blockHeight = await axios.post(
-      process.env.ORD_API_URL + `/ord/getLatestBlock`
-    );
+      const payDetails = await createLegacyAddress(networkName, count.length);
+      let paymentAddress = payDetails.p2pkh_addr;
 
-    const inscription = new Inscription({
-      id: inscriptionId,
-      inscribed: false,
-      feeRate: feeRate,
-      encryptedPassKey: enKey,
+      const walletKey = await addWalletToOrd(inscriptionId);
+      const blockHeight = await axios.post(
+        process.env.ORD_API_URL + `/ord/getLatestBlock`
+      );
+      if (blockHeight.data.message !== `ok`) {
+        return res.status(500).json({ message: blockHeight.data.message });
+      }
+      const inscription = new Inscription({
+        id: inscriptionId,
+        inscribed: false,
+        feeRate: feeRate,
+        encryptedPassKey: enKey,
 
-      inscriptionDetails: {
-        imageSizeIn: compImage.sizeIn,
-        imageSizeOut: compImage.sizeOut,
-        fileName: fileName,
-        comPercentage: compImage.comPercentage,
-        payAddress: paymentAddress,
-        payAddressId: count.length,
-        cid: compImage.cid,
-      },
-      walletDetails: {
-        keyPhrase: walletKey,
-        walletName: inscriptionId,
-        creationBlock: blockHeight.data.userResponse.data,
-      },
-      cost: inscriptionCost,
-      feeRate: feeRate,
-    });
+        inscriptionDetails: {
+          imageSizeIn: compImage.sizeIn,
+          imageSizeOut: compImage.sizeOut,
+          fileName: fileName,
+          comPercentage: compImage.comPercentage,
+          payAddress: paymentAddress,
+          payAddressId: count.length,
+          cid: compImage.cid,
+        },
+        walletDetails: {
+          keyPhrase: walletKey,
+          walletName: inscriptionId,
+          creationBlock: blockHeight.data.userResponse.data,
+        },
+        cost: inscriptionCost,
+        feeRate: feeRate,
+      });
 
-    const savedInscription = await inscription.save();
-    const ids = new Ids({
-      id: savedInscription._id,
-      type: "single",
-      startTime: new Date.now(),
-      status: `sending utxo`,
-    });
-    await ids.save();
+      const savedInscription = await inscription.save();
+      const ids = new Ids({
+        id: savedInscription._id,
+        type: "single",
+        startTime: new Date.now(),
+        status: `sending utxo`,
+      });
+      await ids.save();
 
-    return {
-      compImage,
-      inscriptionCost,
-      paymentAddress,
-      passKey,
-      inscriptionId,
-    };
+      return {
+        compImage,
+        inscriptionCost,
+        paymentAddress,
+        passKey,
+        inscriptionId,
+      };
+    } else {
+      const image = await compressAndSave(fileName, false);
+      const inscriptionCost = inscriptionPrice(
+        feeRate,
+        compImage.sizeOut * 1e3
+      );
+
+      const payDetails = await createLegacyAddress(networkName, count.length);
+      let paymentAddress = payDetails.p2pkh_addr;
+
+      const walletKey = await addWalletToOrd(inscriptionId);
+      const blockHeight = await axios.post(
+        process.env.ORD_API_URL + `/ord/getLatestBlock`
+      );
+      if (blockHeight.data.message !== `ok`) {
+        return res.status(500).json({ message: blockHeight.data.message });
+      }
+      const inscription = new Inscription({
+        id: inscriptionId,
+        inscribed: false,
+        feeRate: feeRate,
+        encryptedPassKey: enKey,
+
+        inscriptionDetails: {
+          imageSizeIn: file.size,
+          fileName: fileName,
+          payAddress: paymentAddress,
+          payAddressId: count.length,
+          cid: image.cid,
+        },
+        walletDetails: {
+          keyPhrase: walletKey,
+          walletName: inscriptionId,
+          creationBlock: blockHeight.data.userResponse.data,
+        },
+        cost: inscriptionCost,
+        feeRate: feeRate,
+      });
+
+      const savedInscription = await inscription.save();
+      const ids = new Ids({
+        id: savedInscription._id,
+        type: "single",
+        startTime: new Date.now(),
+        status: `sending utxo`,
+      });
+      await ids.save();
+
+      return {
+        image,
+        inscriptionCost,
+        paymentAddress,
+        passKey,
+        inscriptionId,
+      };
+    }
   } catch (e) {
     console.log(e);
   }
 };
 
-const initBulk = async (files, feeRate, networkName) => {
+const initBulk = async (files, feeRate, networkName, optimize) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
@@ -405,7 +470,7 @@ const initBulk = async (files, feeRate, networkName) => {
       await file.mv(savePath);
     });
 
-    const data = await compressAndSaveBulk(inscriptionId);
+    const data = await compressAndSaveBulk(inscriptionId, optimize);
     const costPerInscription = inscriptionPrice(feeRate, data.largestFile);
     const totalCost = costPerInscription.total * files.length;
     const payDetails = await createLegacyAddress(networkName, count.length);
