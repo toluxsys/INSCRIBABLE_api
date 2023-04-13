@@ -46,12 +46,7 @@ module.exports.upload = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    if (
-      e.message === "Cannot read properties of undefined (reading 'compImage')"
-    ) {
-      return res.status(400).json({ message: "bad request" });
-    }
-    return res.status(500).json({ message: e.message });
+    return res.status(400).json({ message: e.message });
   }
 };
 
@@ -61,7 +56,7 @@ module.exports.uploadMultiple = async (req, res) => {
     const feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     const optimize = req.body.optimize;
-    const details = await initBulk(files, feeRate, networkName);
+    const details = await initBulk(files, feeRate, networkName, optimize);
     return res.status(200).json({
       message: "image compresed",
       cost: details.totalCost,
@@ -370,7 +365,7 @@ const init = async (file, feeRate, networkName, optimize) => {
       const ids = new Ids({
         id: savedInscription._id,
         type: "single",
-        startTime: new Date.now(),
+        startTime: Date.now(),
         status: `sending utxo`,
       });
       await ids.save();
@@ -384,10 +379,7 @@ const init = async (file, feeRate, networkName, optimize) => {
       };
     } else if (optimize === `false`) {
       const image = await compressAndSave(fileName, false);
-      const inscriptionCost = inscriptionPrice(
-        feeRate,
-        compImage.sizeOut * 1e3
-      );
+      const inscriptionCost = inscriptionPrice(feeRate, file.size * 1e3);
 
       const payDetails = await createLegacyAddress(networkName, count.length);
       let paymentAddress = payDetails.p2pkh_addr;
@@ -425,7 +417,7 @@ const init = async (file, feeRate, networkName, optimize) => {
       const ids = new Ids({
         id: savedInscription._id,
         type: "single",
-        startTime: new Date.now(),
+        startTime: Date.now(),
         status: `sending utxo`,
       });
       await ids.save();
@@ -452,6 +444,13 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
     const inscriptionId = `b${uuidv4()}`;
     const count = await Ids.find({}, { _id: 0 });
     const serviceCharge = parseInt(process.env.SERVICE_CHARGE) / 1e8;
+    let optimized;
+
+    if (optimize === `true`) {
+      optimized = true;
+    } else {
+      optimized = false;
+    }
 
     if (!existsSync(`./src/bulk/${inscriptionId}`)) {
       mkdirSync(`./src/bulk/${inscriptionId}`);
@@ -470,7 +469,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
       await file.mv(savePath);
     });
 
-    const data = await compressAndSaveBulk(inscriptionId, optimize);
+    const data = await compressAndSaveBulk(inscriptionId, optimized);
     const costPerInscription = inscriptionPrice(feeRate, data.largestFile);
     const totalCost = costPerInscription.total * files.length;
     const payDetails = await createLegacyAddress(networkName, count.length);
@@ -478,7 +477,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
 
     const walletKey = await addWalletToOrd(inscriptionId);
     const blockHeight = await axios.post(
-      process.env.ORD_API_URL + `/ord/create/getLatestBlock`
+      process.env.ORD_API_URL + `/ord/getLatestBlock`
     );
 
     const bulkInscription = new BulkInscription({
