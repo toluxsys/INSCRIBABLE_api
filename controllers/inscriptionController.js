@@ -28,6 +28,7 @@ const {
   createTaprootAddress,
 } = require("../helpers/sendBitcoin2");
 const { getType } = require("../helpers/getType");
+const { cwd } = require("process");
 
 module.exports.upload = async (req, res) => {
   try {
@@ -452,11 +453,17 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
       optimized = false;
     }
 
-    if (!existsSync(`./src/bulk/${inscriptionId}`)) {
-      mkdirSync(`./src/bulk/${inscriptionId}`, { recursive: true }, (err) => {
-        console.log(err);
-      });
+    if (!existsSync(process.cwd() + `/src/bulk/${inscriptionId}`)) {
+      mkdirSync(
+        process.cwd() + `./src/bulk/${inscriptionId}`,
+        { recursive: true },
+        (err) => {
+          console.log(err);
+        }
+      );
     }
+
+    console.log(process.cwd());
 
     files.forEach(async (file, index) => {
       ext = path.extname(file.name);
