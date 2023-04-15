@@ -50,8 +50,15 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
   try {
     if (optimize === true) {
       if (!fs.existsSync(process.cwd() + `/build/bulk/${inscriptionId}/`)) {
-        fs.mkdirSync(process.cwd() + `/build/bulk/${inscriptionId}/`);
+        fs.mkdirSync(
+          process.cwd() + `/build/bulk/${inscriptionId}/`,
+          { recursive: true },
+          (err) => {
+            console.log(err);
+          }
+        );
       }
+
       const fileNames = fs.readdirSync(`./src/bulk/${inscriptionId}`);
       console.log(fileNames);
 
