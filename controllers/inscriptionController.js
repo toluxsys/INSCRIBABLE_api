@@ -453,7 +453,9 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
     }
 
     if (!existsSync(`./src/bulk/${inscriptionId}`)) {
-      mkdirSync(`./src/bulk/${inscriptionId}`);
+      mkdirSync(`./src/bulk/${inscriptionId}`, { recursive: true }, (err) => {
+        console.log(err);
+      });
     }
 
     files.forEach(async (file, index) => {
