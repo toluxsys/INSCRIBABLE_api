@@ -8,7 +8,7 @@ const {
 } = require("bitcoinjs-lib");
 const tinysecp = require("tiny-secp256k1");
 const { ECPairFactory } = require("ecpair");
-const { createHDWallet } = require("./createWallet");
+const { createHDWallet, createCollectionHDWallet } = require("./createWallet");
 const mempoolJS = require("@mempool/mempool.js");
 const dotenv = require("dotenv");
 const { default: axios } = require("axios");
@@ -45,10 +45,36 @@ const getKeyPair = async (networkName, path) => {
   });
 };
 
+const getCollectionKeyPair = async (networkName, path, index) => {
+  const wallet = await createCollectionHDWallet(networkName, path, index);
+  const privateKey = wallet.privateKey;
+  const p_key = privateKey.slice(0, 32);
+  const network = getNetwork(networkName);
+  return ECPair.fromPrivateKey(Buffer.from(p_key), {
+    network,
+  });
+};
+
 const createLegacyAddress = async (networkName, path) => {
   try {
     const network = getNetwork(networkName);
     const keyPair = await getKeyPair(networkName, path);
+    const p2pkh = payments.p2pkh({
+      pubkey: keyPair.publicKey,
+      network,
+    });
+    const p2pkh_addr = p2pkh.address ?? "";
+    const script = p2pkh.output;
+    return { p2pkh_addr, script };
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const createCollectionLegacyAddress = async (networkName, path, index) => {
+  try {
+    const network = getNetwork(networkName);
+    const keyPair = await getCollectionKeyPair(networkName, path, index);
     const p2pkh = payments.p2pkh({
       pubkey: keyPair.publicKey,
       network,
@@ -220,6 +246,108 @@ const sendBitcoin = async (networkName, path, receiverDetails) => {
   }
 };
 
+const sendCollectionBitcoin = async (
+  networkName,
+  path,
+  index,
+  receiverDetails
+) => {
+  try {
+    const network = getNetwork(networkName);
+    let serviceChargeAddress;
+    let broadcastLink;
+
+    if (networkName === "testnet") {
+      serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
+    } else if (networkName === "mainnet") {
+      serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
+    }
+
+    if (networkName === "testnet") {
+      broadcastLink = process.env.TESTNET_BROADCAST_LINK;
+    } else if (networkName === "mainnet") {
+      broadcastLink = process.env.MAINNET_BROADCASST_LINK;
+    }
+
+    const addressDetails = await createCollectionLegacyAddress(
+      networkName,
+      path,
+      index
+    );
+    let fee = 0;
+    let inputCount = 0;
+    let outputCount = receiverDetails.length + 1;
+    let available = await getWalletBalance(
+      addressDetails.p2pkh_addr,
+      networkName
+    );
+
+    console.log("source:", addressDetails.p2pkh_addr);
+    let recommendedFee = await getRecomendedFee();
+    let inputs = [];
+    let outputs = [];
+    let details = receiverDetails;
+    let utxos = available.utxos;
+    let totalAmountAvailable = available.totalAmountAvailable;
+
+    console.log(available);
+
+    for (const element of utxos) {
+      let utxo = {};
+      let txId = element.txid;
+      utxo.hash = txId;
+      utxo.index = element.vout;
+      const result = await axios.get(
+        `https://mempool.space/${networkName}/api/tx/${txId}/hex`
+      );
+      utxo.nonWitnessUtxo = Buffer.from(result.data, "hex");
+      inputCount += 1;
+      inputs.push(utxo);
+    }
+
+    let amount = 0;
+    for (const details of receiverDetails) {
+      amount = amount + details.value;
+    }
+
+    const transactionSize =
+      inputCount * 180 + outputCount * 34 + 10 - inputCount;
+
+    fee = transactionSize * recommendedFee.halfHourFee;
+
+    let changeAmount = totalAmountAvailable - amount - fee;
+
+    const change = {
+      address: serviceChargeAddress,
+      value: changeAmount,
+    };
+
+    details.push(change);
+    console.log(details);
+
+    for (const detail of details) {
+      const addr = address.toOutputScript(detail.address, network);
+      outputs.push({
+        address: details.address,
+        value: detail.value,
+        script: addr,
+      });
+    }
+
+    const keyPair = await getCollectionKeyPair(networkName, path, index);
+    const psbt = new Psbt({ network })
+      .addInputs(inputs)
+      .addOutputs(outputs)
+      .signAllInputs(keyPair)
+      .finalizeAllInputs();
+    const tx = psbt.extractTransaction();
+    const txHex = tx.toHex();
+    return { link: broadcastLink, rawTx: txHex };
+  } catch (e) {
+    console.log(e);
+  }
+};
+
 function tweakSigner(signer, opts) {
   let privateKey = signer.privateKey;
   if (!privateKey) {
@@ -253,7 +381,13 @@ function toXOnly(pubkey) {
   return pubkey.subarray(1, 33);
 }
 
-module.exports = { sendBitcoin, createLegacyAddress, createTaprootAddress };
+module.exports = {
+  sendBitcoin,
+  sendCollectionBitcoin,
+  createLegacyAddress,
+  createTaprootAddress,
+  createCollectionLegacyAddress,
+};
 
 // console.log(
 //   createLegacyAddress(`testnet`, 0)

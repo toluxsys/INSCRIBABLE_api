@@ -8,11 +8,32 @@ const collection = new mongoose.Schema(
     status: {
       type: String,
     },
+    name: {
+      type: String,
+    },
+    price: {
+      type: Number,
+    },
+    banner: {
+      type: String,
+    },
+    featuredImage: {
+      type: String,
+    },
     collectionDetails: {
       type: Object,
     },
+    description: {
+      type: String,
+    },
+    category: {
+      type: String,
+    },
     cids: {
-      type: Object,
+      type: Array,
+    },
+    largestFile: {
+      type: Number,
     },
     walletDetails: {
       type: Object,

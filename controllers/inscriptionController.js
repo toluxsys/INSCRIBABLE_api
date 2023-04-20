@@ -463,8 +463,6 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
       );
     }
 
-    console.log(process.cwd());
-
     files.forEach(async (file, index) => {
       ext = path.extname(file.name);
       const fileName = `${index + 1}` + path.extname(file.name);

@@ -2,7 +2,6 @@ const express = require("express");
 const controller = require("../controllers/inscriptionController");
 const path = require("path");
 const router = express.Router();
-const multer = require("multer");
 const fileUpload = require("express-fileupload");
 router.use(express.urlencoded({ extended: false }));
 router.use(express.json());

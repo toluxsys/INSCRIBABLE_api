@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const inscriptRoute = require("./routes/inscriptRoute.js");
+const collectionRoute = require("./routes/collectionRoute.js");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -22,6 +23,7 @@ mongoose
   .catch(console.error);
 
 app.use(`/api/inscript`, inscriptRoute);
+app.use(`/api/collection`, collectionRoute);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "You are connected to the server" });

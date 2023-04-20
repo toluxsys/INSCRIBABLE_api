@@ -42,6 +42,19 @@ const createHDWallet = async (networkName, path) => {
   };
 };
 
+const createCollectionHDWallet = async (networkName, path, index) => {
+  let network = getNetwork(networkName);
+  let passPhrase = new Mnemonic(process.env.COLLECTION_MNEMONIC);
+  let xpriv = passPhrase
+    .toHDPrivateKey(passPhrase.toString(), network)
+    .derive(`m/${path}/${index}/0`);
+  return {
+    privateKey: xpriv.privateKey.toString(),
+    address: xpriv.publicKey.toAddress().toString(),
+    xpriv: xpriv.privateKey,
+  };
+};
+
 const generateKeyPhrase = async () => {
   return new Mnemonic(Mnemonic.Words.ENGLISH).toString();
 };
@@ -113,6 +126,7 @@ module.exports = {
   generateKeyPhrase,
   addWalletToOrd,
   utxoDetails,
+  createCollectionHDWallet,
 };
 
 // console.log(

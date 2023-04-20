@@ -59,8 +59,6 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
         );
       }
 
-      console.log(__dirname);
-
       const fileNames = fs.readdirSync(`./src/bulk/${inscriptionId}`);
       console.log(fileNames);
 
@@ -89,7 +87,8 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
         files.push(imageFile[0]);
         fileSize.push(imageFile[0].size);
       }
-      const sortFileSize = sort(fileSize);
+      const sortFileSize = fileSize.sort((a, b) => a - b);
+      console.log(sortFileSize);
 
       const rootCid = await storage.put(files);
       const newData = {
@@ -112,7 +111,8 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
         fileSize.push(imageFile[0].size);
       }
 
-      const sortFileSize = sort(fileSize);
+      const sortFileSize = fileSize.sort((a, b) => a - b);
+      console.log(sortFileSize);
       const rootCid = await storage.put(files);
       const newData = {
         cid: rootCid,
