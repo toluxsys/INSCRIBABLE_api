@@ -78,8 +78,6 @@ module.exports.sendUtxo = async (req, res) => {
     const network = req.body.networkName;
     const inscriptionType = getType(inscriptionId);
 
-    let timer;
-
     let verified;
     let inscription;
     let instance;
@@ -91,7 +89,6 @@ module.exports.sendUtxo = async (req, res) => {
     let payAddressId;
     let balance;
     let txDetails;
-    let startTime;
     let ids;
 
     if (inscriptionType === "single") {
@@ -196,6 +193,13 @@ module.exports.inscribe = async (req, res) => {
       instance = inscription[0];
       imageName = instance.inscriptionDetails.fileName;
       ids = await Ids.where("id").equals(instance._id);
+
+      if (balance < instance.cost.inscriptionCost * 1e8) {
+        return res.status(400).json({
+          status: false,
+          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+        });
+      }
     } else if (type === "bulk") {
       verified = await verify(inscriptionId, passKey, type);
       if (!verified) {
@@ -204,12 +208,12 @@ module.exports.inscribe = async (req, res) => {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       ids = await Ids.where("id").equals(instance._id);
-    }
-
-    if (balance < instance.cost.inscriptionCost * 1e8) {
-      return res.status(400).json({
-        message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-      });
+      if (balance < instance.cost.cardinal * 1e8) {
+        return res.status(400).json({
+          status: false,
+          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+        });
+      }
     }
 
     newInscription = await axios.post(
@@ -299,6 +303,93 @@ module.exports.inscriptionCalc = async (req, res) => {
   } catch (e) {
     console.log(e);
     return res.status(500).json({ message: e.message });
+  }
+};
+
+module.exports.checkPayment = async (req, res) => {
+  try {
+    const { networkName, inscriptionId } = req.body;
+    const type = getType(inscriptionId);
+    let inscription;
+    let balance;
+
+    if (type === `single`) {
+      inscription = await Inscription.findOne({ id: inscriptionId });
+      balance = await getWalletBalance(
+        inscription.inscriptionDetails.payAddress,
+        networkName
+      );
+    } else if (type === `bulk`) {
+      inscription = await BulkInscription.findOne({ id: inscriptionId });
+      balance = await getWalletBalance(
+        inscription.inscriptionDetails.payAddress,
+        networkName
+      );
+    }
+
+    if (balance < inscription.cost.total * 1e8) {
+      return res.status(400).json({
+        status: false,
+        message: `inscription cost not received. Available: ${
+          balance / 1e8
+        }, Required: ${inscription.cost.total}`,
+      });
+    } else {
+      return res
+        .status(200)
+        .json({ status: true, message: `ok`, userResponse: true });
+    }
+  } catch (e) {
+    console.log(e.message);
+    return res.status(500).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.checkUtxo = async (req, res) => {
+  try {
+    const { inscriptionId } = req.body;
+    const type = getType(inscriptionId);
+    let inscription;
+    let balance;
+
+    if (type === `single`) {
+      inscription = await Inscription.findOne({ id: inscriptionId });
+      const result = await axios.post(
+        process.env.ORD_API_URL + `/ord/wallet/balance`,
+        { walletName: inscriptionId }
+      );
+      balance = result.data.userResponse.data;
+      if (balance < inscription.cost.inscriptionCost * 1e8) {
+        return res.status(400).json({
+          status: false,
+          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+        });
+      } else {
+        return res
+          .status(200)
+          .json({ status: true, message: `ok`, userResponse: true });
+      }
+    } else if (type === `bulk`) {
+      inscription = await BulkInscription.findOne({ id: inscriptionId });
+      const result = await axios.post(
+        process.env.ORD_API_URL + `/ord/wallet/balance`,
+        { walletName: inscriptionId }
+      );
+      balance = result.data.userResponse.data;
+      if (balance < inscription.cost.cardinal * 1e8) {
+        return res.status(400).json({
+          status: false,
+          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+        });
+      } else {
+        return res
+          .status(200)
+          .json({ status: true, message: `ok`, userResponse: true });
+      }
+    }
+  } catch (e) {
+    console.log(e.message);
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -479,6 +570,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
     const data = await compressAndSaveBulk(inscriptionId, optimized);
     const costPerInscription = inscriptionPrice(feeRate, data.largestFile);
     const totalCost = costPerInscription.total * files.length;
+    const cardinals = costPerInscription.inscriptionCost * files.length;
     const payDetails = await createLegacyAddress(networkName, count.length);
     let paymentAddress = payDetails.p2pkh_addr;
 
@@ -504,6 +596,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
         serviceCharge: serviceCharge * files.length,
         costPerInscription: costPerInscription,
         total: totalCost,
+        cardinal: cardinals,
       },
       walletDetails: {
         keyPhrase: walletKey,

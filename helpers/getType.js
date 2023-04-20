@@ -5,6 +5,8 @@ const getType = (inscriptionId) => {
     type = `single`;
   } else if (arr[0] === `b`) {
     type = `bulk`;
+  } else {
+    throw new Error(`Invalid inscription id`);
   }
 
   return type;

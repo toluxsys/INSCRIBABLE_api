@@ -9,11 +9,13 @@ const inscriptionSchema = new mongoose.Schema(
     utxoTxid: { type: String },
     encryptedPassKey: {
       type: String,
-      required: true,
       immutable: true,
     },
     inscriptionDetails: {
       type: Object,
+    },
+    fileNames: {
+      type: Array,
     },
     walletDetails: {
       type: Object,

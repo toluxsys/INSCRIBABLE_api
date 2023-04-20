@@ -16,6 +16,6 @@ router.use(
 
 router.post("/add", controller.addCollection);
 router.post("/upload", controller.addCollectionItems);
-router.post("/mint", controller.mint);
+router.post("/seleteItem", controller.seleteItem);
 
 module.exports = router;

@@ -4,24 +4,25 @@
 
 const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
-const { Web3Storage, getFilesFromPath } = require("web3.storage");
-// const { create } = require("ipfs-http-client");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
 const Inscription = require("../model/inscription");
+const BulkInscription = require("../model/inscription");
 const Ids = require("../model/ids");
 const Collection = require("../model/collection");
+const { getType } = require("../helpers/getType");
 const {
   createHDWallet,
   addWalletToOrd,
   utxoDetails,
 } = require("../helpers/createWallet");
 const { compressAndSaveBulk } = require("../helpers/compressImage");
-
-// const initStorage = async () => {
-//   return new Web3Storage({ token: process.env.WEB3_STORAGE_KEY });
-// };
+const {
+  sendBitcoin,
+  createLegacyAddress,
+  createTaprootAddress,
+} = require("../helpers/sendBitcoin2");
 
 const getLinks = async (cid) => {
   const client = await import("ipfs-http-client");
@@ -206,28 +207,48 @@ module.exports.addCollectionItems = async (req, res) => {
   }
 };
 
-module.exports.mint = async (req, res) => {
+module.exports.seleteItem = async (req, res) => {
   // collectionId, imageIndex,
   try {
-    const { collectionId, address, feeRate, imageName } = req.body;
+    const { collectionId, address, feeRate, imageNames, networkName } =
+      req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.cids[0];
     const price = collection.price;
     const items = await getLinks(cid);
-    const inscriptionId = `s${uuidv4()}`;
     const count = await Ids.find({}, { _id: 0 });
 
-    let item;
+    let images = [];
+    let fileSize = [];
+    let ids;
+    let inscriptionId;
+
+    if (imageNames.length > 1) {
+      inscriptionId = `b${uuidv4()}`;
+    } else {
+      inscriptionId = `s${uuidv4()}`;
+    }
 
     items.forEach(async (newItem, index) => {
-      if (newItem.name === imageName) {
-        console.log(newItem);
-        item = newItem;
+      for (const imageName of imageNames) {
+        if (newItem.name === imageName) {
+          images.push(newItem);
+          fileSize.push(newItem.size);
+        }
       }
     });
 
-    const cost = inscriptionPrice(feeRate, item.size, price);
-    console.log(cost);
+    console.log(images);
+
+    const sortedImages = fileSize.sort((a, b) => a - b);
+
+    const cost = inscriptionPrice(
+      feeRate,
+      sortedImages[sortedImages.length - 1],
+      price
+    );
+    const total = cost.total * imageNames.length;
+    console.log(cost, total);
 
     const payDetails = await createLegacyAddress(networkName, count.length);
     let paymentAddress = payDetails.p2pkh_addr;
@@ -246,35 +267,138 @@ module.exports.mint = async (req, res) => {
       feeRate: feeRate,
 
       inscriptionDetails: {
-        fileName: imageName,
         payAddress: paymentAddress,
         payAddressId: count.length,
         cid: cid,
       },
+      fileNames: imageNames,
       walletDetails: {
         keyPhrase: walletKey,
         walletName: inscriptionId,
         creationBlock: blockHeight.data.userResponse.data,
       },
-      cost: cost,
+      cost: { costPerInscription: cost, total: total },
       feeRate: feeRate,
     });
 
     const savedInscription = await inscription.save();
-    const ids = new Ids({
-      id: savedInscription._id,
-      type: "single",
-      startTime: Date.now(),
-      status: `sending utxo`,
-    });
-    await ids.save();
+
+    if (imageNames.length > 1) {
+      ids = new Ids({
+        id: savedInscription._id,
+        type: "bulk",
+      });
+      await ids.save();
+    } else {
+      ids = new Ids({
+        id: savedInscription._id,
+        type: "single",
+      });
+      await ids.save();
+    }
 
     const userResponse = {
-      cost: cost.total,
+      cost: savedInscription.cost.total,
       paymentAddress: paymentAddress,
       inscriptionId: inscriptionId,
     };
+
+    return res.status(200).json({ message: `ok`, userResponse: userResponse });
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+module.exports.sendUtxo = async (req, res) => {
+  try {
+    const inscriptionId = req.body.id;
+    const network = req.body.networkName;
+    const collectionId = req.body.collectionId;
+    const inscriptionType = getType(inscriptionId);
+    const collection = await Collection.findOne({ id: collectionId });
+
+    let inscription;
+    let instance;
+    let addrCount;
+    let details;
+    let amount;
+    let payAddress;
+    let addressFromId;
+    let payAddressId;
+    let balance;
+    let txDetails;
+    let ids;
+
+    if (inscriptionType === "single") {
+      inscription = await Inscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+      addrCount = 1;
+      amount = instance.cost.inscriptionCost;
+      payAddressId = instance.inscriptionDetails.payAddressId;
+      payAddress = instance.inscriptionDetails.payAddress;
+      addressFromId = (await createLegacyAddress(network, payAddressId))
+        .p2pkh_addr;
+      ids = await Ids.where("id").equals(instance._id);
+      if (addressFromId !== payAddress) {
+        return res.status(400).json({ message: "Invalid address from ID" });
+      }
+    } else if (inscriptionType === "bulk") {
+      inscription = await BulkInscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+      addrCount = instance.inscriptionDetails.totalAmount;
+      amount = instance.cost.costPerInscription.inscriptionCost;
+      payAddressId = instance.inscriptionDetails.payAddressId;
+      payAddress = instance.inscriptionDetails.payAddress;
+      addressFromId = (await createLegacyAddress(network, payAddressId))
+        .p2pkh_addr;
+      ids = await Ids.where("id").equals(instance._id);
+      startTime = ids.startTime;
+      if (addressFromId !== payAddress) {
+        return res.status(400).json({ message: "Invalid address from ID" });
+      }
+    }
+
+    balance = await getWalletBalance(payAddress, network);
+    if (balance < instance.cost.total) {
+      return res.status(400).json({
+        message: `inscription cost not received. Available: ${
+          balance / 1e8
+        }, Required: ${instance.cost.total}`,
+      });
+    }
+
+    details = await utxoDetails(inscriptionId, addrCount, amount, network);
+    if (collection.price !== 0) {
+      const creatorPayment = {
+        address: collection.collectionDetails.creatorsAddress,
+        value: collection.price,
+      };
+
+      details.push(creatorPayment);
+    }
+
+    txDetails = await sendBitcoin(network, payAddressId, details);
+    const txHash = await axios.post(
+      process.env.ORD_API_URL + `/ord/broadcastTransaction`,
+      { txHex: txDetails.rawTx, networkName: network }
+    );
+    if (txHash.data.message !== "ok") {
+      return res.status(500).json({
+        message: txHash.data.message,
+      });
+    }
+    instance.inscriptionDetails.receciverDetails = details;
+    await instance.save();
+    return res.status(200).json({
+      message: "ok",
+      userResponse: {
+        details: txDetails,
+        txId: txHash.data.userResponse.data,
+      },
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: e.message });
   }
 };
