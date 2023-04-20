@@ -9,7 +9,6 @@ const bulkInscription = new mongoose.Schema(
     utxoTxid: { type: String },
     encryptedPassKey: {
       type: String,
-      required: true,
       immutable: true,
     },
     inscriptionDetails: {

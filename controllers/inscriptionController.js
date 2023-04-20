@@ -38,16 +38,19 @@ module.exports.upload = async (req, res) => {
     const optimize = req.body.optimize;
     const details = await init(file, feeRate, networkName, optimize);
     res.status(200).json({
-      message: "image compresed",
-      compImage: details.compImage,
-      cost: details.inscriptionCost,
-      paymentAddress: details.paymentAddress,
-      passKey: details.passKey,
-      inscriptionId: details.inscriptionId,
+      status: true,
+      message: "ok",
+      userResponse: {
+        compImage: details.compImage,
+        cost: details.inscriptionCost,
+        paymentAddress: details.paymentAddress,
+        passKey: details.passKey,
+        inscriptionId: details.inscriptionId,
+      },
     });
   } catch (e) {
     console.log(e);
-    return res.status(400).json({ message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -59,15 +62,18 @@ module.exports.uploadMultiple = async (req, res) => {
     const optimize = req.body.optimize;
     const details = await initBulk(files, feeRate, networkName, optimize);
     return res.status(200).json({
-      message: "image compresed",
-      cost: details.totalCost,
-      paymentAddress: details.paymentAddress,
-      passKey: details.passKey,
-      inscriptionId: details.inscriptionId,
+      status: true,
+      message: "ok",
+      userResponse: {
+        cost: details.totalCost,
+        paymentAddress: details.paymentAddress,
+        passKey: details.passKey,
+        inscriptionId: details.inscriptionId,
+      },
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -94,7 +100,9 @@ module.exports.sendUtxo = async (req, res) => {
     if (inscriptionType === "single") {
       verified = await verify(inscriptionId, passKey, inscriptionType);
       if (verified === false) {
-        return res.status(400).json({ message: "Invalid Pass Key" });
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid Pass Key" });
       }
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
@@ -107,12 +115,16 @@ module.exports.sendUtxo = async (req, res) => {
       ids = await Ids.where("id").equals(instance._id);
       startTime = ids.startTime;
       if (addressFromId !== payAddress) {
-        return res.status(400).json({ message: "Invalid address from ID" });
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid address from ID" });
       }
     } else if (inscriptionType === "bulk") {
       verified = await verify(inscriptionId, passKey, type);
       if (verified === false) {
-        return res.status(400).json({ message: "Invalid Pass Key" });
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid Pass Key" });
       }
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
@@ -125,13 +137,16 @@ module.exports.sendUtxo = async (req, res) => {
       ids = await Ids.where("id").equals(instance._id);
       startTime = ids.startTime;
       if (addressFromId !== payAddress) {
-        return res.status(400).json({ message: "Invalid address from ID" });
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid address from ID" });
       }
     }
 
     balance = await getWalletBalance(payAddress, network);
     if (balance < instance.cost.total * 1e8) {
       return res.status(400).json({
+        status: false,
         message: `inscription cost not received. Available: ${
           balance / 1e8
         }, Required: ${instance.cost.total}`,
@@ -146,6 +161,7 @@ module.exports.sendUtxo = async (req, res) => {
     );
     if (txHash.data.message !== "ok") {
       return res.status(500).json({
+        status: false,
         message: txHash.data.message,
       });
     }
@@ -153,6 +169,7 @@ module.exports.sendUtxo = async (req, res) => {
     ids.status = `utxo sent`;
     await instance.save();
     return res.status(200).json({
+      status: true,
       message: "ok",
       userResponse: {
         details: txDetails,
@@ -161,7 +178,7 @@ module.exports.sendUtxo = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -187,7 +204,9 @@ module.exports.inscribe = async (req, res) => {
     if (type === "single") {
       verified = await verify(inscriptionId, passKey, type);
       if (!verified) {
-        return res.status(400).json({ message: "Invalid Pass Key" });
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid Pass Key" });
       }
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
@@ -203,7 +222,9 @@ module.exports.inscribe = async (req, res) => {
     } else if (type === "bulk") {
       verified = await verify(inscriptionId, passKey, type);
       if (!verified) {
-        return res.status(400).json({ message: "Invalid Pass Key" });
+        return res
+          .status(400)
+          .json({ status: false, message: "Invalid Pass Key" });
       }
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
@@ -228,7 +249,9 @@ module.exports.inscribe = async (req, res) => {
       }
     );
     if (newInscription.data.message !== "ok") {
-      return res.status(400).json({ message: newInscription.data.message });
+      return res
+        .status(400)
+        .json({ status: false, message: newInscription.data.message });
     }
     instance.inscription = newInscription.data.userResponse.data;
     ids.status = `inscription complete`;
@@ -241,11 +264,15 @@ module.exports.inscribe = async (req, res) => {
       instance.sent = true;
       instance.inscribed = true;
       await instance.save();
-      return;
+      return res.status(200).json({
+        status: true,
+        message: `ok`,
+        userResponse: newInscription.data.userResponse.data,
+      });
     }
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -256,7 +283,9 @@ module.exports.sendInscription = async (req, res) => {
     const inscriptions = req.body.inscriptions; // inscriptions in an array of objects containing the inscription id to be sent and the receiver address;
     const verified = await verify(id, passKey);
     if (!verified) {
-      return res.status(400).json({ message: `Invalid Pass Key` });
+      return res
+        .status(400)
+        .json({ status: false, message: `Invalid Pass Key` });
     }
     const result = await axios.post(
       process.env.process.env.ORD_API_URL + `/ord/sendInscription`,
@@ -264,16 +293,19 @@ module.exports.sendInscription = async (req, res) => {
     );
 
     if (result.data.message !== `ok`) {
-      return res.status(400).json({ message: result.data.message });
+      return res
+        .status(400)
+        .json({ status: false, message: result.data.message });
     }
 
     return res.status(200).json({
+      status: true,
       message: "inscription sent",
       txId: result.data.userResponse.data,
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -281,12 +313,13 @@ module.exports.getRecFee = async (req, res) => {
   try {
     const recomendedFee = await getRecomendedFee();
     return res.status(200).json({
+      status: true,
       message: "ok",
       fees: recomendedFee,
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -297,12 +330,13 @@ module.exports.inscriptionCalc = async (req, res) => {
     const details = await getInscriptionCost(file, feeRate);
 
     return res.status(200).json({
+      status: true,
       message: "ok",
       details,
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 

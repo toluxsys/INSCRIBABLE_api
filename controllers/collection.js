@@ -8,7 +8,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
 const Inscription = require("../model/inscription");
-const BulkInscription = require("../model/inscription");
+const BulkInscription = require("../model/bulkInscription");
 const Ids = require("../model/ids");
 const Collection = require("../model/collection");
 const { getType } = require("../helpers/getType");
@@ -128,10 +128,12 @@ module.exports.addCollection = async (req, res) => {
         process.env.IPFS_IMAGE_URL + cids[0] + `/featuredImage${f_ext}`,
     });
     await collection.save();
-    return res.status(200).json({ message: `ok`, userResponse: collectionId });
+    return res
+      .status(200)
+      .json({ status: true, message: `ok`, userResponse: collectionId });
   } catch (e) {
     console.log(e.message);
-    return res.status(500).json({ message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -146,7 +148,7 @@ module.exports.addCollectionItems = async (req, res) => {
     if (instance.status === "approved") {
       return res
         .status(409)
-        .json({ message: `collection items already added` });
+        .json({ status: false, message: `collection items already added` });
     }
 
     let optimized;
@@ -193,6 +195,7 @@ module.exports.addCollectionItems = async (req, res) => {
     let collection = await Collection.findOne({ id: collectionId });
 
     return res.status(200).json({
+      status: true,
       message: `ok`,
       userResponse: {
         collectionId: collectionId,
@@ -203,7 +206,7 @@ module.exports.addCollectionItems = async (req, res) => {
     });
   } catch (e) {
     console.log(e.message);
-    return res.status(500).json({ message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -222,6 +225,7 @@ module.exports.seleteItem = async (req, res) => {
     let fileSize = [];
     let ids;
     let inscriptionId;
+    let savedInscription;
 
     if (imageNames.length > 1) {
       inscriptionId = `b${uuidv4()}`;
@@ -248,7 +252,8 @@ module.exports.seleteItem = async (req, res) => {
       price
     );
     const total = cost.total * imageNames.length;
-    console.log(cost, total);
+    const cardinals = cost.inscriptionCost * imageNames.length;
+    console.log(cost, total, cardinals);
 
     const payDetails = await createLegacyAddress(networkName, count.length);
     let paymentAddress = payDetails.p2pkh_addr;
@@ -261,35 +266,55 @@ module.exports.seleteItem = async (req, res) => {
       return res.status(500).json({ message: blockHeight.data.message });
     }
 
-    const inscription = new Inscription({
-      id: inscriptionId,
-      inscribed: false,
-      feeRate: feeRate,
-
-      inscriptionDetails: {
-        payAddress: paymentAddress,
-        payAddressId: count.length,
-        cid: cid,
-      },
-      fileNames: imageNames,
-      walletDetails: {
-        keyPhrase: walletKey,
-        walletName: inscriptionId,
-        creationBlock: blockHeight.data.userResponse.data,
-      },
-      cost: { costPerInscription: cost, total: total },
-      feeRate: feeRate,
-    });
-
-    const savedInscription = await inscription.save();
-
     if (imageNames.length > 1) {
+      const inscription = new BulkInscription({
+        id: inscriptionId,
+        inscribed: false,
+        feeRate: feeRate,
+
+        inscriptionDetails: {
+          payAddress: paymentAddress,
+          payAddressId: count.length,
+          cid: cid,
+        },
+        fileNames: imageNames,
+        walletDetails: {
+          keyPhrase: walletKey,
+          walletName: inscriptionId,
+          creationBlock: blockHeight.data.userResponse.data,
+        },
+        cost: { costPerInscription: cost, total: total, cardinal: cardinals },
+        feeRate: feeRate,
+      });
+
+      savedInscription = await inscription.save();
       ids = new Ids({
         id: savedInscription._id,
         type: "bulk",
       });
       await ids.save();
     } else {
+      const inscription = new Inscription({
+        id: inscriptionId,
+        inscribed: false,
+        feeRate: feeRate,
+
+        inscriptionDetails: {
+          payAddress: paymentAddress,
+          payAddressId: count.length,
+          cid: cid,
+        },
+        fileNames: imageNames,
+        walletDetails: {
+          keyPhrase: walletKey,
+          walletName: inscriptionId,
+          creationBlock: blockHeight.data.userResponse.data,
+        },
+        cost: { costPerInscription: cost, total: total },
+        feeRate: feeRate,
+      });
+
+      savedInscription = await inscription.save();
       ids = new Ids({
         id: savedInscription._id,
         type: "single",
@@ -402,3 +427,9 @@ module.exports.sendUtxo = async (req, res) => {
     return res.status(500).json({ message: e.message });
   }
 };
+
+module.exports.inscribe = async (req, res) => {};
+
+module.exports.getCollection = async (req, res) => {};
+
+module.exports.getCollectionImages = async (req, res) => {};
