@@ -82,11 +82,11 @@ const utxoDetails = async (walletName, count, amount, networkName) => {
   try {
     const testnetAddresses = [
       `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
-      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
-      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
-      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+      // `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
+      // `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+      // `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
+      // `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
+      // `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
     ];
     let utxoDetails = [];
 

@@ -96,13 +96,13 @@ module.exports.sendUtxo = async (req, res) => {
     let balance;
     let txDetails;
     let ids;
-    let txs;
+    let txId;
 
     if (inscriptionType === "single") {
       verified = await verify(inscriptionId, passKey, inscriptionType);
       if (verified === false) {
         return res
-          .status(400)
+          .status(200)
           .json({ status: false, message: "Invalid Pass Key" });
       }
       inscription = await Inscription.where("id").equals(inscriptionId);
@@ -117,14 +117,14 @@ module.exports.sendUtxo = async (req, res) => {
       startTime = ids.startTime;
       if (addressFromId !== payAddress) {
         return res
-          .status(400)
+          .status(200)
           .json({ status: false, message: "Invalid address from ID" });
       }
     } else if (inscriptionType === "bulk") {
       verified = await verify(inscriptionId, passKey, type);
       if (verified === false) {
         return res
-          .status(400)
+          .status(200)
           .json({ status: false, message: "Invalid Pass Key" });
       }
       inscription = await BulkInscription.where("id").equals(inscriptionId);
@@ -139,14 +139,14 @@ module.exports.sendUtxo = async (req, res) => {
       startTime = ids.startTime;
       if (addressFromId !== payAddress) {
         return res
-          .status(400)
+          .status(200)
           .json({ status: false, message: "Invalid address from ID" });
       }
     }
 
     balance = await getWalletBalance(payAddress, network);
     if (balance < instance.cost.total * 1e8) {
-      return res.status(400).json({
+      return res.status(200).json({
         status: false,
         message: `inscription cost not received. Available: ${
           balance / 1e8
@@ -156,24 +156,19 @@ module.exports.sendUtxo = async (req, res) => {
 
     details = await utxoDetails(inscriptionId, addrCount, amount, network);
     txDetails = await sendBitcoin(network, payAddressId, details);
-    if (network === "mainnet") {
-      txs = await axios.post(
-        process.env.BROADCAST_TX_MAINNET +
-          JSON.stringify({ tx: txDetails.rawTx })
-      );
-    } else if (network === "testnet") {
-      tx = await axios.post(
-        process.env.BROADCAST_TX_TESTNET +
-          JSON.stringify({ tx: txDetails.rawTx })
-      );
-    }
 
-    if (!tx.hash) {
-      return res.status(500).json({
+    const txHash = await axios.post(
+      process.env.ORD_API_URL + `/ord/broadcastTransaction`,
+      { txHex: txDetails.rawTx, networkName: network }
+    );
+
+    if (txHash.data.message !== "ok") {
+      return res.status(200).json({
         status: false,
-        message: "Transaction not sent",
+        message: txHash.data.message,
       });
     }
+    txId = txHash.data.userResponse.data;
     instance.inscriptionDetails.receciverDetails = details;
     ids.status = `utxo sent`;
     await instance.save();
@@ -182,7 +177,7 @@ module.exports.sendUtxo = async (req, res) => {
       message: "ok",
       userResponse: {
         details: txDetails,
-        txId: txHash.data.userResponse.data,
+        txId: txId,
       },
     });
   } catch (e) {

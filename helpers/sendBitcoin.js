@@ -176,12 +176,12 @@ const start = async () => {
 
   const details = [
     {
-      address: `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      amount: 3000,
+      address: `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+      amount: 2000,
     },
   ];
 
-  console.log(await sendBitcoin(1, details, "testnet"));
+  console.log(await sendBitcoin(2, details, "testnet"));
 
   //console.log(await getRecomendedFee());
 };
