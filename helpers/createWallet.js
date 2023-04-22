@@ -129,8 +129,8 @@ module.exports = {
   createCollectionHDWallet,
 };
 
-// console.log(
-//   utxoDetails("se5e484af-6974-4ae5-a5f1-3c92d6366d7e", 1, 200, "mainnet")
-//     .then((res) => console.log(res))
-//     .catch((e) => console.log(e))
-// );
+console.log(
+  createHDWallet("testnet", 1)
+    .then((res) => console.log(res))
+    .catch((e) => console.log(e))
+);

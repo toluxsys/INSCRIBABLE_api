@@ -96,6 +96,7 @@ module.exports.sendUtxo = async (req, res) => {
     let balance;
     let txDetails;
     let ids;
+    let txs;
 
     if (inscriptionType === "single") {
       verified = await verify(inscriptionId, passKey, inscriptionType);
@@ -155,14 +156,22 @@ module.exports.sendUtxo = async (req, res) => {
 
     details = await utxoDetails(inscriptionId, addrCount, amount, network);
     txDetails = await sendBitcoin(network, payAddressId, details);
-    const txHash = await axios.post(
-      process.env.ORD_API_URL + `/ord/broadcastTransaction`,
-      { txHex: txDetails.rawTx, networkName: network }
-    );
-    if (txHash.data.message !== "ok") {
+    if (network === "mainnet") {
+      txs = await axios.post(
+        process.env.BROADCAST_TX_MAINNET +
+          JSON.stringify({ tx: txDetails.rawTx })
+      );
+    } else if (network === "testnet") {
+      tx = await axios.post(
+        process.env.BROADCAST_TX_TESTNET +
+          JSON.stringify({ tx: txDetails.rawTx })
+      );
+    }
+
+    if (!tx.hash) {
       return res.status(500).json({
         status: false,
-        message: txHash.data.message,
+        message: "Transaction not sent",
       });
     }
     instance.inscriptionDetails.receciverDetails = details;
@@ -362,7 +371,7 @@ module.exports.checkPayment = async (req, res) => {
     }
 
     if (balance < inscription.cost.total * 1e8) {
-      return res.status(400).json({
+      return res.status(200).json({
         status: false,
         message: `inscription cost not received. Available: ${
           balance / 1e8
@@ -394,7 +403,7 @@ module.exports.checkUtxo = async (req, res) => {
       );
       balance = result.data.userResponse.data;
       if (balance < inscription.cost.inscriptionCost * 1e8) {
-        return res.status(400).json({
+        return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
         });
@@ -411,7 +420,7 @@ module.exports.checkUtxo = async (req, res) => {
       );
       balance = result.data.userResponse.data;
       if (balance < inscription.cost.cardinal * 1e8) {
-        return res.status(400).json({
+        return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
         });

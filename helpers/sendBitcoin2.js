@@ -238,9 +238,9 @@ const sendBitcoin = async (networkName, path, receiverDetails) => {
       .addOutputs(outputs)
       .signAllInputs(keyPair)
       .finalizeAllInputs();
-    const tx = psbt.extractTransaction();
-    const txHex = tx.toHex();
-    return { link: broadcastLink, rawTx: txHex };
+    const txs = psbt.extractTransaction();
+    const tx = txs.toHex();
+    return { link: broadcastLink, rawTx: tx };
   } catch (e) {
     console.log(e);
   }
