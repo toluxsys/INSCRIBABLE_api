@@ -670,10 +670,10 @@ const verify = async (inscriptionId, passKey, type) => {
   let inscription;
   if (type === `single`) {
     inscription = await Inscription.where("id").equals(inscriptionId);
-    return await bcrypt.compare(passKey, inscription[0].encryptedPassKey);
+    return bcrypt.compare(passKey, inscription[0].encryptedPassKey);
   } else if (type === `bulk`) {
     inscription = await BulkInscription.where("id").equals(inscriptionId);
-    return await bcrypt.compare(passKey, inscription[0].encryptedPassKey);
+    return bcrypt.compare(passKey, inscription[0].encryptedPassKey);
   }
 };
 

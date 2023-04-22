@@ -82,11 +82,17 @@ const utxoDetails = async (walletName, count, amount, networkName) => {
   try {
     const testnetAddresses = [
       `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
-      // `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      // `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
-      // `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
-      // `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      // `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
+      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
+      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
+      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
+      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
+      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
+      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
+      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
+      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
     ];
     let utxoDetails = [];
 
@@ -108,7 +114,11 @@ const utxoDetails = async (walletName, count, amount, networkName) => {
         console.log(details);
       }
     } else if (networkName === `testnet`) {
-      testnetAddresses.forEach((address) => {
+      let addresses = [];
+      for (let i = 0; i <= count; i++) {
+        addresses.push(testnetAddresses[i]);
+      }
+      addresses.forEach((address) => {
         let details = { address: address, value: parseInt(amount * 1e8) };
         utxoDetails.push(details);
       });
