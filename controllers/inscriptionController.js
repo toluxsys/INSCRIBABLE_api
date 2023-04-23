@@ -73,7 +73,7 @@ module.exports.uploadMultiple = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -182,7 +182,7 @@ module.exports.sendUtxo = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -209,7 +209,7 @@ module.exports.inscribe = async (req, res) => {
       verified = await verify(inscriptionId, passKey, type);
       if (!verified) {
         return res
-          .status(400)
+          .status(200)
           .json({ status: false, message: "Invalid Pass Key" });
       }
       inscription = await Inscription.where("id").equals(inscriptionId);
@@ -218,7 +218,7 @@ module.exports.inscribe = async (req, res) => {
       ids = await Ids.where("id").equals(instance._id);
 
       if (balance < instance.cost.inscriptionCost * 1e8) {
-        return res.status(400).json({
+        return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
         });
@@ -227,14 +227,14 @@ module.exports.inscribe = async (req, res) => {
       verified = await verify(inscriptionId, passKey, type);
       if (!verified) {
         return res
-          .status(400)
+          .status(200)
           .json({ status: false, message: "Invalid Pass Key" });
       }
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       ids = await Ids.where("id").equals(instance._id);
       if (balance < instance.cost.cardinal * 1e8) {
-        return res.status(400).json({
+        return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
         });
@@ -254,7 +254,7 @@ module.exports.inscribe = async (req, res) => {
     );
     if (newInscription.data.message !== "ok") {
       return res
-        .status(400)
+        .status(200)
         .json({ status: false, message: newInscription.data.message });
     }
     instance.inscription = newInscription.data.userResponse.data;
@@ -276,7 +276,7 @@ module.exports.inscribe = async (req, res) => {
     }
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -288,7 +288,7 @@ module.exports.sendInscription = async (req, res) => {
     const verified = await verify(id, passKey);
     if (!verified) {
       return res
-        .status(400)
+        .status(200)
         .json({ status: false, message: `Invalid Pass Key` });
     }
     const result = await axios.post(
@@ -298,7 +298,7 @@ module.exports.sendInscription = async (req, res) => {
 
     if (result.data.message !== `ok`) {
       return res
-        .status(400)
+        .status(200)
         .json({ status: false, message: result.data.message });
     }
 
@@ -309,7 +309,7 @@ module.exports.sendInscription = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -323,7 +323,7 @@ module.exports.getRecFee = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -340,7 +340,7 @@ module.exports.inscriptionCalc = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -379,7 +379,7 @@ module.exports.checkPayment = async (req, res) => {
     }
   } catch (e) {
     console.log(e.message);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -427,7 +427,7 @@ module.exports.checkUtxo = async (req, res) => {
     }
   } catch (e) {
     console.log(e.message);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 

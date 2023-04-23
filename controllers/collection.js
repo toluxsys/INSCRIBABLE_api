@@ -133,7 +133,7 @@ module.exports.addCollection = async (req, res) => {
       .json({ status: true, message: `ok`, userResponse: collectionId });
   } catch (e) {
     console.log(e.message);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -147,7 +147,7 @@ module.exports.addCollectionItems = async (req, res) => {
 
     if (instance.status === "approved") {
       return res
-        .status(409)
+        .status(200)
         .json({ status: false, message: `collection items already added` });
     }
 
@@ -206,7 +206,7 @@ module.exports.addCollectionItems = async (req, res) => {
     });
   } catch (e) {
     console.log(e.message);
-    return res.status(500).json({ status: false, message: e.message });
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -263,7 +263,7 @@ module.exports.seleteItem = async (req, res) => {
       process.env.ORD_API_URL + `/ord/getLatestBlock`
     );
     if (blockHeight.data.message !== `ok`) {
-      return res.status(500).json({ message: blockHeight.data.message });
+      return res.status(200).json({ message: blockHeight.data.message });
     }
 
     if (imageNames.length > 1) {
@@ -330,8 +330,8 @@ module.exports.seleteItem = async (req, res) => {
 
     return res.status(200).json({ message: `ok`, userResponse: userResponse });
   } catch (e) {
-    console.log(e);
-    return res.status(500).json({ message: e.message });
+    console.log(e.message);
+    return res.status(400).json({ message: e.message });
   }
 };
 
@@ -366,7 +366,7 @@ module.exports.sendUtxo = async (req, res) => {
         .p2pkh_addr;
       ids = await Ids.where("id").equals(instance._id);
       if (addressFromId !== payAddress) {
-        return res.status(400).json({ message: "Invalid address from ID" });
+        return res.status(200).json({ message: "Invalid address from ID" });
       }
     } else if (inscriptionType === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
@@ -380,13 +380,13 @@ module.exports.sendUtxo = async (req, res) => {
       ids = await Ids.where("id").equals(instance._id);
       startTime = ids.startTime;
       if (addressFromId !== payAddress) {
-        return res.status(400).json({ message: "Invalid address from ID" });
+        return res.status(200).json({ message: "Invalid address from ID" });
       }
     }
 
     balance = await getWalletBalance(payAddress, network);
     if (balance < instance.cost.total) {
-      return res.status(400).json({
+      return res.status(200).json({
         message: `inscription cost not received. Available: ${
           balance / 1e8
         }, Required: ${instance.cost.total}`,
@@ -409,7 +409,7 @@ module.exports.sendUtxo = async (req, res) => {
       { txHex: txDetails.rawTx, networkName: network }
     );
     if (txHash.data.message !== "ok") {
-      return res.status(500).json({
+      return res.status(200).json({
         message: txHash.data.message,
       });
     }
@@ -424,7 +424,7 @@ module.exports.sendUtxo = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ message: e.message });
+    return res.status(400).json({ message: e.message });
   }
 };
 
