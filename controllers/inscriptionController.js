@@ -243,7 +243,7 @@ module.exports.inscribe = async (req, res) => {
     }
 
     newInscription = await axios.post(
-      process.env.ORD_API_URL + `/ord/create/inscribe`,
+      process.env.ORD_API_URL + `/ord/inscribe`,
       {
         feeRate: instance.feeRate,
         receiverAddress: receciverAddress,
