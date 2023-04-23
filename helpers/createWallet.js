@@ -59,7 +59,7 @@ const generateKeyPhrase = async () => {
   return new Mnemonic(Mnemonic.Words.ENGLISH).toString();
 };
 
-const addWalletToOrd = async (walletName) => {
+const addWalletToOrd = async (walletName, networkName) => {
   try {
     const url = process.env.ORD_API_URL + `/ord/wallet/add_wallet`;
     const key = await generateKeyPhrase();
@@ -67,6 +67,7 @@ const addWalletToOrd = async (walletName) => {
     const data = {
       walletName: walletName,
       keyPhrase: key,
+      networkName: networkName,
     };
     const result = await axios.post(url, data);
     if (result.data.message !== "ok") {
@@ -80,48 +81,22 @@ const addWalletToOrd = async (walletName) => {
 
 const utxoDetails = async (walletName, count, amount, networkName) => {
   try {
-    const testnetAddresses = [
-      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
-      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
-      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
-      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
-      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
-      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
-      `mm6cDjXeFU79aRd8bCWY2Us2igf6wD7juk`,
-      `mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb`,
-      `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
-    ];
     let utxoDetails = [];
-
-    if (networkName === `mainnet`) {
-      const url =
-        process.env.ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
-      const data = {
-        collectionName: walletName,
-        addrCount: count,
-      };
-      const result = await axios.post(url, data);
-      if (result.data.message !== "ok") {
-        throw new Error(result.data.message);
-      }
-      const addresses = result.data.userResponse.data;
-      for (const address of addresses) {
-        let details = { address: address, value: parseInt(amount * 1e8) };
-        utxoDetails.push(details);
-        console.log(details);
-      }
-    } else if (networkName === `testnet`) {
-      let addresses = [];
-      for (let i = 0; i <= count; i++) {
-        addresses.push(testnetAddresses[i]);
-      }
-      addresses.forEach((address) => {
-        let details = { address: address, value: parseInt(amount * 1e8) };
-        utxoDetails.push(details);
-      });
+    const url = process.env.ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    const data = {
+      collectionName: walletName,
+      addrCount: count,
+      networkName: networkName,
+    };
+    const result = await axios.post(url, data);
+    if (result.data.message !== "ok") {
+      throw new Error(result.data.message);
+    }
+    const addresses = result.data.userResponse.data;
+    for (const address of addresses) {
+      let details = { address: address, value: parseInt(amount * 1e8) };
+      utxoDetails.push(details);
+      console.log(details);
     }
 
     return utxoDetails;

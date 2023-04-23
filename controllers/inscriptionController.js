@@ -191,6 +191,7 @@ module.exports.inscribe = async (req, res) => {
     const inscriptionId = req.body.id;
     const passKey = req.body.passKey;
     const receciverAddress = req.body.address;
+    const networkName = req.body.networkName;
     const type = getType(inscriptionId);
     let verified;
     let inscription;
@@ -201,7 +202,7 @@ module.exports.inscribe = async (req, res) => {
 
     const result = await axios.post(
       process.env.ORD_API_URL + `/ord/wallet/balance`,
-      { walletName: inscriptionId }
+      { walletName: inscriptionId, networkName: networkName }
     );
     const balance = result.data.userResponse.data;
 
@@ -250,6 +251,7 @@ module.exports.inscribe = async (req, res) => {
         inscriptionId: inscriptionId,
         type: type,
         imageName: imageName,
+        networkName: networkName,
       }
     );
     if (newInscription.data.message !== "ok") {
@@ -285,6 +287,7 @@ module.exports.sendInscription = async (req, res) => {
     const id = req.body.inscriptionId;
     const passKey = req.body.passKey;
     const inscriptions = req.body.inscriptions; // inscriptions in an array of objects containing the inscription id to be sent and the receiver address;
+    const networkName = req.body.networkName;
     const verified = await verify(id, passKey);
     if (!verified) {
       return res
@@ -293,7 +296,11 @@ module.exports.sendInscription = async (req, res) => {
     }
     const result = await axios.post(
       process.env.process.env.ORD_API_URL + `/ord/sendInscription`,
-      { inscriptions: inscriptions, inscriptionId: id }
+      {
+        inscriptions: inscriptions,
+        inscriptionId: id,
+        networkName: networkName,
+      }
     );
 
     if (result.data.message !== `ok`) {
@@ -385,7 +392,7 @@ module.exports.checkPayment = async (req, res) => {
 
 module.exports.checkUtxo = async (req, res) => {
   try {
-    const { inscriptionId } = req.body;
+    const { inscriptionId, networkName } = req.body;
     const type = getType(inscriptionId);
     let inscription;
     let balance;
@@ -394,7 +401,7 @@ module.exports.checkUtxo = async (req, res) => {
       inscription = await Inscription.findOne({ id: inscriptionId });
       const result = await axios.post(
         process.env.ORD_API_URL + `/ord/wallet/balance`,
-        { walletName: inscriptionId }
+        { walletName: inscriptionId, networkName: networkName }
       );
       balance = result.data.userResponse.data;
       if (balance < inscription.cost.inscriptionCost * 1e8) {
@@ -411,7 +418,7 @@ module.exports.checkUtxo = async (req, res) => {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       const result = await axios.post(
         process.env.ORD_API_URL + `/ord/wallet/balance`,
-        { walletName: inscriptionId }
+        { walletName: inscriptionId, networkName: networkName }
       );
       balance = result.data.userResponse.data;
       if (balance < inscription.cost.cardinal * 1e8) {
@@ -460,7 +467,7 @@ const init = async (file, feeRate, networkName, optimize) => {
       const payDetails = await createLegacyAddress(networkName, count.length);
       let paymentAddress = payDetails.p2pkh_addr;
 
-      const walletKey = await addWalletToOrd(inscriptionId);
+      const walletKey = await addWalletToOrd(inscriptionId, networkName);
       const blockHeight = await axios.post(
         process.env.ORD_API_URL + `/ord/getLatestBlock`
       );
@@ -514,7 +521,7 @@ const init = async (file, feeRate, networkName, optimize) => {
       const payDetails = await createLegacyAddress(networkName, count.length);
       let paymentAddress = payDetails.p2pkh_addr;
 
-      const walletKey = await addWalletToOrd(inscriptionId);
+      const walletKey = await addWalletToOrd(inscriptionId, networkName);
       const blockHeight = await axios.post(
         process.env.ORD_API_URL + `/ord/getLatestBlock`
       );
@@ -612,7 +619,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
     const payDetails = await createLegacyAddress(networkName, count.length);
     let paymentAddress = payDetails.p2pkh_addr;
 
-    const walletKey = await addWalletToOrd(inscriptionId);
+    const walletKey = await addWalletToOrd(inscriptionId, networkName);
     const blockHeight = await axios.post(
       process.env.ORD_API_URL + `/ord/getLatestBlock`
     );

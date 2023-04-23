@@ -176,8 +176,8 @@ const start = async () => {
 
   const details = [
     {
-      address: `mneYWPrWzvQqepM6us5nZhhXxAoUHaXo7M`,
-      amount: 2000,
+      address: `mwkrtLNXZKiFw9SjtmtnyTkXSrGz29Ybs1`,
+      amount: 39444,
     },
   ];
 
