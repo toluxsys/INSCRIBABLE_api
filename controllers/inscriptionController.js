@@ -260,8 +260,6 @@ module.exports.inscribe = async (req, res) => {
         .json({ status: false, message: newInscription.data.message });
     }
     instance.inscription = newInscription.data.userResponse.data;
-    ids.status = `inscription complete`;
-    await ids.save();
     if (receciverAddress === undefined || receciverAddress === null) {
       instance.inscribed = true;
       await instance.save();
