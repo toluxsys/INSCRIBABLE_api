@@ -23,6 +23,9 @@ const inscriptionSchema = new mongoose.Schema(
     cost: {
       type: Object,
     },
+    stage: {
+      type: String,
+    },
     inscription: { type: Object },
   },
   { timestamps: true }

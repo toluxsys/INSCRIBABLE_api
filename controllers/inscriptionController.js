@@ -83,11 +83,9 @@ module.exports.uploadMultiple = async (req, res) => {
 module.exports.sendUtxo = async (req, res) => {
   try {
     const inscriptionId = req.body.id;
-    const passKey = req.body.passKey;
     const network = req.body.networkName;
     const inscriptionType = getType(inscriptionId);
 
-    let verified;
     let inscription;
     let instance;
     let addrCount;
@@ -161,6 +159,7 @@ module.exports.sendUtxo = async (req, res) => {
     }
     txId = txHash.data.userResponse.data;
     instance.inscriptionDetails.receciverDetails = details;
+    instance.stage = "stage 2";
     ids.status = `utxo sent`;
     await instance.save();
     return res.status(200).json({
@@ -239,11 +238,13 @@ module.exports.inscribe = async (req, res) => {
     instance.inscription = newInscription.data.userResponse.data;
     if (receciverAddress === undefined || receciverAddress === null) {
       instance.inscribed = true;
+      instance.stage = "stage 3";
       await instance.save();
       return;
     } else {
       instance.sent = true;
       instance.inscribed = true;
+      instance.stage = "stage 3";
       await instance.save();
       return res.status(200).json({
         status: true,
@@ -260,7 +261,6 @@ module.exports.inscribe = async (req, res) => {
 module.exports.sendInscription = async (req, res) => {
   try {
     const id = req.body.inscriptionId;
-    const passKey = req.body.passKey;
     const inscriptions = req.body.inscriptions; // inscriptions in an array of objects containing the inscription id to be sent and the receiver address;
     const networkName = req.body.networkName;
     const result = await axios.post(
@@ -542,6 +542,7 @@ const init = async (file, feeRate, networkName, optimize) => {
         },
         cost: inscriptionCost,
         feeRate: feeRate,
+        stage: "stage 1",
       });
 
       const savedInscription = await inscription.save();
@@ -594,6 +595,7 @@ const init = async (file, feeRate, networkName, optimize) => {
         },
         cost: inscriptionCost,
         feeRate: feeRate,
+        stage: "stage 1",
       });
 
       const savedInscription = await inscription.save();
@@ -694,6 +696,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
         walletName: inscriptionId,
         creationBlock: blockHeight.data.userResponse.data,
       },
+      stage: "stage 1",
     });
 
     const savedInscription = await bulkInscription.save();
