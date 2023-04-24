@@ -115,7 +115,7 @@ module.exports = {
 };
 
 // console.log(
-//   createHDWallet("testnet", 1)
+//   createHDWallet("testnet", 2)
 //     .then((res) => console.log(res))
 //     .catch((e) => console.log(e))
 // );

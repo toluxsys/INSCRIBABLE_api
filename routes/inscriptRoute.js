@@ -23,6 +23,9 @@ router.post("/inscription/calc", controller.inscriptionCalc);
 router.post("/bulkInscription/calc", controller.bulkInscriptionCalc);
 router.post("/checkPayment", controller.checkPayment);
 router.post("/checkUtxo", controller.checkUtxo);
+router.post("/addNetwork", controller.addNetwork);
+router.post("/changeNetwork", controller.toogleNetwork);
+router.get("/getNetwork", controller.getNetwork);
 router.get("/getRecFee", controller.getRecFee);
 
 module.exports = router;

@@ -2,9 +2,11 @@ const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
 const path = require("path");
 const bcrypt = require("bcrypt");
+const Decimal = require("decimal.js");
 const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
 const Inscription = require("../model/inscription");
+const Network = require("../model/network");
 const Ids = require("../model/ids");
 const BulkInscription = require("../model/bulkInscription");
 const {
@@ -100,12 +102,6 @@ module.exports.sendUtxo = async (req, res) => {
     let txId;
 
     if (inscriptionType === "single") {
-      verified = await verify(inscriptionId, passKey, inscriptionType);
-      if (verified === false) {
-        return res
-          .status(200)
-          .json({ status: false, message: "Invalid Pass Key" });
-      }
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       addrCount = 1;
@@ -122,12 +118,6 @@ module.exports.sendUtxo = async (req, res) => {
           .json({ status: false, message: "Invalid address from ID" });
       }
     } else if (inscriptionType === "bulk") {
-      verified = await verify(inscriptionId, passKey, type);
-      if (verified === false) {
-        return res
-          .status(200)
-          .json({ status: false, message: "Invalid Pass Key" });
-      }
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       addrCount = instance.inscriptionDetails.totalAmount;
@@ -190,11 +180,9 @@ module.exports.sendUtxo = async (req, res) => {
 module.exports.inscribe = async (req, res) => {
   try {
     const inscriptionId = req.body.id;
-    const passKey = req.body.passKey;
     const receciverAddress = req.body.address;
     const networkName = req.body.networkName;
     const type = getType(inscriptionId);
-    let verified;
     let inscription;
     let instance;
     let newInscription;
@@ -208,12 +196,6 @@ module.exports.inscribe = async (req, res) => {
     const balance = result.data.userResponse.data;
 
     if (type === "single") {
-      verified = await verify(inscriptionId, passKey, type);
-      if (!verified) {
-        return res
-          .status(200)
-          .json({ status: false, message: "Invalid Pass Key" });
-      }
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       imageName = instance.inscriptionDetails.fileName;
@@ -226,12 +208,6 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     } else if (type === "bulk") {
-      verified = await verify(inscriptionId, passKey, type);
-      if (!verified) {
-        return res
-          .status(200)
-          .json({ status: false, message: "Invalid Pass Key" });
-      }
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       ids = await Ids.where("id").equals(instance._id);
@@ -287,12 +263,6 @@ module.exports.sendInscription = async (req, res) => {
     const passKey = req.body.passKey;
     const inscriptions = req.body.inscriptions; // inscriptions in an array of objects containing the inscription id to be sent and the receiver address;
     const networkName = req.body.networkName;
-    const verified = await verify(id, passKey);
-    if (!verified) {
-      return res
-        .status(200)
-        .json({ status: false, message: `Invalid Pass Key` });
-    }
     const result = await axios.post(
       process.env.process.env.ORD_API_URL + `/ord/sendInscription`,
       {
@@ -453,6 +423,64 @@ module.exports.checkUtxo = async (req, res) => {
   } catch (e) {
     console.log(e.message);
     return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.getNetwork = async (req, res) => {
+  try {
+    let stat;
+    const networks = await Network.where("status").equals(`active`);
+    const active = networks[0];
+
+    return res
+      .status(200)
+      .json({ status: true, message: "ok", userResponse: active.networkName });
+  } catch (e) {
+    console.log(e.message);
+  }
+};
+
+module.exports.toogleNetwork = async (req, res) => {
+  try {
+    const { networkName } = req.body;
+
+    await Network.findOneAndUpdate(
+      { status: `active` },
+      { status: `inactive` },
+      { new: true }
+    );
+
+    await Network.findOneAndUpdate(
+      { networkName: networkName },
+      { status: "active" },
+      { new: true }
+    );
+    return res.status(200).json({
+      status: true,
+      message: "ok",
+      userResponse: `${networkName} active`,
+    });
+  } catch (e) {
+    console.log(e.message);
+  }
+};
+
+module.exports.addNetwork = async (req, res) => {
+  try {
+    const { networkName, status } = req.body;
+    const network = new Network({
+      networkName: networkName,
+      status: status,
+    });
+    network.save();
+
+    return res.status(200).json({
+      status: true,
+      message: "ok",
+      userResponse: `${networkName} added`,
+    });
+  } catch (e) {
+    console.log(e.message);
   }
 };
 
@@ -691,23 +719,16 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
   }
 };
 
-const verify = async (inscriptionId, passKey, type) => {
-  let inscription;
-  if (type === `single`) {
-    inscription = await Inscription.where("id").equals(inscriptionId);
-    return bcrypt.compare(passKey, inscription[0].encryptedPassKey);
-  } else if (type === `bulk`) {
-    inscription = await BulkInscription.where("id").equals(inscriptionId);
-    return bcrypt.compare(passKey, inscription[0].encryptedPassKey);
-  }
-};
-
 const inscriptionPrice = (feeRate, fileSize) => {
   const serviceCharge = parseInt(process.env.SERVICE_CHARGE) / 1e8;
   const sats = feeRate * fileSize;
   const inscriptionCost = (sats + 1e4 + 800) / 1e8; // 1e4 is the amount of sats each ordinal has and 6e2 is the dust Limit
   const total = serviceCharge + inscriptionCost;
-  return { serviceCharge, inscriptionCost, total };
+  return {
+    serviceCharge,
+    inscriptionCost: parseFloat(inscriptionCost.toFixed(8)),
+    total: parseFloat(total.toFixed(8)),
+  };
 };
 
 const getInscriptionCost = async (file, feeRate, optimize) => {

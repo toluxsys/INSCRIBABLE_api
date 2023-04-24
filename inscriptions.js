@@ -1337,8 +1337,29 @@ const newInscriptions = [
 ];
 
 const main = async () => {
-  // let id = [];
-  let unknown = [];
+  let id = [];
+  let all = [];
+  newInscriptions1.forEach((inscription, index) => {
+    id.push(inscription.inscription);
+  });
+
+  newInscriptions.forEach((inscription, index) => {
+    id.push(inscription.inscription);
+  });
+
+  let uniqueChars = [];
+  id.forEach((c) => {
+    if (!uniqueChars.includes(c)) {
+      uniqueChars.push(c);
+    }
+  });
+
+  uniqueChars.forEach((c, index) => {
+    all.push({ id: c, number: index + 1 });
+  });
+
+  console.log(all);
+  // let unknown = [];
   // let hashCount = 0;
   // for (const ids of newInscriptions1) {
   //   id.push(ids.inscription);
@@ -1358,20 +1379,20 @@ const main = async () => {
 
   // console.log(unknown);
 
-  let hashCount = 0;
-  let compInscription = [];
-  for (const items of newInscriptions) {
-    let obj = {
-      id: items.inscription,
-      meta: {
-        name: `hash ${hashCount + 1}`,
-      },
-    };
+  // let hashCount = 0;
+  // let compInscription = [];
+  // for (const items of newInscriptions1) {
+  //   let obj = {
+  //     id: items.inscription,
+  //     meta: {
+  //       name: `hash ${hashCount + 1}`,
+  //     },
+  //   };
 
-    hashCount++;
+  //   hashCount++;
 
-    compInscription.push(obj);
-  }
+  //   compInscription.push(obj);
+  // }
 
   const path = "./inscription/inscription.json";
 
@@ -1379,11 +1400,17 @@ const main = async () => {
     fs.mkdirSync("./inscription");
   }
 
-  fs.writeFileSync(path, JSON.stringify(compInscription), (err) => {
+  // const array3 = newInscriptions.filter(function (obj) {
+  //   return newInscriptions1.indexOf(obj) == -1;
+  // });
+
+  fs.writeFileSync(path, JSON.stringify(all), (err) => {
     console.log(err);
   });
 
-  console.log(compInscription);
+  //console.log(compInscription);
+
+  //console.log(array3);
 };
 
 main().then().catch();
