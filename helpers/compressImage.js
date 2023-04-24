@@ -43,6 +43,75 @@ const compressImage = async (fileName, optimize) => {
   }
 };
 
+const compressBulk = async (id, optimize) => {
+  let fileSize = [];
+  try {
+    if (optimize === "true") {
+      if (!fs.existsSync(__dirname + `/build/bulk/${id}/`)) {
+        fs.mkdirSync(
+          __dirname + `/build/bulk/${id}/`,
+          { recursive: true },
+          (err) => {
+            console.log(err);
+          }
+        );
+      }
+
+      const fileNames = fs.readdirSync(`./src/bulk/${id}`);
+
+      for (const fileName of fileNames) {
+        let fromPath = `./src/bulk/${id}/${fileName}`;
+        let toPath = `./build/bulk/${id}/`;
+
+        const result = await compress({
+          source: fromPath,
+          destination: toPath,
+          enginesSetup: {
+            jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
+            png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
+            svg: { engine: "svgo", command: "--multipass" },
+
+            gif: {
+              engine: "gifsicle",
+              command: ["--colors", "64", "--use-col=web"],
+            },
+          },
+        });
+
+        const { statistics, errors } = result;
+        const stats = statistics[0];
+        const imageFile = await getFilesFromPath(stats.path_out_new);
+        fileSize.push(imageFile[0].size);
+      }
+      const sortFileSize = fileSize.sort((a, b) => a - b);
+      const newData = {
+        largestFile: sortFileSize[sortFileSize.length - 1],
+      };
+      fs.rmSync(`./src/bulk/${id}`, { recursive: true });
+      fs.rmSync(`./build/bulk/${id}`, { recursive: true });
+      return newData;
+    } else if (optimize === "false") {
+      const fileNames = fs.readdirSync(`./src/bulk/${id}`);
+
+      for (const fileName of fileNames) {
+        const imageFile = await getFilesFromPath(
+          `./src/bulk/${id}/${fileName}`
+        );
+        fileSize.push(imageFile[0].size);
+      }
+
+      const sortFileSize = fileSize.sort((a, b) => a - b);
+      const newData = {
+        largestFile: sortFileSize[sortFileSize.length - 1],
+      };
+      fs.rmSync(`./src/bulk/${id}`, { recursive: true });
+      return newData;
+    }
+  } catch (e) {
+    console.log(e.message);
+  }
+};
+
 const compressAndSaveBulk = async (inscriptionId, optimize) => {
   const storage = await initStorage();
   let files = [];
@@ -179,4 +248,9 @@ const compressAndSave = async (fileName, optimize) => {
   }
 };
 
-module.exports = { compressImage, compressAndSave, compressAndSaveBulk };
+module.exports = {
+  compressImage,
+  compressAndSave,
+  compressAndSaveBulk,
+  compressBulk,
+};

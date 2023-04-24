@@ -20,6 +20,7 @@ router.post("/send/utxo", controller.sendUtxo);
 router.post("/inscribe", controller.inscribe);
 router.post("/sendInscription", controller.sendInscription);
 router.post("/inscription/calc", controller.inscriptionCalc);
+router.post("/bulkInscription/calc", controller.bulkInscriptionCalc);
 router.post("/checkPayment", controller.checkPayment);
 router.post("/checkUtxo", controller.checkUtxo);
 router.get("/getRecFee", controller.getRecFee);

@@ -114,8 +114,8 @@ module.exports = {
   createCollectionHDWallet,
 };
 
-console.log(
-  createHDWallet("testnet", 1)
-    .then((res) => console.log(res))
-    .catch((e) => console.log(e))
-);
+// console.log(
+//   createHDWallet("testnet", 1)
+//     .then((res) => console.log(res))
+//     .catch((e) => console.log(e))
+// );

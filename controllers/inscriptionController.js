@@ -11,6 +11,7 @@ const {
   compressImage,
   compressAndSave,
   compressAndSaveBulk,
+  compressBulk,
 } = require("../helpers/compressImage");
 const {
   createHDWallet,
@@ -336,12 +337,31 @@ module.exports.inscriptionCalc = async (req, res) => {
   try {
     const file = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
-    const details = await getInscriptionCost(file, feeRate);
+    const optimize = req.body.optimize;
+    const details = await getInscriptionCost(file, feeRate, optimize);
 
     return res.status(200).json({
       status: true,
       message: "ok",
       details,
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.bulkInscriptionCalc = async (req, res) => {
+  try {
+    const files = req.files.unCompImage;
+    const feeRate = parseInt(req.body.feeRate);
+    const optimize = req.body.optimize;
+    const details = await getBulkInscriptionCost(files, feeRate, optimize);
+
+    return res.status(200).json({
+      status: true,
+      message: "ok",
+      userResponse: details,
     });
   } catch (e) {
     console.log(e);
@@ -690,8 +710,13 @@ const inscriptionPrice = (feeRate, fileSize) => {
   return { serviceCharge, inscriptionCost, total };
 };
 
-const getInscriptionCost = async (file, feeRate) => {
+const getInscriptionCost = async (file, feeRate, optimize) => {
   try {
+    let inscriptionCost;
+    let compImage;
+    let sizeIn;
+    let sizeOut;
+    let compPercentage;
     const fileName = new Date().getTime().toString() + path.extname(file.name);
     const savePath = path.join(
       process.cwd(),
@@ -701,30 +726,68 @@ const getInscriptionCost = async (file, feeRate) => {
       fileName
     );
     await file.mv(savePath);
-    const compImage = await compressImage(fileName);
-    const unCompInscriptionCost = inscriptionPrice(
-      feeRate,
-      compImage.sizeIn * 1e3
-    );
-    const compInscriptionCost = inscriptionPrice(
-      feeRate,
-      compImage.sizeOut * 1e3
-    );
-
-    const sizeIn = compImage.sizeIn;
-    const sizeOut = compImage.sizeOut;
-    const compPercentage = compImage.comPercentage;
-    unlinkSync(compImage.outPath);
-    return {
-      compImage: {
-        sizeIn,
-        sizeOut,
-        compPercentage,
-      },
-      unCompressed: unCompInscriptionCost.inscriptionCost,
-      compressed: compInscriptionCost.inscriptionCost,
-    };
+    if (optimize === "true") {
+      compImage = await compressImage(fileName);
+      inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut * 1e3);
+      sizeIn = file.size / 1e3;
+      sizeOut = compImage.sizeOut;
+      compPercentage = compImage.comPercentage;
+      unlinkSync(compImage.outPath);
+      return {
+        compImage: {
+          sizeIn,
+          sizeOut,
+          compPercentage,
+        },
+        inscriptionCost: inscriptionCost,
+      };
+    } else if (optimize === "false") {
+      inscriptionCost = inscriptionPrice(feeRate, file.size);
+      unlinkSync(savePath);
+      return {
+        compImage: {
+          sizeOut: file.size / 1e3,
+        },
+        inscriptionCost: inscriptionCost,
+      };
+    }
   } catch (e) {
     console.log(e);
+  }
+};
+
+const getBulkInscriptionCost = async (files, feeRate, optimize) => {
+  try {
+    let id = uuidv4();
+    if (!existsSync(process.cwd() + `/src/bulk/${id}`)) {
+      mkdirSync(
+        process.cwd() + `./src/bulk/${id}`,
+        { recursive: true },
+        (err) => {
+          console.log(err);
+        }
+      );
+    }
+
+    files.forEach(async (file, index) => {
+      ext = path.extname(file.name);
+      const fileName = `${index + 1}` + path.extname(file.name);
+      const savePath = path.join(
+        process.cwd(),
+        "src",
+        "bulk",
+        `${id}`,
+        fileName
+      );
+      await file.mv(savePath);
+    });
+    const data = await compressBulk(id, optimize);
+
+    const inscriptionCost = inscriptionPrice(feeRate, data.largestFile);
+    const total = inscriptionCost.total * files.length;
+
+    return { fileSize: data.largestFile / 1e3, total: total };
+  } catch (e) {
+    console.log(e.message);
   }
 };
