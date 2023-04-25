@@ -199,8 +199,8 @@ module.exports.inscribe = async (req, res) => {
       instance = inscription[0];
       imageName = instance.inscriptionDetails.fileName;
       ids = await Ids.where("id").equals(instance._id);
-
-      if (balance < instance.cost.inscriptionCost * 1e8) {
+      const cost = Math.floor(instance.cost.inscriptionCost * 1e8);
+      if (balance < cost) {
         return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
@@ -208,9 +208,10 @@ module.exports.inscribe = async (req, res) => {
       }
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
+      let cost = Math.floor(instance.cost.cardinal * 1e8);
       instance = inscription[0];
       ids = await Ids.where("id").equals(instance._id);
-      if (balance < instance.cost.cardinal * 1e8) {
+      if (balance < cost) {
         return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
