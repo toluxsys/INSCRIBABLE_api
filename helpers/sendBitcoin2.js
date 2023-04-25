@@ -193,15 +193,23 @@ const sendBitcoin = async (networkName, path, receiverDetails) => {
     for (const element of utxos) {
       let utxo = {};
       let txId = element.txid;
+      let result;
       utxo.hash = txId;
       utxo.index = element.vout;
-      const result = await axios.get(
-        `https://mempool.space/${networkName}/api/tx/${txId}/hex`
-      );
-      utxo.nonWitnessUtxo = Buffer.from(result.data, "hex");
+      if (networkName === "testnet") {
+        result = await axios.get(
+          `https://mempool.space/${networkName}/api/tx/${utxo.hash}/hex`
+        );
+      }
+
+      result = await axios.get(`https://mempool.space/api/tx/${utxo.hash}/hex`);
+      console.log("data:", result.data);
+      utxo.nonWitnessUtxo = new Buffer.from(result.data, "hex");
       inputCount += 1;
       inputs.push(utxo);
     }
+
+    console.log(inputs);
 
     let amount = 0;
     for (const details of receiverDetails) {
