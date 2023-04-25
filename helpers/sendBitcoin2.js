@@ -181,7 +181,6 @@ const sendBitcoin = async (networkName, path, receiverDetails) => {
     );
 
     console.log("source:", addressDetails.p2pkh_addr);
-    let recommendedFee = await getRecomendedFee();
     let inputs = [];
     let outputs = [];
     let details = receiverDetails;
@@ -209,19 +208,12 @@ const sendBitcoin = async (networkName, path, receiverDetails) => {
       inputs.push(utxo);
     }
 
-    console.log(inputs);
-
     let amount = 0;
     for (const details of receiverDetails) {
       amount = amount + details.value;
     }
 
-    const transactionSize =
-      inputCount * 180 + outputCount * 34 + 10 - inputCount;
-
-    fee = transactionSize * recommendedFee.halfHourFee;
-
-    let changeAmount = totalAmountAvailable - amount - fee;
+    let changeAmount = totalAmountAvailable - amount - process.env.FEE;
 
     const change = {
       address: serviceChargeAddress,
