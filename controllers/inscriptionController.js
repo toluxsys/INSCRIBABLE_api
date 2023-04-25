@@ -437,6 +437,7 @@ module.exports.getNetwork = async (req, res) => {
       .json({ status: true, message: "ok", userResponse: active.networkName });
   } catch (e) {
     console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -462,6 +463,7 @@ module.exports.toogleNetwork = async (req, res) => {
     });
   } catch (e) {
     console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -481,6 +483,42 @@ module.exports.addNetwork = async (req, res) => {
     });
   } catch (e) {
     console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.getStage = async (req, res) => {
+  try {
+    const { inscriptionId } = req.body;
+    const type = getType(inscriptionId);
+    let inscription;
+    if (type === "single") {
+      inscription = await Inscription.findOne({ id: inscriptionId });
+    } else if (type === "bulk") {
+      inscription = await BulkInscription.findOne({ id: inscriptionId });
+    }
+
+    if (inscription.stage === "stage 1")
+      return res.status(200).json({
+        status: true,
+        message: "File uploaded, waiting for payment",
+        userResponse: inscription.stage,
+      });
+    if (inscription.stage === "stage 2")
+      return res.status(200).json({
+        status: true,
+        message: "inscription UTXO(s) transaction awaiting confirmation",
+        userResponse: inscription.stage,
+      });
+    if (inscription.stage === "stage 3")
+      return res.status(200).json({
+        status: true,
+        message: "inscription complete",
+        userResponse: inscription.stage,
+      });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 

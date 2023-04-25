@@ -26,6 +26,7 @@ router.post("/checkUtxo", controller.checkUtxo);
 router.post("/addNetwork", controller.addNetwork);
 router.post("/changeNetwork", controller.toogleNetwork);
 router.get("/getNetwork", controller.getNetwork);
+router.get("/checkStage", controller.getStage);
 router.get("/getRecFee", controller.getRecFee);
 
 module.exports = router;
