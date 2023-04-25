@@ -363,7 +363,7 @@ module.exports.checkPayment = async (req, res) => {
 
     const cost = Math.floor(inscription.cost.total * 1e8);
 
-    if (balance < cost) {
+    if (Math.floor(balance) < cost) {
       return res.status(200).json({
         status: false,
         message: `inscription cost not received. Available: ${
