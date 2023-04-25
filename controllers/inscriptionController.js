@@ -134,7 +134,7 @@ module.exports.sendUtxo = async (req, res) => {
     }
 
     balance = await getWalletBalance(payAddress, network);
-    if (balance < instance.cost.total * 1e8) {
+    if (balance < Math.floor(instance.cost.total * 1e8)) {
       return res.status(200).json({
         status: false,
         message: `inscription cost not received. Available: ${
