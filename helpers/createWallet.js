@@ -94,7 +94,7 @@ const utxoDetails = async (walletName, count, amount, networkName) => {
     }
     const addresses = result.data.userResponse.data;
     for (const address of addresses) {
-      let details = { address: address, value: parseInt(amount * 1e8) };
+      let details = { address: address, value: amount };
       utxoDetails.push(details);
       console.log(details);
     }

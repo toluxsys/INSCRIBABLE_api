@@ -68,7 +68,11 @@ module.exports.uploadMultiple = async (req, res) => {
       status: true,
       message: "ok",
       userResponse: {
-        cost: details.totalCost,
+        inscriptionCost: details.cardinals,
+        postage: 550,
+        serviceCharge: details.serviceCharge,
+        sizeFee: details.sizeFee,
+        total: details.totalCost,
         paymentAddress: details.paymentAddress,
         passKey: details.passKey,
         inscriptionId: details.inscriptionId,
@@ -134,12 +138,10 @@ module.exports.sendUtxo = async (req, res) => {
     }
 
     balance = await getWalletBalance(payAddress, network);
-    if (balance < Math.floor(instance.cost.total * 1e8)) {
+    if (balance < instance.cost.total) {
       return res.status(200).json({
         status: false,
-        message: `inscription cost not received. Available: ${
-          balance / 1e8
-        }, Required: ${instance.cost.total}`,
+        message: `inscription cost not received. Available: ${balance}, Required: ${instance.cost.total}`,
       });
     }
 
@@ -366,9 +368,7 @@ module.exports.checkPayment = async (req, res) => {
     if (Math.floor(balance) < cost) {
       return res.status(200).json({
         status: false,
-        message: `inscription cost not received. Available: ${
-          balance / 1e8
-        }, Required: ${inscription.cost.total}`,
+        message: `inscription cost not received. Available: ${balance}, Required: ${inscription.cost.total}`,
       });
     } else {
       return res
@@ -395,7 +395,7 @@ module.exports.checkUtxo = async (req, res) => {
         { walletName: inscriptionId, networkName: networkName }
       );
       balance = result.data.userResponse.data;
-      if (balance < inscription.cost.inscriptionCost * 1e8) {
+      if (balance < inscription.cost.inscriptionCost) {
         return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
@@ -412,7 +412,7 @@ module.exports.checkUtxo = async (req, res) => {
         { walletName: inscriptionId, networkName: networkName }
       );
       balance = result.data.userResponse.data;
-      if (balance < inscription.cost.cardinal * 1e8) {
+      if (balance < inscription.cost.cardinal) {
         return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
@@ -546,10 +546,7 @@ const init = async (file, feeRate, networkName, optimize) => {
 
     if (optimize === `true`) {
       const compImage = await compressAndSave(fileName, true);
-      const inscriptionCost = inscriptionPrice(
-        feeRate,
-        compImage.sizeOut * 1e3
-      );
+      const inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut);
 
       const payDetails = await createLegacyAddress(networkName, count.length);
       let paymentAddress = payDetails.p2pkh_addr;
@@ -559,7 +556,7 @@ const init = async (file, feeRate, networkName, optimize) => {
         process.env.ORD_API_URL + `/ord/getLatestBlock`
       );
       if (blockHeight.data.message !== `ok`) {
-        return res.status(500).json({ message: blockHeight.data.message });
+        return res.status(200).json({ message: blockHeight.data.message });
       }
       const inscription = new Inscription({
         id: inscriptionId,
@@ -568,8 +565,8 @@ const init = async (file, feeRate, networkName, optimize) => {
         encryptedPassKey: enKey,
 
         inscriptionDetails: {
-          imageSizeIn: compImage.sizeIn,
-          imageSizeOut: compImage.sizeOut,
+          imageSizeIn: compImage.sizeIn / 1e3,
+          imageSizeOut: compImage.sizeOut / 1e3,
           fileName: fileName,
           comPercentage: compImage.comPercentage,
           payAddress: paymentAddress,
@@ -591,7 +588,6 @@ const init = async (file, feeRate, networkName, optimize) => {
         id: savedInscription._id,
         type: "single",
         startTime: Date.now(),
-        status: `sending utxo`,
       });
       await ids.save();
 
@@ -603,8 +599,8 @@ const init = async (file, feeRate, networkName, optimize) => {
         inscriptionId,
       };
     } else if (optimize === `false`) {
-      const image = await compressAndSave(fileName, false);
-      const inscriptionCost = inscriptionPrice(feeRate, file.size * 1e3);
+      const compImage = await compressAndSave(fileName, false);
+      const inscriptionCost = inscriptionPrice(feeRate, file.size);
 
       const payDetails = await createLegacyAddress(networkName, count.length);
       let paymentAddress = payDetails.p2pkh_addr;
@@ -627,7 +623,7 @@ const init = async (file, feeRate, networkName, optimize) => {
           fileName: fileName,
           payAddress: paymentAddress,
           payAddressId: count.length,
-          cid: image.cid,
+          cid: compImage.cid,
         },
         walletDetails: {
           keyPhrase: walletKey,
@@ -644,12 +640,11 @@ const init = async (file, feeRate, networkName, optimize) => {
         id: savedInscription._id,
         type: "single",
         startTime: Date.now(),
-        status: `sending utxo`,
       });
       await ids.save();
 
       return {
-        image,
+        compImage,
         inscriptionCost,
         paymentAddress,
         passKey,
@@ -657,7 +652,7 @@ const init = async (file, feeRate, networkName, optimize) => {
       };
     }
   } catch (e) {
-    console.log(e);
+    console.log(e.message);
   }
 };
 
@@ -669,7 +664,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
     const enKey = await bcrypt.hash(passKey, 10);
     const inscriptionId = `b${uuidv4()}`;
     const count = await Ids.find({}, { _id: 0 });
-    const serviceCharge = parseInt(process.env.SERVICE_CHARGE) / 1e8;
+    const serviceCharge = parseInt(process.env.SERVICE_CHARGE) * files.length;
     let optimized;
 
     if (optimize === `true`) {
@@ -704,7 +699,8 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
     const data = await compressAndSaveBulk(inscriptionId, optimized);
     const costPerInscription = inscriptionPrice(feeRate, data.largestFile);
     const totalCost = costPerInscription.total * files.length;
-    const cardinals = costPerInscription.inscriptionCost * files.length;
+    const cardinals = costPerInscription.inscriptionCost;
+    const sizeFee = costPerInscription.sizeFee * files.length;
     const payDetails = await createLegacyAddress(networkName, count.length);
     let paymentAddress = payDetails.p2pkh_addr;
 
@@ -727,10 +723,9 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
         cid: data.cid,
       },
       cost: {
-        serviceCharge: serviceCharge * files.length,
         costPerInscription: costPerInscription,
         total: totalCost,
-        cardinal: cardinals,
+        cardinal: cardinals * files.length,
       },
       walletDetails: {
         keyPhrase: walletKey,
@@ -746,14 +741,15 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
       id: savedInscription._id,
       type: "bulk",
       startTime: Date.now(),
-      status: `sending utxo(s)`,
     });
     await ids.save();
 
     return {
       data: data,
-      costPerInscription: costPerInscription.total,
+      cardinals: cardinals * files.length,
       totalCost: totalCost,
+      sizeFee: sizeFee,
+      serviceCharge: serviceCharge,
       paymentAddress: paymentAddress,
       passKey: passKey,
       inscriptionId: inscriptionId,
@@ -764,14 +760,17 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
 };
 
 const inscriptionPrice = (feeRate, fileSize) => {
-  const serviceCharge = parseInt(process.env.SERVICE_CHARGE) / 1e8;
-  const sats = feeRate * fileSize;
-  const inscriptionCost = (sats + 1e4 + 800) / 1e8; // 1e4 is the amount of sats each ordinal has and 6e2 is the dust Limit
-  const total = serviceCharge + inscriptionCost;
+  const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
+  const sats = Math.ceil((fileSize / 4) * feeRate);
+  const cost = sats + 1e3 + 550;
+  const sizeFee = cost.toString().substring(0, cost.toString().length - 1);
+  const total = serviceCharge + cost + parseInt(sizeFee);
   return {
     serviceCharge,
-    inscriptionCost: parseFloat(inscriptionCost.toFixed(8)),
-    total: parseFloat(total.toFixed(8)),
+    inscriptionCost: cost,
+    sizeFee: parseInt(sizeFee),
+    postageFee: 550,
+    total: total,
   };
 };
 
@@ -793,9 +792,9 @@ const getInscriptionCost = async (file, feeRate, optimize) => {
     await file.mv(savePath);
     if (optimize === "true") {
       compImage = await compressImage(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut * 1e3);
+      inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut);
       sizeIn = file.size / 1e3;
-      sizeOut = compImage.sizeOut;
+      sizeOut = compImage.sizeOut / 1e3;
       compPercentage = compImage.comPercentage;
       unlinkSync(compImage.outPath);
       return {

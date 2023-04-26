@@ -29,8 +29,8 @@ const compressImage = async (fileName, optimize) => {
     const { statistics, errors } = result;
     const stats = statistics[0];
     const newData = {
-      sizeIn: (await stats.size_in) / 1000,
-      sizeOut: (await stats.size_output) / 1000,
+      sizeIn: await stats.size_in,
+      sizeOut: await stats.size_output,
       comPercentage: await stats.percent,
       outPath: await stats.path_out_new,
       formatedOutPath: await stats.path_out_new.replace(/\//g, "\\"),
@@ -223,8 +223,8 @@ const compressAndSave = async (fileName, optimize) => {
       const rootCid = await storage.put(compdImg);
       fs.unlinkSync(stats.path_out_new);
       const newData = {
-        sizeIn: (await stats.size_in) / 1000,
-        sizeOut: (await stats.size_output) / 1000,
+        sizeIn: await stats.size_in,
+        sizeOut: await stats.size_output,
         comPercentage: await stats.percent,
         outPath: await stats.path_out_new,
         formatedOutPath: await stats.path_out_new.replace(/\//g, "\\"),
