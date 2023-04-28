@@ -227,7 +227,6 @@ const compressAndSave = async (fileName, optimize) => {
         sizeOut: await stats.size_output,
         comPercentage: await stats.percent,
         outPath: await stats.path_out_new,
-        formatedOutPath: await stats.path_out_new.replace(/\//g, "\\"),
         input: stats.input,
         cid: rootCid,
       };

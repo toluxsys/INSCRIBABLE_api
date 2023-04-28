@@ -43,7 +43,8 @@ const getLinks = async (cid) => {
 const inscriptionPrice = (feeRate, fileSize, price) => {
   const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
   const sats = feeRate * fileSize;
-  const inscriptionCost = sats + 1e4 + 800;
+  console.log(sats);
+  const inscriptionCost = sats + 550 + 1000;
   const total = serviceCharge + inscriptionCost + price;
   return { serviceCharge, inscriptionCost, total };
 };
@@ -242,8 +243,6 @@ module.exports.seleteItem = async (req, res) => {
       }
     });
 
-    console.log(images);
-
     const sortedImages = fileSize.sort((a, b) => a - b);
 
     const cost = inscriptionPrice(
@@ -253,12 +252,10 @@ module.exports.seleteItem = async (req, res) => {
     );
     const total = cost.total * imageNames.length;
     const cardinals = cost.inscriptionCost * imageNames.length;
-    console.log(cost, total, cardinals);
-
     const payDetails = await createLegacyAddress(networkName, count.length);
     let paymentAddress = payDetails.p2pkh_addr;
 
-    const walletKey = await addWalletToOrd(inscriptionId);
+    const walletKey = await addWalletToOrd(inscriptionId, networkName);
     const blockHeight = await axios.post(
       process.env.ORD_API_URL + `/ord/getLatestBlock`
     );

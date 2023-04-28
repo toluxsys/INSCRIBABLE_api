@@ -2,12 +2,13 @@ const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
 const path = require("path");
 const bcrypt = require("bcrypt");
-const Decimal = require("decimal.js");
 const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
 const Inscription = require("../model/inscription");
 const Network = require("../model/network");
 const Ids = require("../model/ids");
+const PayIds = require("../model/paymentIds");
+const PayLink = require("../model/paymentLink");
 const BulkInscription = require("../model/bulkInscription");
 const {
   compressImage,
@@ -29,17 +30,22 @@ const {
   sendBitcoin,
   createLegacyAddress,
   createTaprootAddress,
+  createLegacyPayLinkAddress,
 } = require("../helpers/sendBitcoin2");
 const { getType } = require("../helpers/getType");
-const { cwd } = require("process");
+const { btcToUsd } = require("../helpers/btcToUsd");
 
 module.exports.upload = async (req, res) => {
   try {
     const file = req.files.unCompImage;
-    const feeRate = parseInt(req.body.feeRate);
+    let feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     const optimize = req.body.optimize;
+    if (feeRate <= 1) {
+      res.status(200).json({ status: false, message: `Fee rate too low` });
+    }
     const details = await init(file, feeRate, networkName, optimize);
+
     res.status(200).json({
       status: true,
       message: "ok",
@@ -146,7 +152,12 @@ module.exports.sendUtxo = async (req, res) => {
     }
 
     details = await utxoDetails(inscriptionId, addrCount, amount, network);
-    txDetails = await sendBitcoin(network, payAddressId, details);
+    txDetails = await sendBitcoin(
+      network,
+      payAddressId,
+      details,
+      inscriptionType
+    );
 
     const txHash = await axios.post(
       process.env.ORD_API_URL + `/ord/broadcastTransaction`,
@@ -348,6 +359,7 @@ module.exports.checkPayment = async (req, res) => {
     const type = getType(inscriptionId);
     let inscription;
     let balance;
+    let cost;
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
@@ -355,20 +367,24 @@ module.exports.checkPayment = async (req, res) => {
         inscription.inscriptionDetails.payAddress,
         networkName
       );
+      cost = inscription.cost.total;
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       balance = await getWalletBalance(
         inscription.inscriptionDetails.payAddress,
         networkName
       );
+      cost = inscription.cost.total;
+    } else if (type === `payLink`) {
+      const payLink = await PayLink.findOne({ id: inscriptionId });
+      balance = await getWalletBalance(payLink.payAddress, networkName);
+      cost = payLink.amount;
     }
-
-    const cost = Math.floor(inscription.cost.total * 1e8);
 
     if (Math.floor(balance) < cost) {
       return res.status(200).json({
         status: false,
-        message: `inscription cost not received. Available: ${balance}, Required: ${inscription.cost.total}`,
+        message: `payment not received. Available: ${balance}, Required: ${cost}`,
       });
     } else {
       return res
@@ -519,6 +535,117 @@ module.exports.getStage = async (req, res) => {
         message: "inscription complete",
         userResponse: inscription.stage,
       });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.getConversion = async (req, res) => {
+  try {
+    const { btcAmount, satAmount } = req.body;
+    const satToBtc = parseFloat((satAmount / 1e8).toFixed(8));
+    let conversion = 0;
+    if (btcAmount !== undefined) conversion = await btcToUsd(btcAmount);
+    if (satAmount !== undefined) conversion = await btcToUsd(satToBtc);
+
+    return res
+      .status(200)
+      .json({ status: true, message: "ok", userResponse: conversion });
+  } catch (e) {
+    console.log(e.message);
+  }
+};
+
+module.exports.createPaymentLink = async (req, res) => {
+  try {
+    const { inscriptions, amount, networkName, inscriptionId, receiver } =
+      req.body;
+    const id = `p${uuidv4()}`;
+    const count = await PayIds.find({}, { _id: 0 });
+    const details = await createLegacyPayLinkAddress(networkName, count.length);
+    const payAddress = details.p2pkh_addr;
+    let n_inscriptions = [];
+
+    inscriptions.forEach((id) => {
+      let data = {
+        address: receiver,
+        id: id,
+      };
+      n_inscriptions.push(data);
+    });
+
+    const payLink = new PayLink({
+      id: id,
+      amount: amount,
+      inscriptions: n_inscriptions,
+      payAddress: payAddress,
+      payAddressId: count.length,
+      inscriptionId: inscriptionId,
+      receiver: receiver,
+      sent: false,
+    });
+
+    const savedPayLink = await payLink.save();
+
+    const payIds = new PayIds({
+      id: savedPayLink._id,
+      status: "pending",
+    });
+
+    await payIds.save();
+
+    return res.status(200).json({
+      status: true,
+      message: "ok",
+      userResponse: { payAddress: payAddress, amount: amount, id: id },
+    });
+  } catch (e) {
+    console.log(e.message);
+  }
+};
+
+module.exports.completePayment = async (req, res) => {
+  try {
+    const { id, networkName } = req.body;
+    const payLink = await PayLink.findOne({ id: id });
+    const payIds = await PayIds.findOne({ id: payLink._id });
+    let payLinkAddress;
+    let paymentDetails = [];
+    const type = getType(id);
+    if (networkName === `mainnet`) {
+      payLinkAddress = process.env.MAINNET_PAYLINK_ADDRESS;
+    } else if (networkName === `testnet`) {
+      payLinkAddress = process.env.TESTNET_PAYLINK_ADDRESS;
+    }
+    const details = {
+      address: payLinkAddress,
+      value: payLink.amount - 5000,
+    };
+
+    paymentDetails.push(details);
+
+    payLink.sent = true;
+    payIds.status = "complete";
+
+    const txDetails = await sendBitcoin(
+      networkName,
+      payLink.payAddressId,
+      paymentDetails,
+      type
+    );
+
+    const txHash = await axios.post(
+      process.env.ORD_API_URL + `/ord/broadcastTransaction`,
+      { txHex: txDetails.rawTx, networkName: networkName }
+    );
+
+    if (txHash.data.message !== "ok") {
+      return res.status(200).json({
+        status: false,
+        message: txHash.data.message,
+      });
+    }
   } catch (e) {
     console.log(e.message);
     return res.status(400).json({ status: false, message: e.message });

@@ -42,6 +42,20 @@ const createHDWallet = async (networkName, path) => {
   };
 };
 
+const createPayLinkWallet = async (networkName, path) => {
+  let network = getNetwork(networkName);
+  let passPhrase = new Mnemonic(process.env.PAY_LINK_MNEMONIC);
+  let xpriv = passPhrase
+    .toHDPrivateKey(passPhrase.toString(), network)
+    .derive(`m/${path}/0/0`);
+
+  return {
+    privateKey: xpriv.privateKey.toString(),
+    address: xpriv.publicKey.toAddress().toString(),
+    xpriv: xpriv.privateKey,
+  };
+};
+
 const createCollectionHDWallet = async (networkName, path, index) => {
   let network = getNetwork(networkName);
   let passPhrase = new Mnemonic(process.env.COLLECTION_MNEMONIC);
@@ -71,7 +85,7 @@ const addWalletToOrd = async (walletName, networkName) => {
     };
     const result = await axios.post(url, data);
     if (result.data.message !== "ok") {
-      throw new Error(result.data.message);
+      console.log(result.data.message);
     }
     return key;
   } catch (e) {
@@ -96,7 +110,6 @@ const utxoDetails = async (walletName, count, amount, networkName) => {
     for (const address of addresses) {
       let details = { address: address, value: amount };
       utxoDetails.push(details);
-      console.log(details);
     }
 
     return utxoDetails;
@@ -112,10 +125,11 @@ module.exports = {
   addWalletToOrd,
   utxoDetails,
   createCollectionHDWallet,
+  createPayLinkWallet,
 };
 
-// console.log(
-//   createHDWallet("testnet", 2)
-//     .then((res) => console.log(res))
-//     .catch((e) => console.log(e))
-// );
+console.log(
+  generateKeyPhrase()
+    .then((res) => console.log(res))
+    .catch((e) => console.log(e))
+);

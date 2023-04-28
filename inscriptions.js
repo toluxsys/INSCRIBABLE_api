@@ -155,14 +155,6 @@ const newInscriptions1 = [
   },
   {
     inscription:
-      "6dd9d0d987060254e05b51d7f476310ddad3add43e0b0fa2cd48bd02b5b1533fi0",
-    location:
-      "6dd9d0d987060254e05b51d7f476310ddad3add43e0b0fa2cd48bd02b5b1533f:0:0",
-    explorer:
-      "https://ordinals.com/inscription/6dd9d0d987060254e05b51d7f476310ddad3add43e0b0fa2cd48bd02b5b1533fi0",
-  },
-  {
-    inscription:
       "b5e106ed34ab9bf08fd270854379acb3a22f776cda74c138af0696b8ac678c3fi0",
     location:
       "b5e106ed34ab9bf08fd270854379acb3a22f776cda74c138af0696b8ac678c3f:0:0",

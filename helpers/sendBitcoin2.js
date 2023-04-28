@@ -8,7 +8,11 @@ const {
 } = require("bitcoinjs-lib");
 const tinysecp = require("tiny-secp256k1");
 const { ECPairFactory } = require("ecpair");
-const { createHDWallet, createCollectionHDWallet } = require("./createWallet");
+const {
+  createHDWallet,
+  createCollectionHDWallet,
+  createPayLinkWallet,
+} = require("./createWallet");
 const mempoolJS = require("@mempool/mempool.js");
 const dotenv = require("dotenv");
 const { default: axios } = require("axios");
@@ -45,6 +49,16 @@ const getKeyPair = async (networkName, path) => {
   });
 };
 
+const getPayLinkKeyPair = async (networkName, path) => {
+  const wallet = await createPayLinkWallet(networkName, path);
+  const privateKey = wallet.privateKey;
+  const p_key = privateKey.slice(0, 32);
+  const network = getNetwork(networkName);
+  return ECPair.fromPrivateKey(Buffer.from(p_key), {
+    network,
+  });
+};
+
 const getCollectionKeyPair = async (networkName, path, index) => {
   const wallet = await createCollectionHDWallet(networkName, path, index);
   const privateKey = wallet.privateKey;
@@ -59,6 +73,22 @@ const createLegacyAddress = async (networkName, path) => {
   try {
     const network = getNetwork(networkName);
     const keyPair = await getKeyPair(networkName, path);
+    const p2pkh = payments.p2pkh({
+      pubkey: keyPair.publicKey,
+      network,
+    });
+    const p2pkh_addr = p2pkh.address ?? "";
+    const script = p2pkh.output;
+    return { p2pkh_addr, script };
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const createLegacyPayLinkAddress = async (networkName, path) => {
+  try {
+    const network = getNetwork(networkName);
+    const keyPair = await getPayLinkKeyPair(networkName, path);
     const p2pkh = payments.p2pkh({
       pubkey: keyPair.publicKey,
       network,
@@ -153,41 +183,40 @@ const checkAddress = async (address, network) => {
   }
 };
 
-const sendBitcoin = async (networkName, path, receiverDetails) => {
+const sendBitcoin = async (networkName, path, receiverDetails, type) => {
   try {
     const network = getNetwork(networkName);
     let serviceChargeAddress;
     let broadcastLink;
+    let addressDetails;
+    let fee = 0;
+    let change;
 
     if (networkName === "testnet") {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
-    } else if (networkName === "mainnet") {
-      serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
-    }
-
-    if (networkName === "testnet") {
       broadcastLink = process.env.TESTNET_BROADCAST_LINK;
     } else if (networkName === "mainnet") {
+      serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
       broadcastLink = process.env.MAINNET_BROADCASST_LINK;
     }
 
-    const addressDetails = await createLegacyAddress(networkName, path);
-    let fee = 0;
+    if (type === "payLink") {
+      addressDetails = await createLegacyPayLinkAddress(networkName, path);
+      fee = 5000;
+    }
+    addressDetails = await createLegacyAddress(networkName, path);
+    fee = process.env.FEE;
+
     let inputCount = 0;
-    let outputCount = receiverDetails.length + 1;
     let available = await getWalletBalance(
       addressDetails.p2pkh_addr,
       networkName
     );
-
-    console.log("source:", addressDetails.p2pkh_addr);
     let inputs = [];
     let outputs = [];
     let details = receiverDetails;
     let utxos = available.utxos;
     let totalAmountAvailable = available.totalAmountAvailable;
-
-    console.log(available);
 
     for (const element of utxos) {
       let utxo = {};
@@ -199,13 +228,17 @@ const sendBitcoin = async (networkName, path, receiverDetails) => {
         result = await axios.get(
           `https://mempool.space/${networkName}/api/tx/${utxo.hash}/hex`
         );
+        utxo.nonWitnessUtxo = new Buffer.from(result.data, "hex");
+        inputCount += 1;
+        inputs.push(utxo);
+      } else {
+        result = await axios.get(
+          `https://mempool.space/api/tx/${utxo.hash}/hex`
+        );
+        utxo.nonWitnessUtxo = new Buffer.from(result.data, "hex");
+        inputCount += 1;
+        inputs.push(utxo);
       }
-
-      result = await axios.get(`https://mempool.space/api/tx/${utxo.hash}/hex`);
-      console.log("data:", result.data);
-      utxo.nonWitnessUtxo = new Buffer.from(result.data, "hex");
-      inputCount += 1;
-      inputs.push(utxo);
     }
 
     let amount = 0;
@@ -214,13 +247,14 @@ const sendBitcoin = async (networkName, path, receiverDetails) => {
     }
 
     let changeAmount = totalAmountAvailable - amount - process.env.FEE;
+    if (changeAmount > 0) {
+      change = {
+        address: serviceChargeAddress,
+        value: changeAmount,
+      };
+      details.push(change);
+    }
 
-    const change = {
-      address: serviceChargeAddress,
-      value: changeAmount,
-    };
-
-    details.push(change);
     console.log(details);
 
     for (const detail of details) {
@@ -282,7 +316,6 @@ const sendCollectionBitcoin = async (
       networkName
     );
 
-    console.log("source:", addressDetails.p2pkh_addr);
     let recommendedFee = await getRecomendedFee();
     let inputs = [];
     let outputs = [];
@@ -387,6 +420,7 @@ module.exports = {
   createLegacyAddress,
   createTaprootAddress,
   createCollectionLegacyAddress,
+  createLegacyPayLinkAddress,
 };
 
 // console.log(

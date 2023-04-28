@@ -136,7 +136,7 @@ const sendBitcoin = async (payAddressId, recieverDetails, network) => {
     const transactionSize =
       inputCount * 180 + outputCount * 34 + 10 - inputCount;
 
-    fee = transactionSize * recommendedFee.halfHourFee;
+    fee = transactionSize * recommendedFee.fastestFee;
     console.log("fee", fee);
     console.log("total Available", totalAmountAvailable);
 
@@ -176,8 +176,8 @@ module.exports = {
 
 //   const details = [
 //     {
-//       address: `mtqPCjjer1dEoTq4QhNzYbv1tZZ3GgAjmT`,
-//       amount: 40891,
+//       address: `mvybGPUdh2qTF3VprY344PdPahwsKQWas3`,
+//       amount: 15000,
 //     },
 //   ];
 

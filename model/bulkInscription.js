@@ -7,6 +7,7 @@ const bulkInscription = new mongoose.Schema(
     sent: { type: Boolean },
     feeRate: { type: Number },
     utxoTxid: { type: String },
+    reciever: { type: String },
     encryptedPassKey: {
       type: String,
       immutable: true,
