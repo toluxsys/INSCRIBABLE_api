@@ -128,8 +128,8 @@ module.exports = {
   createPayLinkWallet,
 };
 
-console.log(
-  generateKeyPhrase()
-    .then((res) => console.log(res))
-    .catch((e) => console.log(e))
-);
+// console.log(
+//   generateKeyPhrase()
+//     .then((res) => console.log(res))
+//     .catch((e) => console.log(e))
+// );
