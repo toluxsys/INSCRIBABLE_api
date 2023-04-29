@@ -277,12 +277,14 @@ module.exports.sendInscription = async (req, res) => {
     const id = req.body.inscriptionId;
     const inscriptions = req.body.inscriptions; // inscriptions in an array of objects containing the inscription id to be sent and the receiver address;
     const networkName = req.body.networkName;
+    const feeRate = req.body.feeRate;
     const result = await axios.post(
-      process.env.process.env.ORD_API_URL + `/ord/sendInscription`,
+      process.env.ORD_API_URL + `/ord/sendInscription`,
       {
         inscriptions: inscriptions,
         inscriptionId: id,
         networkName: networkName,
+        feeRate: feeRate,
       }
     );
 
@@ -352,9 +354,9 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
       },
     };
     return res.status(200).json({
+      details,
       status: true,
       message: "ok",
-      userResponse: details,
     });
   } catch (e) {
     console.log(e);
