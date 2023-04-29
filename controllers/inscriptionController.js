@@ -554,13 +554,13 @@ module.exports.getConversion = async (req, res) => {
       .json({ status: true, message: "ok", userResponse: conversion });
   } catch (e) {
     console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
 module.exports.createPaymentLink = async (req, res) => {
   try {
-    const { inscriptions, amount, networkName, inscriptionId, receiver } =
-      req.body;
+    const { inscriptions, amount, networkName, inscriptionId } = req.body;
     const id = `p${uuidv4()}`;
     const count = await PayIds.find({}, { _id: 0 });
     const details = await createLegacyPayLinkAddress(networkName, count.length);
@@ -582,7 +582,6 @@ module.exports.createPaymentLink = async (req, res) => {
       payAddress: payAddress,
       payAddressId: count.length,
       inscriptionId: inscriptionId,
-      receiver: receiver,
       sent: false,
     });
 
@@ -598,10 +597,34 @@ module.exports.createPaymentLink = async (req, res) => {
     return res.status(200).json({
       status: true,
       message: "ok",
-      userResponse: { payAddress: payAddress, amount: amount, id: id },
+      userResponse: { amount: amount, id: id },
     });
   } catch (e) {
     console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.collectAddress = async (req, res) => {
+  try {
+    const { id, receiver } = req.body;
+    const updatedPaylink = await PayLink.findOneAndUpdate(
+      { id: id },
+      { receiver: receiver }
+    );
+
+    const userResponse = {
+      paymentAddress: updatedPaylink.payAddress,
+      amount: updatedPaylink.amount,
+      id: id,
+    };
+
+    return res
+      .status(200)
+      .json({ status: true, message: "ok", userResponse: userResponse });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -646,6 +669,19 @@ module.exports.completePayment = async (req, res) => {
         message: txHash.data.message,
       });
     }
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.getPayLinkDetails = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const payLinkDetails = await PayLink.findOne({ id: id });
+    return res
+      .status(200)
+      .json({ status: true, message: "ok", userResponse: payLinkDetails });
   } catch (e) {
     console.log(e.message);
     return res.status(400).json({ status: false, message: e.message });
