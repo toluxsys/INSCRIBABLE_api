@@ -340,8 +340,17 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
     const files = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
-    const details = await getBulkInscriptionCost(files, feeRate, optimize);
-
+    const data = await getBulkInscriptionCost(files, feeRate, optimize);
+    const details = {
+      compImage: { compPercentage: "", sizeIn: "", sizeOut: "" },
+      inscriptionCost: {
+        inscriptionCost: data.costPerInscription.inscriptionCost * files.length,
+        postageFee: `${data.costPerInscription.postageFee} X ${files.length}`,
+        serviceCharge: data.costPerInscription.serviceCharge * files.length,
+        sizeFee: data.costPerInscription.sizeFee * files.length,
+        total: data.costPerInscription.total * files.length,
+      },
+    };
     return res.status(200).json({
       status: true,
       message: "ok",
@@ -565,20 +574,11 @@ module.exports.createPaymentLink = async (req, res) => {
     const count = await PayIds.find({}, { _id: 0 });
     const details = await createLegacyPayLinkAddress(networkName, count.length);
     const payAddress = details.p2pkh_addr;
-    let n_inscriptions = [];
-
-    inscriptions.forEach((id) => {
-      let data = {
-        address: receiver,
-        id: id,
-      };
-      n_inscriptions.push(data);
-    });
 
     const payLink = new PayLink({
       id: id,
       amount: amount,
-      inscriptions: n_inscriptions,
+      inscriptions: inscriptions,
       payAddress: payAddress,
       payAddressId: count.length,
       inscriptionId: inscriptionId,
@@ -608,6 +608,16 @@ module.exports.createPaymentLink = async (req, res) => {
 module.exports.collectAddress = async (req, res) => {
   try {
     const { id, receiver } = req.body;
+    const payLink = await PayLink.findOne({ id: id });
+    const inscriptions = payLink.inscriptions;
+    let n_inscriptions = [];
+    inscriptions.forEach((id) => {
+      let data = {
+        address: receiver,
+        id: id,
+      };
+      n_inscriptions.push(data);
+    });
     const updatedPaylink = await PayLink.findOneAndUpdate(
       { id: id },
       { receiver: receiver }
@@ -633,6 +643,7 @@ module.exports.completePayment = async (req, res) => {
     const { id, networkName } = req.body;
     const payLink = await PayLink.findOne({ id: id });
     const payIds = await PayIds.findOne({ id: payLink._id });
+
     let payLinkAddress;
     let paymentDetails = [];
     const type = getType(id);
@@ -657,6 +668,8 @@ module.exports.completePayment = async (req, res) => {
       paymentDetails,
       type
     );
+
+    console.log(txDetails);
 
     const txHash = await axios.post(
       process.env.ORD_API_URL + `/ord/broadcastTransaction`,
@@ -1013,7 +1026,11 @@ const getBulkInscriptionCost = async (files, feeRate, optimize) => {
     const inscriptionCost = inscriptionPrice(feeRate, data.largestFile);
     const total = inscriptionCost.total * files.length;
 
-    return { fileSize: data.largestFile / 1e3, total: total };
+    return {
+      fileSize: data.largestFile / 1e3,
+      total: total,
+      costPerInscription: inscriptionCost,
+    };
   } catch (e) {
     console.log(e.message);
   }

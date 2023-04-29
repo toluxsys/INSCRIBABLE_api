@@ -95,7 +95,7 @@ const createLegacyPayLinkAddress = async (networkName, path) => {
     });
     const p2pkh_addr = p2pkh.address ?? "";
     const script = p2pkh.output;
-    return { p2pkh_addr, script };
+    return { p2pkh_addr: p2pkh_addr, script: script };
   } catch (e) {
     console.log(e);
   }
@@ -191,6 +191,7 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
     let addressDetails;
     let fee = 0;
     let change;
+    let keyPair;
 
     if (networkName === "testnet") {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
@@ -203,7 +204,9 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
     if (type === "payLink") {
       addressDetails = await createLegacyPayLinkAddress(networkName, path);
       fee = 5000;
+      keyPair = await getPayLinkKeyPair(networkName, path);
     }
+    keyPair = await getKeyPair(networkName, path);
     addressDetails = await createLegacyAddress(networkName, path);
     fee = process.env.FEE;
 
@@ -255,8 +258,6 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
       details.push(change);
     }
 
-    console.log(details);
-
     for (const detail of details) {
       const addr = address.toOutputScript(detail.address, network);
       outputs.push({
@@ -266,7 +267,8 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
       });
     }
 
-    const keyPair = await getKeyPair(networkName, path);
+    console.log(keyPair);
+
     const psbt = new Psbt({ network })
       .addInputs(inputs)
       .addOutputs(outputs)
@@ -274,6 +276,7 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
       .finalizeAllInputs();
     const txs = psbt.extractTransaction();
     const tx = txs.toHex();
+    console.log(tx);
     return { link: broadcastLink, rawTx: tx };
   } catch (e) {
     console.log(e);
