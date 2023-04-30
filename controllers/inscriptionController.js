@@ -219,7 +219,7 @@ module.exports.inscribe = async (req, res) => {
       instance = inscription[0];
       imageName = instance.inscriptionDetails.fileName;
       ids = await Ids.where("id").equals(instance._id);
-      const cost = Math.floor(instance.cost.inscriptionCost * 1e8);
+      const cost = Math.floor(instance.cost.inscriptionCost);
       if (balance < cost) {
         return res.status(200).json({
           status: false,
@@ -228,7 +228,7 @@ module.exports.inscribe = async (req, res) => {
       }
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
-      let cost = Math.floor(instance.cost.cardinal * 1e8);
+      let cost = Math.floor(instance.cost.cardinal);
       instance = inscription[0];
       ids = await Ids.where("id").equals(instance._id);
       if (balance < cost) {
@@ -399,16 +399,23 @@ module.exports.checkPayment = async (req, res) => {
       cost = payLink.amount;
     }
 
-    if (Math.floor(balance) < cost) {
+    console.log(balance);
+
+    if (balance.status[0] !== "true")
       return res.status(200).json({
         status: false,
-        message: `payment not received. Available: ${balance}, Required: ${cost}`,
+        message: `Waiting for payment confirmation. Confirmed: ${balance.status[0]}`,
       });
-    } else {
-      return res
-        .status(200)
-        .json({ status: true, message: `ok`, userResponse: true });
-    }
+
+    if (Math.floor(balance.totalAmountAvailable) < cost)
+      return res.status(200).json({
+        status: false,
+        message: `payment not received. Available: ${balance.totalAmountAvailable}, Required: ${cost}`,
+      });
+
+    return res
+      .status(200)
+      .json({ status: true, message: `ok`, userResponse: true });
   } catch (e) {
     console.log(e.message);
     return res.status(400).json({ status: false, message: e.message });

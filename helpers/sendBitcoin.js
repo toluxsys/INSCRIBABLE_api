@@ -30,16 +30,17 @@ const getWalletBalance = async (address, network) => {
   try {
     const { addresses } = await init(network);
     const response = await addresses.getAddressTxsUtxo({ address });
+    let status = [];
 
     let totalAmountAvailable = 0;
     let utxos = response;
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
-      console.log(`Balance:`, element);
+      status.push(element.status);
     }
 
-    return totalAmountAvailable;
+    return { totalAmountAvailable, status };
   } catch (e) {
     console.log(e.message);
   }
@@ -176,8 +177,8 @@ module.exports = {
 
 //   const details = [
 //     {
-//       address: `mte8uWyaBSqNkXHKGXph1dJXHkwdd1kt2f`,
-//       amount: 20000,
+//       address: `mw1ct9otEpQjXjZ6huhxQ5fZBnA3Hj8DU2`,
+//       amount: 28918,
 //     },
 //   ];
 

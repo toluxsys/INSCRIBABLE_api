@@ -148,16 +148,17 @@ const getWalletBalance = async (address, network) => {
   try {
     const { addresses } = await init(network);
     const response = await addresses.getAddressTxsUtxo({ address });
+    let status = [];
 
     let totalAmountAvailable = 0;
     let utxos = response;
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
-      console.log(`Balance:`, element);
+      status.push(element.status);
     }
 
-    return { totalAmountAvailable, utxos };
+    return { totalAmountAvailable, utxos, status };
   } catch (e) {
     console.log(e.message);
   }
