@@ -74,13 +74,20 @@ module.exports.uploadMultiple = async (req, res) => {
       status: true,
       message: "ok",
       userResponse: {
-        inscriptionCost: details.cardinals,
-        postage: 550,
-        serviceCharge: details.serviceCharge,
-        sizeFee: details.sizeFee,
-        total: details.totalCost,
+        compImage: {
+          compPercentage: "",
+          sizeIn: "",
+          sizeOut: "",
+          cid: details.data.cid,
+        },
+        cost: {
+          inscriptionCost: details.cardinals,
+          postage: `550 X ${files.length}`,
+          serviceCharge: details.serviceCharge,
+          sizeFee: details.sizeFee,
+          total: details.totalCost,
+        },
         paymentAddress: details.paymentAddress,
-        passKey: details.passKey,
         inscriptionId: details.inscriptionId,
       },
     });
