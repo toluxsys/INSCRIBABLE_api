@@ -10,6 +10,7 @@ let blockHeight = 0;
 
 const app = express();
 const port = process.env.PORT || 5000;
+const host = "0.0.0.0";
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -50,6 +51,6 @@ app.get("/", (req, res) => {
   res.status(200).json({ message: "You are connected to the server" });
 });
 
-app.listen(port, () => {
+app.listen(port, host, () => {
   console.log(`Server running on port ${port}`);
 });
