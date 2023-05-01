@@ -206,7 +206,8 @@ module.exports.inscribe = async (req, res) => {
     let instance;
     let newInscription;
     let imageName;
-    let ids;
+    let n_inscriptions;
+    let details = [];
 
     const result = await axios.post(
       process.env.ORD_API_URL + `/ord/wallet/balance`,
@@ -256,7 +257,16 @@ module.exports.inscribe = async (req, res) => {
         .status(200)
         .json({ status: false, message: newInscription.data.message });
     }
-    instance.inscription = newInscription.data.userResponse.data;
+    n_inscriptions = newInscription.data.userResponse.data;
+    n_inscriptions.forEach((item) => {
+      const data = {
+        inscription: item.inscriptions[0],
+        commit: item.commit,
+      };
+
+      details.push(data);
+    });
+    instance.inscription = details;
     if (receciverAddress === undefined || receciverAddress === null) {
       instance.inscribed = true;
       instance.stage = "stage 3";
@@ -270,7 +280,7 @@ module.exports.inscribe = async (req, res) => {
       return res.status(200).json({
         status: true,
         message: `ok`,
-        userResponse: newInscription.data.userResponse.data,
+        userResponse: details,
       });
     }
   } catch (e) {
