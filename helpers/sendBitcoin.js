@@ -138,8 +138,6 @@ const sendBitcoin = async (payAddressId, recieverDetails, network) => {
       inputCount * 180 + outputCount * 34 + 10 - inputCount;
 
     fee = transactionSize * recommendedFee.fastestFee;
-    console.log("fee", fee);
-    console.log("total Available", totalAmountAvailable);
 
     if (totalAmountAvailable - amount - fee === 0) {
       throw new Error("Balance is too low for this transaction");
@@ -177,8 +175,8 @@ module.exports = {
 
 //   const details = [
 //     {
-//       address: `mw1ct9otEpQjXjZ6huhxQ5fZBnA3Hj8DU2`,
-//       amount: 28918,
+//       address: `mxhUwTEVGXHUq5raZ8WCLQ8suSXt3EzWEj`,
+//       amount: 14450,
 //     },
 //   ];
 

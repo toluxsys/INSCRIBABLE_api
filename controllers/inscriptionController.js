@@ -219,7 +219,7 @@ module.exports.inscribe = async (req, res) => {
       instance = inscription[0];
       imageName = instance.inscriptionDetails.fileName;
       ids = await Ids.where("id").equals(instance._id);
-      const cost = Math.floor(instance.cost.inscriptionCost);
+      const cost = instance.cost.inscriptionCost;
       if (balance < cost) {
         return res.status(200).json({
           status: false,
@@ -228,7 +228,7 @@ module.exports.inscribe = async (req, res) => {
       }
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
-      let cost = Math.floor(instance.cost.cardinal);
+      let cost = instance.cost.cardinal;
       instance = inscription[0];
       ids = await Ids.where("id").equals(instance._id);
       if (balance < cost) {
@@ -399,12 +399,12 @@ module.exports.checkPayment = async (req, res) => {
       cost = payLink.amount;
     }
 
-    console.log(balance);
+    console.log(balance.status[0].confirmed);
 
-    if (balance.status[0] !== "true")
+    if (balance.status[0].confirmed !== true)
       return res.status(200).json({
         status: false,
-        message: `Waiting for payment confirmation. Confirmed: ${balance.status[0]}`,
+        message: `Waiting for payment confirmation. Confirmed: ${balance.status[0].confirmed}`,
       });
 
     if (Math.floor(balance.totalAmountAvailable) < cost)
@@ -717,6 +717,40 @@ module.exports.getPayLinkDetails = async (req, res) => {
   }
 };
 
+module.exports.getOrderDetails = async (req, res) => {
+  try {
+    const { inscriptionId } = req.body;
+    const type = getType(inscriptionId);
+    let inscription;
+    let data;
+    if (type === "single") {
+      inscription = await Inscription.findOne({ id: inscriptionId });
+      data = { costDetails: inscription.cost, stage: inscription.stage };
+    }
+
+    if (type === "bulk") {
+      inscription = await BulkInscription.findOne({ id: inscriptionId });
+      const totalAmount = inscription.inscriptionDetails.totalAmount;
+      const costPerInscription = inscription.cost.costPerInscription;
+      const costDetails = {
+        serviceCharge: costPerInscription.serviceCharge * totalAmount,
+        inscriptionCost: costPerInscription.inscriptionCost * totalAmount,
+        sizeFee: costPerInscription.sizeFee * totalAmount,
+        postageFee: costPerInscription.postageFee,
+        total: costPerInscription.total * totalAmount,
+      };
+      data = { costDetails: costDetails, stage: inscription.stage };
+    }
+
+    return res
+      .status(200)
+      .json({ status: true, message: "ok", userResponse: data });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
 const init = async (file, feeRate, networkName, optimize) => {
   try {
     const id = await import("nanoid");
@@ -954,7 +988,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
 const inscriptionPrice = (feeRate, fileSize) => {
   const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
   const sats = Math.ceil((fileSize / 4) * feeRate);
-  const cost = sats + 1e3 + 550;
+  const cost = sats + 1500 + 550;
   const sizeFee = cost.toString().substring(0, cost.toString().length - 1);
   const total = serviceCharge + cost + parseInt(sizeFee);
   return {

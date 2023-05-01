@@ -34,5 +34,6 @@ router.get("/checkStage", controller.getStage);
 router.get("/getRecFee", controller.getRecFee);
 router.get("/getConversion", controller.getConversion);
 router.get("/getPayLinkDetails", controller.getPayLinkDetails);
+router.get("/orderDetails", controller.getOrderDetails);
 
 module.exports = router;
