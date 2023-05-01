@@ -29,11 +29,11 @@ router.post("/createPaymentLink", controller.createPaymentLink);
 router.post("/collectAddress", controller.collectAddress);
 router.post("/completePay", controller.completePayment);
 router.post("/completePayment", controller.completePayment);
-router.get("/getNetwork", controller.getNetwork);
-router.get("/checkStage", controller.getStage);
+router.post("/checkStage", controller.getStage);
+router.post("/getConversion", controller.getConversion);
+router.post("/getPayLinkDetails", controller.getPayLinkDetails);
+router.post("/orderDetails", controller.getOrderDetails);
 router.get("/getRecFee", controller.getRecFee);
-router.get("/getConversion", controller.getConversion);
-router.get("/getPayLinkDetails", controller.getPayLinkDetails);
-router.get("/orderDetails", controller.getOrderDetails);
+router.get("/getNetwork", controller.getNetwork);
 
 module.exports = router;
