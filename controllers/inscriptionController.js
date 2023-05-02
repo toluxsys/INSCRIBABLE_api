@@ -424,13 +424,20 @@ module.exports.checkPayment = async (req, res) => {
       cost = payLink.amount;
     }
 
-    if (balance.status[0].confirmed !== true)
+    if (!balance.status[0])
       return res.status(200).json({
         status: false,
-        message: `Waiting for payment confirmation. Confirmed: ${balance.status[0].confirmed}`,
+        message: `Waiting for payment`,
       });
 
-    if (Math.floor(balance.totalAmountAvailable) < cost)
+    if (!balance.status[0].confirmed) {
+      return res.status(200).json({
+        status: false,
+        message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+      });
+    }
+
+    if (balance.totalAmountAvailable < cost)
       return res.status(200).json({
         status: false,
         message: `payment not received. Available: ${balance.totalAmountAvailable}, Required: ${cost}`,
