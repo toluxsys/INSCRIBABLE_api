@@ -24,6 +24,9 @@ const inscriptionSchema = new mongoose.Schema(
     cost: {
       type: Object,
     },
+    receiver: {
+      type: String,
+    },
     stage: {
       type: String,
     },

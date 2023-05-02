@@ -206,7 +206,7 @@ module.exports.sendUtxo = async (req, res) => {
 module.exports.inscribe = async (req, res) => {
   try {
     const inscriptionId = req.body.id;
-    const receciverAddress = req.body.address;
+    const receiverAddress = req.body.address;
     const networkName = req.body.networkName;
     const type = getType(inscriptionId);
     let inscription;
@@ -256,7 +256,7 @@ module.exports.inscribe = async (req, res) => {
 
     newInscription = await axios.post(ORD_API_URL + `/ord/inscribe`, {
       feeRate: instance.feeRate,
-      receiverAddress: receciverAddress,
+      receiverAddress: receiverAddress,
       cid: instance.inscriptionDetails.cid,
       inscriptionId: inscriptionId,
       type: type,
@@ -278,15 +278,17 @@ module.exports.inscribe = async (req, res) => {
       details.push(data);
     });
     instance.inscription = details;
-    if (receciverAddress === undefined || receciverAddress === null) {
+    if (!receiverAddress) {
       instance.inscribed = true;
       instance.stage = "stage 3";
+      instance.receiver = "";
       await instance.save();
       return;
     } else {
       instance.sent = true;
       instance.inscribed = true;
       instance.stage = "stage 3";
+      instance.receiver = receiverAddress;
       await instance.save();
       return res.status(200).json({
         status: true,
@@ -761,7 +763,13 @@ module.exports.getOrderDetails = async (req, res) => {
     let data;
     if (type === "single") {
       inscription = await Inscription.findOne({ id: inscriptionId });
-      data = { costDetails: inscription.cost, stage: inscription.stage };
+      data = {
+        cost: inscription.cost,
+        inscriptionId: inscriptionId,
+        paymentAddress: inscription.inscriptionDetails.payAddress,
+        receiverAddress: inscription.receiver,
+        stage: inscription.stage,
+      };
     }
 
     if (type === "bulk") {
@@ -775,7 +783,13 @@ module.exports.getOrderDetails = async (req, res) => {
         postageFee: costPerInscription.postageFee,
         total: costPerInscription.total * totalAmount,
       };
-      data = { costDetails: costDetails, stage: inscription.stage };
+      data = {
+        cost: costDetails,
+        inscriptionId: inscriptionId,
+        paymentAddress: inscription.inscriptionDetails.payAddress,
+        receiverAddress: inscription.receiver,
+        stage: inscription.stage,
+      };
     }
 
     return res
@@ -791,8 +805,6 @@ const init = async (file, feeRate, networkName, optimize) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
-    const passKey = nanoid(32);
-    const enKey = await bcrypt.hash(passKey, 10);
     const inscriptionId = `s${uuidv4()}`;
     const count = await Ids.find({}, { _id: 0 });
     let ORD_API_URL;
@@ -828,7 +840,6 @@ const init = async (file, feeRate, networkName, optimize) => {
         id: inscriptionId,
         inscribed: false,
         feeRate: feeRate,
-        encryptedPassKey: enKey,
 
         inscriptionDetails: {
           imageSizeIn: compImage.sizeIn / 1e3,
@@ -861,7 +872,6 @@ const init = async (file, feeRate, networkName, optimize) => {
         compImage,
         inscriptionCost,
         paymentAddress,
-        passKey,
         inscriptionId,
       };
     } else if (optimize === `false`) {
@@ -880,7 +890,6 @@ const init = async (file, feeRate, networkName, optimize) => {
         id: inscriptionId,
         inscribed: false,
         feeRate: feeRate,
-        encryptedPassKey: enKey,
 
         inscriptionDetails: {
           imageSizeIn: file.size,
@@ -911,7 +920,6 @@ const init = async (file, feeRate, networkName, optimize) => {
         compImage,
         inscriptionCost,
         paymentAddress,
-        passKey,
         inscriptionId,
       };
     }
@@ -924,8 +932,6 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
-    const passKey = nanoid(32);
-    const enKey = await bcrypt.hash(passKey, 10);
     const inscriptionId = `b${uuidv4()}`;
     const count = await Ids.find({}, { _id: 0 });
     const serviceCharge = parseInt(process.env.SERVICE_CHARGE) * files.length;
@@ -982,7 +988,6 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
       id: inscriptionId,
       inscribed: false,
       feeRate: feeRate,
-      encryptedPassKey: enKey,
 
       inscriptionDetails: {
         largestFile: data.largestFile,
@@ -1020,7 +1025,6 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
       sizeFee: sizeFee,
       serviceCharge: serviceCharge,
       paymentAddress: paymentAddress,
-      passKey: passKey,
       inscriptionId: inscriptionId,
     };
   } catch (e) {
