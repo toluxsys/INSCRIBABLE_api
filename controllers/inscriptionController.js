@@ -115,6 +115,13 @@ module.exports.sendUtxo = async (req, res) => {
     let txDetails;
     let ids;
     let txId;
+    let ORD_API_URL;
+
+    if (network === "mainnet") {
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    } else if (network === "testnet") {
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+    }
 
     if (inscriptionType === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
@@ -166,10 +173,10 @@ module.exports.sendUtxo = async (req, res) => {
       inscriptionType
     );
 
-    const txHash = await axios.post(
-      process.env.ORD_API_URL + `/ord/broadcastTransaction`,
-      { txHex: txDetails.rawTx, networkName: network }
-    );
+    const txHash = await axios.post(ORD_API_URL + `/ord/broadcastTransaction`, {
+      txHex: txDetails.rawTx,
+      networkName: network,
+    });
 
     if (txHash.data.message !== "ok") {
       return res.status(200).json({
@@ -208,11 +215,18 @@ module.exports.inscribe = async (req, res) => {
     let imageName;
     let n_inscriptions;
     let details = [];
+    let ids;
+    let ORD_API_URL;
 
-    const result = await axios.post(
-      process.env.ORD_API_URL + `/ord/wallet/balance`,
-      { walletName: inscriptionId, networkName: networkName }
-    );
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+
+    const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
+      walletName: inscriptionId,
+      networkName: networkName,
+    });
     const balance = result.data.userResponse.data;
 
     if (type === "single") {
@@ -240,18 +254,15 @@ module.exports.inscribe = async (req, res) => {
       }
     }
 
-    newInscription = await axios.post(
-      process.env.ORD_API_URL + `/ord/inscribe`,
-      {
-        feeRate: instance.feeRate,
-        receiverAddress: receciverAddress,
-        cid: instance.inscriptionDetails.cid,
-        inscriptionId: inscriptionId,
-        type: type,
-        imageName: imageName,
-        networkName: networkName,
-      }
-    );
+    newInscription = await axios.post(ORD_API_URL + `/ord/inscribe`, {
+      feeRate: instance.feeRate,
+      receiverAddress: receciverAddress,
+      cid: instance.inscriptionDetails.cid,
+      inscriptionId: inscriptionId,
+      type: type,
+      imageName: imageName,
+      networkName: networkName,
+    });
     if (newInscription.data.message !== "ok") {
       return res
         .status(200)
@@ -295,15 +306,19 @@ module.exports.sendInscription = async (req, res) => {
     const inscriptions = req.body.inscriptions; // inscriptions in an array of objects containing the inscription id to be sent and the receiver address;
     const networkName = req.body.networkName;
     const feeRate = req.body.feeRate;
-    const result = await axios.post(
-      process.env.ORD_API_URL + `/ord/sendInscription`,
-      {
-        inscriptions: inscriptions,
-        inscriptionId: id,
-        networkName: networkName,
-        feeRate: feeRate,
-      }
-    );
+    let ORD_API_URL;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+
+    const result = await axios.post(ORD_API_URL + `/ord/sendInscription`, {
+      inscriptions: inscriptions,
+      inscriptionId: id,
+      networkName: networkName,
+      feeRate: feeRate,
+    });
 
     if (result.data.message !== `ok`) {
       return res
@@ -409,8 +424,6 @@ module.exports.checkPayment = async (req, res) => {
       cost = payLink.amount;
     }
 
-    console.log(balance.status[0].confirmed);
-
     if (balance.status[0].confirmed !== true)
       return res.status(200).json({
         status: false,
@@ -438,13 +451,19 @@ module.exports.checkUtxo = async (req, res) => {
     const type = getType(inscriptionId);
     let inscription;
     let balance;
+    let ORD_API_URL;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
-      const result = await axios.post(
-        process.env.ORD_API_URL + `/ord/wallet/balance`,
-        { walletName: inscriptionId, networkName: networkName }
-      );
+      const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
+        walletName: inscriptionId,
+        networkName: networkName,
+      });
       balance = result.data.userResponse.data;
       if (balance < inscription.cost.inscriptionCost) {
         return res.status(200).json({
@@ -458,10 +477,10 @@ module.exports.checkUtxo = async (req, res) => {
       }
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
-      const result = await axios.post(
-        process.env.ORD_API_URL + `/ord/wallet/balance`,
-        { walletName: inscriptionId, networkName: networkName }
-      );
+      const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
+        walletName: inscriptionId,
+        networkName: networkName,
+      });
       balance = result.data.userResponse.data;
       if (balance < inscription.cost.cardinal) {
         return res.status(200).json({
@@ -769,6 +788,12 @@ const init = async (file, feeRate, networkName, optimize) => {
     const enKey = await bcrypt.hash(passKey, 10);
     const inscriptionId = `s${uuidv4()}`;
     const count = await Ids.find({}, { _id: 0 });
+    let ORD_API_URL;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     const fileName = new Date().getTime().toString() + path.extname(file.name);
     const savePath = path.join(
@@ -788,9 +813,7 @@ const init = async (file, feeRate, networkName, optimize) => {
       let paymentAddress = payDetails.p2pkh_addr;
 
       const walletKey = await addWalletToOrd(inscriptionId, networkName);
-      const blockHeight = await axios.post(
-        process.env.ORD_API_URL + `/ord/getLatestBlock`
-      );
+      const blockHeight = await axios.post(ORD_API_URL + `/ord/getLatestBlock`);
       if (blockHeight.data.message !== `ok`) {
         return res.status(200).json({ message: blockHeight.data.message });
       }
@@ -842,9 +865,7 @@ const init = async (file, feeRate, networkName, optimize) => {
       let paymentAddress = payDetails.p2pkh_addr;
 
       const walletKey = await addWalletToOrd(inscriptionId, networkName);
-      const blockHeight = await axios.post(
-        process.env.ORD_API_URL + `/ord/getLatestBlock`
-      );
+      const blockHeight = await axios.post(ORD_API_URL + `/ord/getLatestBlock`);
       if (blockHeight.data.message !== `ok`) {
         return res.status(500).json({ message: blockHeight.data.message });
       }
@@ -903,6 +924,13 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
     const serviceCharge = parseInt(process.env.SERVICE_CHARGE) * files.length;
     let optimized;
 
+    let ORD_API_URL;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+
     if (optimize === `true`) {
       optimized = true;
     } else {
@@ -941,9 +969,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
     let paymentAddress = payDetails.p2pkh_addr;
 
     const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const blockHeight = await axios.post(
-      process.env.ORD_API_URL + `/ord/getLatestBlock`
-    );
+    const blockHeight = await axios.post(ORD_API_URL + `/ord/getLatestBlock`);
 
     const bulkInscription = new BulkInscription({
       id: inscriptionId,
@@ -999,12 +1025,12 @@ const inscriptionPrice = (feeRate, fileSize) => {
   const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
   const sats = Math.ceil((fileSize / 4) * feeRate);
   const cost = sats + 1500 + 550;
-  const sizeFee = cost.toString().substring(0, cost.toString().length - 1);
+  const sizeFee = Math.ceil(cost / 2);
   const total = serviceCharge + cost + parseInt(sizeFee);
   return {
     serviceCharge,
-    inscriptionCost: cost,
-    sizeFee: parseInt(sizeFee),
+    inscriptionCost: cost + sizeFee,
+    sizeFee: sizeFee,
     postageFee: 550,
     total: total,
   };

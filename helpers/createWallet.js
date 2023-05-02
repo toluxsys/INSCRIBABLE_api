@@ -75,7 +75,14 @@ const generateKeyPhrase = async () => {
 
 const addWalletToOrd = async (walletName, networkName) => {
   try {
-    const url = process.env.ORD_API_URL + `/ord/wallet/add_wallet`;
+    let ORD_API_URL;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+
+    const url = ORD_API_URL + `/ord/wallet/add_wallet`;
     const key = await generateKeyPhrase();
 
     const data = {
@@ -96,7 +103,13 @@ const addWalletToOrd = async (walletName, networkName) => {
 const utxoDetails = async (walletName, count, amount, networkName) => {
   try {
     let utxoDetails = [];
-    const url = process.env.ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    let ORD_API_URL;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
     const data = {
       collectionName: walletName,
       addrCount: count,
@@ -129,7 +142,7 @@ module.exports = {
 };
 
 // console.log(
-//   generateKeyPhrase()
+//   createHDWallet("testnet", 2)
 //     .then((res) => console.log(res))
 //     .catch((e) => console.log(e))
 // );

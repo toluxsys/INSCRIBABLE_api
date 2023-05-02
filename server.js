@@ -29,14 +29,14 @@ mongoose
 
     timerId = setTimeout(async function indexOrd() {
       const blocks = await axios.post(
-        process.env.ORD_API_URL + `/ord/getLatestBlock`
+        process.env.ORD_MAINNET_API_URL + `/ord/getLatestBlock`
       );
       if (blocks.data.message !== `ok`)
         console.log(
           `[ALERT]: ORD INDEXING ERROR WITH MESSAGE: ${blocks.data.message}`
         );
       if (blocks.data.userResponse.data > blockHeight) {
-        await axios.post(process.env.ORD_API_URL + `/ord/index_ord`);
+        await axios.post(process.env.ORD_MAINNET_API_URL + `/ord/index_ord`);
         blockHeight = blocks.data.userResponse.data;
       }
       timerId = setTimeout(indexOrd, interval);

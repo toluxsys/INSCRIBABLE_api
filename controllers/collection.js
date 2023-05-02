@@ -228,6 +228,13 @@ module.exports.seleteItem = async (req, res) => {
     let inscriptionId;
     let savedInscription;
 
+    let ORD_API_URL;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+
     if (imageNames.length > 1) {
       inscriptionId = `b${uuidv4()}`;
     } else {
@@ -256,9 +263,7 @@ module.exports.seleteItem = async (req, res) => {
     let paymentAddress = payDetails.p2pkh_addr;
 
     const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const blockHeight = await axios.post(
-      process.env.ORD_API_URL + `/ord/getLatestBlock`
-    );
+    const blockHeight = await axios.post(ORD_API_URL + `/ord/getLatestBlock`);
     if (blockHeight.data.message !== `ok`) {
       return res.status(200).json({ message: blockHeight.data.message });
     }
@@ -351,6 +356,12 @@ module.exports.sendUtxo = async (req, res) => {
     let balance;
     let txDetails;
     let ids;
+    let ORD_API_URL;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     if (inscriptionType === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
@@ -401,10 +412,10 @@ module.exports.sendUtxo = async (req, res) => {
     }
 
     txDetails = await sendBitcoin(network, payAddressId, details);
-    const txHash = await axios.post(
-      process.env.ORD_API_URL + `/ord/broadcastTransaction`,
-      { txHex: txDetails.rawTx, networkName: network }
-    );
+    const txHash = await axios.post(ORD_API_URL + `/ord/broadcastTransaction`, {
+      txHex: txDetails.rawTx,
+      networkName: network,
+    });
     if (txHash.data.message !== "ok") {
       return res.status(200).json({
         message: txHash.data.message,
