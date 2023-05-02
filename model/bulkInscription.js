@@ -21,7 +21,7 @@ const bulkInscription = new mongoose.Schema(
     cost: {
       type: Object,
     },
-    receiever: {
+    receiver: {
       type: String,
     },
     stage: {
