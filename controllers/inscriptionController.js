@@ -173,10 +173,10 @@ module.exports.sendUtxo = async (req, res) => {
       inscriptionType
     );
 
-    if (!txDetails.rawTx)
+    if (txDetails.rawTx === "000")
       return res
         .status(200)
-        .json({ status: false, message: `Error signing utxo` });
+        .json({ status: false, message: `No input available for signing` });
 
     const txHash = await axios.post(ORD_API_URL + `/ord/broadcastTransaction`, {
       txHex: txDetails.rawTx,

@@ -268,7 +268,9 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
       });
     }
 
-    if (inputs.length === 0) throw new Error("No input available for signing");
+    if (inputs.length === 0) {
+      return { link: broadcastLink, rawTx: "000" };
+    }
 
     const psbt = new Psbt({ network })
       .addInputs(inputs)
