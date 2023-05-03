@@ -173,6 +173,11 @@ module.exports.sendUtxo = async (req, res) => {
       inscriptionType
     );
 
+    if (!txDetails.rawTx)
+      return res
+        .status(200)
+        .json({ status: false, message: `Error signing utxo` });
+
     const txHash = await axios.post(ORD_API_URL + `/ord/broadcastTransaction`, {
       txHex: txDetails.rawTx,
       networkName: network,
