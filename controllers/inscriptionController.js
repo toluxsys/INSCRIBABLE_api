@@ -426,9 +426,7 @@ module.exports.checkPayment = async (req, res) => {
       cost = payLink.amount;
     }
 
-    if (inscription.stage === "stage 1") {
-      return res.status(200).json({ status: true, message: "file uploaded" });
-    } else if (inscription.stage === "stage 2") {
+    if (inscription.stage === "stage 2") {
       return res.status(200).json({ status: true, message: "utxo sent" });
     } else if (inscription.stage === "stage 3") {
       return res.status(200).json({
@@ -486,9 +484,7 @@ module.exports.checkUtxo = async (req, res) => {
         networkName: networkName,
       });
       balance = result.data.userResponse.data;
-      if (inscription.stage === "stage 1") {
-        return res.status(200).json({ status: true, message: "file uploaded" });
-      } else if (inscription.stage === "stage 2") {
+      if (inscription.stage === "stage 2") {
         return res.status(200).json({ status: true, message: "utxo sent" });
       } else if (inscription.stage === "stage 3") {
         return res.status(200).json({
@@ -515,9 +511,7 @@ module.exports.checkUtxo = async (req, res) => {
       });
       balance = result.data.userResponse.data;
 
-      if (inscription.stage === "stage 1") {
-        return res.status(200).json({ status: true, message: "file uploaded" });
-      } else if (inscription.stage === "stage 2") {
+      if (inscription.stage === "stage 2") {
         return res.status(200).json({ status: true, message: "utxo sent" });
       } else if (inscription.stage === "stage 3") {
         return res.status(200).json({
