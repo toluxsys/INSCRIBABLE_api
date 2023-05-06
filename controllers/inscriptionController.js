@@ -1068,7 +1068,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
 
 const inscriptionPrice = (feeRate, fileSize) => {
   const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
-  const sats = Math.ceil((fileSize / 4) * feeRate);
+  const sats = Math.ceil((fileSize / 2) * feeRate);
   const cost = sats + 1500 + 550;
   const sizeFee = Math.ceil(cost / 2);
   const total = serviceCharge + cost + parseInt(sizeFee);
