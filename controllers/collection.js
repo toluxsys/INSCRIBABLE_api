@@ -23,6 +23,7 @@ const {
   createLegacyAddress,
   createTaprootAddress,
 } = require("../helpers/sendBitcoin2");
+const index = require("compress-images");
 
 const getLinks = async (cid) => {
   const client = await import("ipfs-http-client");
@@ -42,11 +43,17 @@ const getLinks = async (cid) => {
 
 const inscriptionPrice = (feeRate, fileSize, price) => {
   const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
-  const sats = feeRate * fileSize;
-  console.log(sats);
-  const inscriptionCost = sats + 550 + 1000;
-  const total = serviceCharge + inscriptionCost + price;
-  return { serviceCharge, inscriptionCost, total };
+  const sats = Math.ceil((fileSize / 2) * feeRate);
+  const cost = sats + 1500 + 550;
+  const sizeFee = Math.ceil(cost / 2);
+  const total = serviceCharge + cost + parseInt(sizeFee) + price;
+  return {
+    serviceCharge,
+    inscriptionCost: cost + sizeFee,
+    sizeFee: sizeFee,
+    postageFee: 550,
+    total: total,
+  };
 };
 
 module.exports.addCollection = async (req, res) => {
@@ -144,6 +151,7 @@ module.exports.addCollectionItems = async (req, res) => {
     const collectionId = req.body.collectionId;
     const collectionItems = req.files.items;
     const optimize = req.body.optimize;
+    const itemCid = req.body.itemCid;
     const instance = await Collection.find({ id: collectionId });
 
     if (instance.status === "approved") {
@@ -169,6 +177,20 @@ module.exports.addCollectionItems = async (req, res) => {
         }
       );
     }
+
+    if (collectionItems === undefined){
+        if (itemCid === undefined) res.status(200).json({status: false, message: "choose item(s) to upload or input collection item cid"});
+        cid.push(itemCid);
+        await Collection.findOneAndUpdate(
+        { id: collectionId },
+        { $push: { cids: { $each: cid, $position: -1 } } },
+        { largestFile: data.largestFile },
+        { status: `approved` },
+        { new: true }
+      );
+    }
+
+    if (collectionItems.length > 100) return res.status(200).json({status:false, message: "collection items above 100, upload images to ipfs and pass CID"});
 
     collectionItems.forEach(async (file, index) => {
       ext = path.extname(file.name);
@@ -214,7 +236,7 @@ module.exports.addCollectionItems = async (req, res) => {
 module.exports.seleteItem = async (req, res) => {
   // collectionId, imageIndex,
   try {
-    const { collectionId, address, feeRate, imageNames, networkName } =
+    const { collectionId, receiverAddress, feeRate, imageNames, networkName } =
       req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.cids[0];
@@ -222,11 +244,19 @@ module.exports.seleteItem = async (req, res) => {
     const items = await getLinks(cid);
     const count = await Ids.find({}, { _id: 0 });
 
+    const minted = collection.minted;
+    imageNames.forEach(async (image) => {
+      minted.find((img) => {
+        if (img === image) return res.status(200).json({status: false, message: `item with name ${image}, already inscribed`});
+      })
+    })
+
     let images = [];
     let fileSize = [];
     let ids;
     let inscriptionId;
     let savedInscription;
+    let userResponse;
 
     let ORD_API_URL;
 
@@ -287,6 +317,8 @@ module.exports.seleteItem = async (req, res) => {
         },
         cost: { costPerInscription: cost, total: total, cardinal: cardinals },
         feeRate: feeRate,
+        receiver: receiverAddress,
+        stage: "stage 1"
       });
 
       savedInscription = await inscription.save();
@@ -314,6 +346,7 @@ module.exports.seleteItem = async (req, res) => {
         },
         cost: { costPerInscription: cost, total: total },
         feeRate: feeRate,
+        stage: "stage 1"
       });
 
       savedInscription = await inscription.save();
@@ -324,8 +357,14 @@ module.exports.seleteItem = async (req, res) => {
       await ids.save();
     }
 
-    const userResponse = {
-      cost: savedInscription.cost.total,
+    userResponse = {
+      cost: {
+        serviceCharge: cost.serviceCharge * imageNames.length,
+        inscriptionCost: cost.inscriptionCost * imageNames.length,
+        sizeFee: cost.sizeFee * imageNames.length,
+        postageFee: cost.postageFee,
+        total: cost.total * imageNames.length,
+      },
       paymentAddress: paymentAddress,
       inscriptionId: inscriptionId,
     };
@@ -379,7 +418,7 @@ module.exports.sendUtxo = async (req, res) => {
     } else if (inscriptionType === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-      addrCount = instance.inscriptionDetails.totalAmount;
+      addrCount = instance.fileNames.length;
       amount = instance.cost.costPerInscription.inscriptionCost;
       payAddressId = instance.inscriptionDetails.payAddressId;
       payAddress = instance.inscriptionDetails.payAddress;
@@ -396,7 +435,7 @@ module.exports.sendUtxo = async (req, res) => {
     if (balance < instance.cost.total) {
       return res.status(200).json({
         message: `inscription cost not received. Available: ${
-          balance / 1e8
+          balance
         }, Required: ${instance.cost.total}`,
       });
     }
@@ -422,6 +461,7 @@ module.exports.sendUtxo = async (req, res) => {
       });
     }
     instance.inscriptionDetails.receciverDetails = details;
+    instance.stage = "stage 2";
     await instance.save();
     return res.status(200).json({
       message: "ok",
@@ -436,8 +476,177 @@ module.exports.sendUtxo = async (req, res) => {
   }
 };
 
-module.exports.inscribe = async (req, res) => {};
+module.exports.getImages = async(req, res) => {
+  try{
+    const {cid} = req.body;
+    let items = [];
+    const imageNames = await getLinks(cid);
+    if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
+    imageNames.forEach(async (newItem, index) => {
+      items.push(newItem.name);
+    })
+    return res.status(200).json({status: true, message:"ok", userResponse: items})
+  } catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message})
+  }
+}
 
-module.exports.getCollection = async (req, res) => {};
+module.exports.inscribe = async (req, res) => {
+  try{
+    const {collectionId, inscriptionId, receiverAddress, networkName} = req.body;
+    const type = getType(inscriptionId);
+    let inscription;
+    let instance;
+    let newInscription;
+    let imageNames;
+    let n_inscriptions;
+    let details = [];
+    let ids;
+    let ORD_API_URL;
 
-module.exports.getCollectionImages = async (req, res) => {};
+    const collection = await Collection.findOne({id: collectionId});
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+
+    const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
+      walletName: inscriptionId,
+      networkName: networkName,
+    });
+    const balance = result.data.userResponse.data;
+
+    if (type === "single") {
+      inscription = await Inscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+      imageNames = instance.fileNames;
+      ids = await Ids.where("id").equals(instance._id);
+      let cost = instance.cost.inscriptionCost;
+      if (balance < cost) {
+        return res.status(200).json({
+          status: false,
+          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+        });
+      }
+    } else if (type === "bulk") {
+      inscription = await BulkInscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+      imageNames = instance.fileNames;
+      ids = await Ids.where("id").equals(instance._id);
+      let cost = instance.cost.cardinal;
+      if (balance < cost) {
+        return res.status(200).json({
+          status: false,
+          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+        });
+      }
+    }
+
+    imageNames.forEach(async(name, index) => {
+      newInscription = await axios.post(ORD_API_URL + `/ord/inscribe`, {
+        feeRate: instance.feeRate,
+        receiverAddress: receiverAddress,
+        cid: collection.cids[1],
+        inscriptionId: inscriptionId,
+        type: type,
+        imageName: name,
+        networkName: networkName,
+      });
+
+      if (newInscription.data.message !== "ok") {
+        return res
+          .status(200)
+          .json({ status: false, message: newInscription.data.message });
+      }
+
+      n_inscriptions = newInscription.data.userResponse.data;
+      n_inscriptions.forEach((item) => {
+      details.push(item.inscriptions[0]);
+      });
+    })
+    details.forEach(async (detail) =>{
+      await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: detail, $position: -1}}}, { new: true });
+    });
+
+    imageNames.forEach(async (name)=>{
+      await Collection.findOneAndUpdate({id: collectionId}, {$push: {minted: {$each: name, $position: -1}}}, {new: true});
+    })
+
+    if (!receiverAddress) {
+      instance.inscription = details;
+      instance.inscribed = true;
+      instance.stage = "stage 3";
+      instance.receiver = "";
+      await instance.save();
+      return;
+    } else {
+      instance.inscription = details;
+      instance.sent = true;
+      instance.inscribed = true;
+      instance.stage = "stage 3";
+      instance.receiver = receiverAddress;
+      await instance.save();
+      return res.status(200).json({
+        status: true,
+        message: `ok`,
+        userResponse: details,
+      });
+    }
+  } catch(e) {
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+};
+
+module.exports.getCollections = async (req, res) => {
+  try{
+    let collectionDetails = [];
+    const collections = await Collection.find({}, { _id: 0 });
+
+    collections.forEach(async (collection, index) => {
+      data = {
+        collectionId: collection.id,
+        collectionName: collection.name,
+        description: collection.description,
+        price: collection.price,
+        category: collection.category,
+        bannerUrl: collection.banner,
+        featuredUrl: collection.featuredImage,
+        website: collection.collectionDetails.website,
+        twitter: collection.collectionDetails.twitter,
+        discord: collection.collectionDetails.discord
+      }
+      collectionDetails.push(data);
+    })
+
+    return res.status(200).json({status: true, message: "ok", userResponse: collectionDetails})
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+};
+
+module.exports.getCollectionInscription = async (req, res) => {
+  try{
+    const {collectionId} = req.body;
+    const collection = await Collection.findOne({id: collectionId});
+    const inscriptions = collection.inscriptions;
+
+    return res.status(200).json({status: true, message: `ok`, userResponse: inscriptions})
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+module.exports.getInscribedImages = async (req, res) => {
+  try{
+    const {collectionId} = req.body;
+    const collection = await Collection.findOne({id: collectionId});
+    return res.status(200).json({status: true, message: "ok", userResponse: collection.minted});
+  }catch(e){
+    console.log(e.message)
+  }
+}

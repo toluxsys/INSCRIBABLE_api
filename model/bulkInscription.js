@@ -21,6 +21,9 @@ const bulkInscription = new mongoose.Schema(
     cost: {
       type: Object,
     },
+    fileNames: {
+      type: Array,
+    },
     receiver: {
       type: String,
     },

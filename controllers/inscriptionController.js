@@ -248,8 +248,8 @@ module.exports.inscribe = async (req, res) => {
       }
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
-      let cost = instance.cost.cardinal;
       instance = inscription[0];
+      let cost = instance.cost.cardinal;
       ids = await Ids.where("id").equals(instance._id);
       if (balance < cost) {
         return res.status(200).json({

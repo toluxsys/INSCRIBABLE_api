@@ -41,7 +41,8 @@ const collection = new mongoose.Schema(
     cost: {
       type: Object,
     },
-    inscription: { type: Object },
+    inscriptions: { type: Array },
+    minted: { type: Array },
   },
   { timestamps: true }
 );
