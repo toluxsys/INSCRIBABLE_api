@@ -30,7 +30,7 @@ mongoose
     // timerId = setTimeout(async function indexOrd() {
     //   const blocks = await axios.post(
     //     process.env.ORD_MAINNET_API_URL + `/ord/getLatestBlock`
-    //   );ß
+    //   );
     //   if (blocks.data.message !== `ok`)
     //     console.log(
     //       `[ALERT]: ORD INDEXING ERROR WITH MESSAGE: ${blocks.data.message}`

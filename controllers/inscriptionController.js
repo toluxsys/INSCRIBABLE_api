@@ -488,24 +488,24 @@ module.exports.checkUtxo = async (req, res) => {
         networkName: networkName,
       });
       balance = result.data.userResponse.data;
+      console.log(balance, inscription.cost.inscriptionCost);
       if (inscription.stage === "stage 2") {
-        return res.status(200).json({ status: true, message: "utxo sent" });
+        if (balance < inscription.cost.inscriptionCost) {
+          return res.status(200).json({
+            status: false,
+            message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+          });
+        } else {
+          return res
+            .status(200)
+            .json({ status: true, message: `ok`, userResponse: true });
+        }
       } else if (inscription.stage === "stage 3") {
         return res.status(200).json({
           status: true,
           message: "inscription complete",
           userResponse: inscription.inscription,
         });
-      }
-      if (balance < inscription.cost.inscriptionCost) {
-        return res.status(200).json({
-          status: false,
-          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-        });
-      } else {
-        return res
-          .status(200)
-          .json({ status: true, message: `ok`, userResponse: true });
       }
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
@@ -516,23 +516,22 @@ module.exports.checkUtxo = async (req, res) => {
       balance = result.data.userResponse.data;
 
       if (inscription.stage === "stage 2") {
-        return res.status(200).json({ status: true, message: "utxo sent" });
+        if (balance < inscription.cost.cardinal) {
+          return res.status(200).json({
+            status: false,
+            message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+          });
+        } else {
+          return res
+            .status(200)
+            .json({ status: true, message: `ok`, userResponse: true });
+        }
       } else if (inscription.stage === "stage 3") {
         return res.status(200).json({
           status: true,
           message: "inscription complete",
           userResponse: inscription.inscription,
         });
-      }
-      if (balance < inscription.cost.cardinal) {
-        return res.status(200).json({
-          status: false,
-          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-        });
-      } else {
-        return res
-          .status(200)
-          .json({ status: true, message: `ok`, userResponse: true });
       }
     }
   } catch (e) {

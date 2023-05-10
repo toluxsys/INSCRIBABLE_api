@@ -350,7 +350,7 @@ module.exports.seleteItem = async (req, res) => {
           walletName: inscriptionId,
           creationBlock: blockHeight.data.userResponse.data,
         },
-        cost: { costPerInscription: cost, total: total },
+        cost: cost,
         feeRate: feeRate,
         stage: "stage 1"
       });
@@ -412,7 +412,7 @@ module.exports.sendUtxo = async (req, res) => {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       addrCount = 1;
-      amount = instance.cost.costPerInscription.inscriptionCost;
+      amount = instance.cost.inscriptionCost;
       payAddressId = instance.inscriptionDetails.payAddressId;
       payAddress = instance.inscriptionDetails.payAddress;
       addressFromId = (await createLegacyAddress(network, payAddressId))
@@ -487,9 +487,10 @@ module.exports.sendUtxo = async (req, res) => {
 
 module.exports.getImages = async(req, res) => {
   try{
-    const {cid} = req.body;
+    const {collectionId} = req.body;
+    const collection = await Collection.findOne({id: collectionId});
     let items = [];
-    const imageNames = await getLinks(cid);
+    const imageNames = await getLinks(collection.cids[0]);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
     imageNames.forEach(async (newItem, index) => {
       items.push(newItem.name);
@@ -563,6 +564,7 @@ module.exports.inscribe = async (req, res) => {
           type: type,
           imageName: name,
           networkName: networkName,
+          collectionId,
         });
   
         if (newInscription.data.message !== "ok") {
@@ -570,11 +572,6 @@ module.exports.inscribe = async (req, res) => {
             .status(200)
             .json({ status: false, message: newInscription.data.message });
         }
-
-        // if(newInscription.error.response) {
-        //   console.log(newInscription.error.response.data);
-        //   reject(newInscription.error.response.data)
-        // }
   
         n_inscriptions = newInscription.data.userResponse.data;
         n_inscriptions.forEach((item) => {
