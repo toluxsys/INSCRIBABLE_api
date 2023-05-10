@@ -53,7 +53,6 @@ module.exports.upload = async (req, res) => {
         compImage: details.compImage,
         cost: details.inscriptionCost,
         paymentAddress: details.paymentAddress,
-        passKey: details.passKey,
         inscriptionId: details.inscriptionId,
       },
     });
@@ -617,20 +616,20 @@ module.exports.getStage = async (req, res) => {
     if (inscription.stage === "stage 1")
       return res.status(200).json({
         status: true,
-        message: "File uploaded, waiting for payment",
-        userResponse: inscription.stage,
+        endpoint: "inscription/checkPayment",
+        stage: 1,
       });
     if (inscription.stage === "stage 2")
       return res.status(200).json({
         status: true,
-        message: "inscription UTXO(s) transaction awaiting confirmation",
-        userResponse: inscription.stage,
+        endpoint: "inscription/checkUtxo",
+        userResponse: 2,
       });
     if (inscription.stage === "stage 3")
       return res.status(200).json({
         status: true,
-        message: "inscription complete",
-        userResponse: inscription.stage,
+        endpoint: "inscription complete",
+        userResponse: 3,
       });
   } catch (e) {
     console.log(e.message);

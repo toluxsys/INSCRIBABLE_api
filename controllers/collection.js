@@ -25,6 +25,12 @@ const {
 } = require("../helpers/sendBitcoin2");
 const index = require("compress-images");
 
+const {
+  getRecomendedFee,
+  getWalletBalance,
+} = require("../helpers/sendBitcoin");
+const { rejects } = require("assert");
+
 const getLinks = async (cid) => {
   const client = await import("ipfs-http-client");
   try {
@@ -378,7 +384,7 @@ module.exports.seleteItem = async (req, res) => {
 
 module.exports.sendUtxo = async (req, res) => {
   try {
-    const inscriptionId = req.body.id;
+    const inscriptionId = req.body.inscriptionId;
     const network = req.body.networkName;
     const collectionId = req.body.collectionId;
     const inscriptionType = getType(inscriptionId);
@@ -397,16 +403,16 @@ module.exports.sendUtxo = async (req, res) => {
     let ids;
     let ORD_API_URL;
 
-    if (networkName === "mainnet")
+    if (network === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    if (networkName === "testnet")
+    if (network === "testnet")
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     if (inscriptionType === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       addrCount = 1;
-      amount = instance.cost.inscriptionCost;
+      amount = instance.cost.costPerInscription.inscriptionCost;
       payAddressId = instance.inscriptionDetails.payAddressId;
       payAddress = instance.inscriptionDetails.payAddress;
       addressFromId = (await createLegacyAddress(network, payAddressId))
@@ -450,7 +456,10 @@ module.exports.sendUtxo = async (req, res) => {
       details.push(creatorPayment);
     }
 
-    txDetails = await sendBitcoin(network, payAddressId, details);
+    console.log(details);
+
+    txDetails = await sendBitcoin(network, payAddressId, details, inscriptionType);
+    console.log(txDetails);
     const txHash = await axios.post(ORD_API_URL + `/ord/broadcastTransaction`, {
       txHex: txDetails.rawTx,
       networkName: network,
@@ -543,36 +552,44 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     }
+    
+    let promise = new Promise((resolve, reject) => {
+      imageNames.forEach(async(name, index) => {
+        newInscription = await axios.post(ORD_API_URL + `/ord/inscribe`, {
+          feeRate: instance.feeRate,
+          receiverAddress: receiverAddress,
+          cid: collection.cids[0],
+          inscriptionId: inscriptionId,
+          type: type,
+          imageName: name,
+          networkName: networkName,
+        });
+  
+        if (newInscription.data.message !== "ok") {
+          return res
+            .status(200)
+            .json({ status: false, message: newInscription.data.message });
+        }
 
-    imageNames.forEach(async(name, index) => {
-      newInscription = await axios.post(ORD_API_URL + `/ord/inscribe`, {
-        feeRate: instance.feeRate,
-        receiverAddress: receiverAddress,
-        cid: collection.cids[1],
-        inscriptionId: inscriptionId,
-        type: type,
-        imageName: name,
-        networkName: networkName,
-      });
+        // if(newInscription.error.response) {
+        //   console.log(newInscription.error.response.data);
+        //   reject(newInscription.error.response.data)
+        // }
+  
+        n_inscriptions = newInscription.data.userResponse.data;
+        n_inscriptions.forEach((item) => {
+        details.push(item.inscriptions[0]);
+        });
+      })
 
-      if (newInscription.data.message !== "ok") {
-        return res
-          .status(200)
-          .json({ status: false, message: newInscription.data.message });
-      }
-
-      n_inscriptions = newInscription.data.userResponse.data;
-      n_inscriptions.forEach((item) => {
-      details.push(item.inscriptions[0]);
-      });
+      resolve(details);
     })
-    details.forEach(async (detail) =>{
-      await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: detail, $position: -1}}}, { new: true });
-    });
 
-    imageNames.forEach(async (name)=>{
-      await Collection.findOneAndUpdate({id: collectionId}, {$push: {minted: {$each: name, $position: -1}}}, {new: true});
-    })
+    promise.then().catch();
+    
+    await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, { new: true });
+    await Collection.findOneAndUpdate({id: collectionId}, {$push: {minted: {$each: imageNames, $position: -1}}}, {new: true});
+  
 
     if (!receiverAddress) {
       instance.inscription = details;
