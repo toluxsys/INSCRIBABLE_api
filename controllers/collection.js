@@ -553,18 +553,14 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     }
-    
-    let promise = new Promise((resolve, reject) => {
-      imageNames.forEach(async(name, index) => {
         newInscription = await axios.post(ORD_API_URL + `/ord/inscribe`, {
           feeRate: instance.feeRate,
           receiverAddress: receiverAddress,
           cid: collection.cids[0],
           inscriptionId: inscriptionId,
-          type: type,
-          imageName: name,
           networkName: networkName,
-          collectionId,
+          collectionId: collectionId,
+          imageNames: imageNames,
         });
   
         if (newInscription.data.message !== "ok") {
@@ -575,14 +571,13 @@ module.exports.inscribe = async (req, res) => {
   
         n_inscriptions = newInscription.data.userResponse.data;
         n_inscriptions.forEach((item) => {
-        details.push(item.inscriptions[0]);
+          const data = {
+            inscription: item.inscriptions[0],
+            commit: item.commit,
+          };
+    
+          details.push(data);
         });
-      })
-
-      resolve(details);
-    })
-
-    promise.then().catch();
     
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, { new: true });
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {minted: {$each: imageNames, $position: -1}}}, {new: true});
@@ -630,7 +625,9 @@ module.exports.getCollections = async (req, res) => {
         featuredUrl: collection.featuredImage,
         website: collection.collectionDetails.website,
         twitter: collection.collectionDetails.twitter,
-        discord: collection.collectionDetails.discord
+        discord: collection.collectionDetails.discord,
+        createdAt: collection.createdAt,
+        updatedAt: collection.updatedAt
       }
       collectionDetails.push(data);
     })

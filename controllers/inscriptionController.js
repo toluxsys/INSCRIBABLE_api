@@ -488,7 +488,6 @@ module.exports.checkUtxo = async (req, res) => {
         networkName: networkName,
       });
       balance = result.data.userResponse.data;
-      console.log(balance, inscription.cost.inscriptionCost);
       if (inscription.stage === "stage 2") {
         if (balance < inscription.cost.inscriptionCost) {
           return res.status(200).json({
@@ -615,20 +614,32 @@ module.exports.getStage = async (req, res) => {
     if (inscription.stage === "stage 1")
       return res.status(200).json({
         status: true,
-        endpoint: "inscription/checkPayment",
-        stage: 1,
+        message: "ok",
+        userResponse: {
+          stage: 1,
+          endpoint: "inscription/checkPayment",
+          route: "checkPayment"
+        }
       });
-    if (inscription.stage === "stage 2")
+      if (inscription.stage === "stage 2")
       return res.status(200).json({
         status: true,
-        endpoint: "inscription/checkUtxo",
-        userResponse: 2,
+        message: "ok",
+        userResponse: {
+          stage: 2,
+          endpoint: "inscription/checkUtxo",
+          route: "checkUtxo"
+        }
       });
-    if (inscription.stage === "stage 3")
+      if (inscription.stage === "stage 3")
       return res.status(200).json({
         status: true,
-        endpoint: "inscription complete",
-        userResponse: 3,
+        message: "ok",
+        userResponse: {
+          stage: 3,
+          endpoint: "",
+          route: ""
+        }
       });
   } catch (e) {
     console.log(e.message);
