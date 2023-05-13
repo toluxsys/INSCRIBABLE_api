@@ -636,9 +636,34 @@ module.exports.getCollections = async (req, res) => {
     return res.status(200).json({status: true, message: "ok", userResponse: collectionDetails})
   }catch(e){
     console.log(e.message);
-    return res.status(200).json({status: false, message: e.message});
+    return res.status(500).json({status: false, message: e.message});
   }
 };
+
+module.exports.getCollection = async (req, res) => {
+  try{
+    const {collectionId} = req.body;
+    const collection = await Collection.findOne({id: collectionId});
+    let collectionData = {
+      collectionId: collection.id,
+        collectionName: collection.name,
+        description: collection.description,
+        price: collection.price,
+        category: collection.category,
+        bannerUrl: collection.banner,
+        featuredUrl: collection.featuredImage,
+        website: collection.collectionDetails.website,
+        twitter: collection.collectionDetails.twitter,
+        discord: collection.collectionDetails.discord,
+        createdAt: collection.createdAt,
+        updatedAt: collection.updatedAt
+    }
+    return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
+  }catch(e){
+    console.log(e.message);
+    return res.status(500).json({status: false, message: e.message});
+  }
+}
 
 module.exports.getCollectionInscription = async (req, res) => {
   try{

@@ -21,7 +21,8 @@ router.post("/getImages", controller.getImages);
 router.post("/sendUtxo", controller.sendUtxo);
 router.post("/inscribe", controller.inscribe);
 router.post("/getInscriptions", controller.getCollectionInscription);
-router.post("/inscribedImages", controller.getInscribedImages)
+router.post("/inscribedImages", controller.getInscribedImages);
+router.post("/getCollection", controller.getCollection);
 router.get("/getCollections", controller.getCollections);
 
 
