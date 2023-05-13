@@ -616,12 +616,16 @@ module.exports.getCollections = async (req, res) => {
     const collections = await Collection.find({}, { _id: 0 });
 
     collections.forEach(async (collection, index) => {
+      let mintedItems = collection.minted;
+      let mintedCount = mintedItems.length;
       data = {
         collectionId: collection.id,
         collectionName: collection.name,
+        creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
         price: collection.price,
         category: collection.category,
+        mintedCount: mintedCount,
         bannerUrl: collection.banner,
         featuredUrl: collection.featuredImage,
         website: collection.collectionDetails.website,
@@ -644,12 +648,19 @@ module.exports.getCollection = async (req, res) => {
   try{
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
+    let collectionItems = await getLinks(collection.cids[0]);
+    let mintedItems = collection.minted;
+    let collectionCount = collectionItems.length;
+    let mintedCount = mintedItems.length;
     let collectionData = {
-      collectionId: collection.id,
+        collectionId: collection.id,
         collectionName: collection.name,
+        creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
         price: collection.price,
         category: collection.category,
+        collectionCount: collectionCount,
+        mintedCount: mintedCount,
         bannerUrl: collection.banner,
         featuredUrl: collection.featuredImage,
         website: collection.collectionDetails.website,
