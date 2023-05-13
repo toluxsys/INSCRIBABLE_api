@@ -493,7 +493,8 @@ module.exports.getImages = async(req, res) => {
     const imageNames = await getLinks(collection.cids[0]);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
     imageNames.forEach(async (newItem, index) => {
-      items.push(newItem.name);
+      let imageUrl = process.env.IPFS_IMAGE_URL + collection.cids[0] + `/${newItem.name}`;
+      items.push(imageUrl);
     })
     return res.status(200).json({status: true, message:"ok", userResponse: items})
   } catch(e){
