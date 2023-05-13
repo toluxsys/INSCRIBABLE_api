@@ -375,10 +375,10 @@ module.exports.seleteItem = async (req, res) => {
       inscriptionId: inscriptionId,
     };
 
-    return res.status(200).json({ message: `ok`, userResponse: userResponse });
+    return res.status(200).json({ status:true, message: `ok`, userResponse: userResponse });
   } catch (e) {
     console.log(e.message);
-    return res.status(400).json({ message: e.message });
+    return res.status(400).json({status:false, message: e.message });
   }
 };
 
@@ -481,7 +481,7 @@ module.exports.sendUtxo = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(400).json({ message: e.message });
+    return res.status(400).json({status:false, message: e.message });
   }
 };
 
@@ -499,7 +499,7 @@ module.exports.getImages = async(req, res) => {
     return res.status(200).json({status: true, message:"ok", userResponse: items})
   } catch(e){
     console.log(e.message);
-    return res.status(200).json({status: false, message: e.message})
+    return res.status(500).json({status: false, message: e.message})
   }
 }
 
@@ -606,7 +606,7 @@ module.exports.inscribe = async (req, res) => {
     }
   } catch(e) {
     console.log(e.message);
-    return res.status(200).json({status: false, message: e.message});
+    return res.status(500).json({status: false, message: e.message});
   }
 };
 
@@ -685,7 +685,7 @@ module.exports.getCollectionInscription = async (req, res) => {
     return res.status(200).json({status: true, message: `ok`, userResponse: inscriptions})
   }catch(e){
     console.log(e.message);
-    return res.status(200).json({status: false, message: e.message});
+    return res.status(500).json({status: false, message: e.message});
   }
 }
 
@@ -695,6 +695,7 @@ module.exports.getInscribedImages = async (req, res) => {
     const collection = await Collection.findOne({id: collectionId});
     return res.status(200).json({status: true, message: "ok", userResponse: collection.minted});
   }catch(e){
-    console.log(e.message)
+    console.log(e.message);
+    return res.status(500).json({status: false, message: e.message});
   }
 }
