@@ -473,6 +473,7 @@ module.exports.sendUtxo = async (req, res) => {
     instance.stage = "stage 2";
     await instance.save();
     return res.status(200).json({
+      status: true,
       message: "ok",
       userResponse: {
         details: txDetails,
