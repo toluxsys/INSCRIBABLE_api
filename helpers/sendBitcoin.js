@@ -175,8 +175,8 @@ module.exports = {
 
 //   const details = [
 //     {
-//       address: `mp2Mn6trxEjSHhaPWdoLE9bHawfpQdD78L`,
-//       amount:17525,
+//       address: `mnMXYBWULWjfqHCVYRRWEGesFaPy68vCqS`,
+//       amount: 44264,
 //     },
 //   ];
 

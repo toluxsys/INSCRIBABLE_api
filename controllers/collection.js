@@ -378,7 +378,7 @@ module.exports.seleteItem = async (req, res) => {
     return res.status(200).json({ status:true, message: `ok`, userResponse: userResponse });
   } catch (e) {
     console.log(e.message);
-    return res.status(400).json({status:false, message: e.message });
+    return res.status(200).json({status:false, message: e.message });
   }
 };
 
@@ -506,6 +506,7 @@ module.exports.getImages = async(req, res) => {
 
 module.exports.inscribe = async (req, res) => {
   try{
+    req.setTimeout(450000);
     const {collectionId, inscriptionId, receiverAddress, networkName} = req.body;
     const type = getType(inscriptionId);
     let inscription;

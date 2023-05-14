@@ -209,6 +209,7 @@ module.exports.sendUtxo = async (req, res) => {
 
 module.exports.inscribe = async (req, res) => {
   try {
+    req.setTimeout(450000);
     const inscriptionId = req.body.id;
     const receiverAddress = req.body.address;
     const networkName = req.body.networkName;
