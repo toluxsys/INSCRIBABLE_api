@@ -586,13 +586,17 @@ module.exports.inscribe = async (req, res) => {
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {minted: {$each: imageNames, $position: -1}}}, {new: true});
   
 
-    if (!receiverAddress) {
+    if (receiverAddress === undefined) {
       instance.inscription = details;
       instance.inscribed = true;
       instance.stage = "stage 3";
       instance.receiver = "";
       await instance.save();
-      return;
+      return res.status(200).json({
+        status: true,
+        message: `ok`,
+        userResponse: details,
+      });
     } else {
       instance.inscription = details;
       instance.sent = true;
