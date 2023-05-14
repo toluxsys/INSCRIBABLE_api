@@ -41,10 +41,11 @@ module.exports.upload = async (req, res) => {
     let feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     const optimize = req.body.optimize;
+    const receiveAddress = req.body.receiveAddress;
     if (feeRate <= 1) {
       res.status(200).json({ status: false, message: `Fee rate too low` });
     }
-    const details = await init(file, feeRate, networkName, optimize);
+    const details = await init(file, feeRate, networkName, optimize, receiveAddress);
 
     res.status(200).json({
       status: true,
@@ -68,7 +69,8 @@ module.exports.uploadMultiple = async (req, res) => {
     const feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     const optimize = req.body.optimize;
-    const details = await initBulk(files, feeRate, networkName, optimize);
+    const receiveAddress = req.body.receiveAddress;
+    const details = await initBulk(files, feeRate, networkName, optimize, receiveAddress);
     return res.status(200).json({
       status: true,
       message: "ok",
@@ -211,7 +213,6 @@ module.exports.inscribe = async (req, res) => {
   try {
     req.setTimeout(450000);
     const inscriptionId = req.body.id;
-    const receiverAddress = req.body.address;
     const networkName = req.body.networkName;
     const type = getType(inscriptionId);
     let inscription;
@@ -222,6 +223,7 @@ module.exports.inscribe = async (req, res) => {
     let details = [];
     let ids;
     let ORD_API_URL;
+    let receiverAddress;
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -238,6 +240,7 @@ module.exports.inscribe = async (req, res) => {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       imageName = instance.inscriptionDetails.fileName;
+      receiverAddress = instance.receiver;
       ids = await Ids.where("id").equals(instance._id);
       const cost = instance.cost.inscriptionCost;
       if (balance < cost) {
@@ -249,6 +252,7 @@ module.exports.inscribe = async (req, res) => {
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
+      receiverAddress = instance.receiver;
       let cost = instance.cost.cardinal;
       ids = await Ids.where("id").equals(instance._id);
       if (balance < cost) {
@@ -288,7 +292,11 @@ module.exports.inscribe = async (req, res) => {
       instance.stage = "stage 3";
       instance.receiver = "";
       await instance.save();
-      return;
+      return res.status(200).json({
+        status: true,
+        message: `ok`,
+        userResponse: details,
+      });
     } else {
       instance.sent = true;
       instance.inscribed = true;
@@ -867,7 +875,7 @@ module.exports.getOrderDetails = async (req, res) => {
   }
 };
 
-const init = async (file, feeRate, networkName, optimize) => {
+const init = async (file, feeRate, networkName, optimize, receiveAddress) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
@@ -923,6 +931,7 @@ const init = async (file, feeRate, networkName, optimize) => {
         },
         cost: inscriptionCost,
         feeRate: feeRate,
+        receiver: receiveAddress,
         stage: "stage 1",
       });
 
@@ -994,7 +1003,7 @@ const init = async (file, feeRate, networkName, optimize) => {
   }
 };
 
-const initBulk = async (files, feeRate, networkName, optimize) => {
+const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
@@ -1054,6 +1063,7 @@ const initBulk = async (files, feeRate, networkName, optimize) => {
       id: inscriptionId,
       inscribed: false,
       feeRate: feeRate,
+      receiver: receiveAddress,
 
       inscriptionDetails: {
         largestFile: data.largestFile,
