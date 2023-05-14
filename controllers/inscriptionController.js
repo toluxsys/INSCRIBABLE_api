@@ -663,7 +663,7 @@ module.exports.getInscriptions = async (req, res) => {
     }
 
     let allInscriptions = inscription.inscription;
-    return res.status(200).json({status: false, message: `ok`, userResponse: allInscriptions});
+    return res.status(200).json({status: true, message: `ok`, userResponse: allInscriptions});
   }catch(e){
     console.log(e.message);
     return res.status(500).json({ status: false, message: e.message });
