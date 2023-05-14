@@ -7,7 +7,6 @@ const inscriptionSchema = new mongoose.Schema(
     sent: { type: Boolean },
     feeRate: { type: Number },
     utxoTxid: { type: String },
-    reciever: { type: String },
     encryptedPassKey: {
       type: String,
       immutable: true,
@@ -30,7 +29,7 @@ const inscriptionSchema = new mongoose.Schema(
     stage: {
       type: String,
     },
-    inscription: { type: Object },
+    inscription: { type: Array },
   },
   { timestamps: true }
 );

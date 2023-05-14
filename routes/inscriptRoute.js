@@ -33,6 +33,7 @@ router.post("/checkStage", controller.getStage);
 router.post("/getConversion", controller.getConversion);
 router.post("/getPayLinkDetails", controller.getPayLinkDetails);
 router.post("/orderDetails", controller.getOrderDetails);
+router.post("/getInscriptions", controller.getInscriptions);
 router.get("/getRecFee", controller.getRecFee);
 router.get("/getNetwork", controller.getNetwork);
 

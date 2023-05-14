@@ -619,7 +619,8 @@ module.exports.getStage = async (req, res) => {
         userResponse: {
           stage: 1,
           endpoint: "inscription/checkPayment",
-          route: "checkPayment"
+          route: "checkPayment",
+          address: inscription.receiver
         }
       });
       if (inscription.stage === "stage 2")
@@ -629,7 +630,8 @@ module.exports.getStage = async (req, res) => {
         userResponse: {
           stage: 2,
           endpoint: "inscription/checkUtxo",
-          route: "checkUtxo"
+          route: "checkUtxo",
+          address: inscription.receiver
         }
       });
       if (inscription.stage === "stage 3")
@@ -639,14 +641,34 @@ module.exports.getStage = async (req, res) => {
         userResponse: {
           stage: 3,
           endpoint: "",
-          route: ""
+          route: "viewInscriptions",
+          address: inscription.receiver
         }
       });
   } catch (e) {
     console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
+
+module.exports.getInscriptions = async (req, res) => {
+  try{
+    const { inscriptionId } = req.body;
+    const type = getType(inscriptionId);
+    let inscription;
+    if (type === "single") {
+      inscription = await Inscription.findOne({ id: inscriptionId });
+    } else if (type === "bulk") {
+      inscription = await BulkInscription.findOne({ id: inscriptionId });
+    }
+
+    let allInscriptions = inscription.inscription;
+    return res.status(200).json({status: false, message: `ok`, userResponse: allInscriptions});
+  }catch(e){
+    console.log(e.message);
+    return res.status(500).json({ status: false, message: e.message });
+  }
+}
 
 module.exports.getConversion = async (req, res) => {
   try {
