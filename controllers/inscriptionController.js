@@ -44,9 +44,6 @@ module.exports.upload = async (req, res) => {
     const networkName = req.body.networkName;
     let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
-    if (feeRate <= 1) {
-      res.status(200).json({ status: false, message: `Fee rate too low` });
-    }
     if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
       return res.status(200).json({status: false, message: `cannot optimaize ${file.mimetype}`})
     }
@@ -77,9 +74,6 @@ module.exports.uploadMultiple = async (req, res) => {
     let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
     if(files.length >= 100) return res.status(200).json({status: false, message: `file Upload Above Limit`});
-    if (feeRate <= 1) {
-      return res.status(200).json({ status: false, message: `Fee rate too low` });
-    }
     files.forEach((file) => {
       if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
         return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
@@ -417,9 +411,6 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
     const optimize = req.body.optimize;
 
     if(files.length >= 100) return res.status(200).json({status: false, message: `file Upload Above Limit`});
-    if (feeRate <= 1) {
-      res.status(200).json({ status: false, message: `Fee rate too low` });
-    }
     files.forEach((file) => {
       if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
         return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
@@ -1175,9 +1166,6 @@ const getInscriptionCost = async (file, feeRate, optimize) => {
     let sizeOut;
     let compPercentage;
     
-    if (feeRate <= 1) {
-      return  `Fee rate too low`;
-    }
     if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
       return `cannot optimaize ${file.mimetype}`;
     }
@@ -1223,9 +1211,6 @@ const getInscriptionCost = async (file, feeRate, optimize) => {
 
 const getBulkInscriptionCost = async (files, feeRate, optimize) => {
   try {
-    if (feeRate <= 1) {
-      return  `Fee rate too low`;
-    }
     let id = uuidv4();
     if (!existsSync(process.cwd() + `/src/bulk/${id}`)) {
       mkdirSync(
