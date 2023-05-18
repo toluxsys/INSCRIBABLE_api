@@ -252,7 +252,7 @@ module.exports.seleteItem = async (req, res) => {
 
     const minted = collection.minted;
     imageNames.forEach(async (image) => {
-      minted.find((img) => {
+      minted.forEach((img) => {
         if (img === image) return res.status(200).json({status: false, message: `item with name ${image}, already inscribed`});
       })
     })
@@ -378,7 +378,9 @@ module.exports.seleteItem = async (req, res) => {
     return res.status(200).json({ status:true, message: `ok`, userResponse: userResponse });
   } catch (e) {
     console.log(e.message);
-    return res.status(200).json({status:false, message: e.message });
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -481,8 +483,10 @@ module.exports.sendUtxo = async (req, res) => {
       },
     });
   } catch (e) {
-    console.log(e);
-    return res.status(400).json({status:false, message: e.message });
+    console.log(e.message);
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -611,7 +615,9 @@ module.exports.inscribe = async (req, res) => {
     }
   } catch(e) {
     console.log(e.message);
-    return res.status(500).json({status: false, message: e.message});
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -645,7 +651,7 @@ module.exports.getCollections = async (req, res) => {
     return res.status(200).json({status: true, message: "ok", userResponse: collectionDetails})
   }catch(e){
     console.log(e.message);
-    return res.status(500).json({status: false, message: e.message});
+    return res.status(200).json({status: false, message: e.message});
   }
 };
 
@@ -677,7 +683,7 @@ module.exports.getCollection = async (req, res) => {
     return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
   }catch(e){
     console.log(e.message);
-    return res.status(500).json({status: false, message: e.message});
+    return res.status(200).json({status: false, message: e.message});
   }
 }
 
@@ -690,7 +696,7 @@ module.exports.getCollectionInscription = async (req, res) => {
     return res.status(200).json({status: true, message: `ok`, userResponse: inscriptions})
   }catch(e){
     console.log(e.message);
-    return res.status(500).json({status: false, message: e.message});
+    return res.status(200).json({status: false, message: e.message});
   }
 }
 
@@ -701,6 +707,6 @@ module.exports.getInscribedImages = async (req, res) => {
     return res.status(200).json({status: true, message: "ok", userResponse: collection.minted});
   }catch(e){
     console.log(e.message);
-    return res.status(500).json({status: false, message: e.message});
+    return res.status(200).json({status: false, message: e.message});
   }
 }

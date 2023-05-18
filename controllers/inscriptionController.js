@@ -35,18 +35,24 @@ const {
 const { getType } = require("../helpers/getType");
 const { btcToUsd } = require("../helpers/btcToUsd");
 
+const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/svg`, `image/svg+xml`];
+
 module.exports.upload = async (req, res) => {
   try {
     const file = req.files.unCompImage;
     let feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
-    const optimize = req.body.optimize;
+    let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
     if (feeRate <= 1) {
       res.status(200).json({ status: false, message: `Fee rate too low` });
     }
+    if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
+      return res.status(200).json({status: false, message: `cannot optimaize ${file.mimetype}`})
+    }
     const details = await init(file, feeRate, networkName, optimize, receiveAddress);
-
+    if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
+    if(details.resError) return res.status(200).json({status: false, message: details.resError})
     res.status(200).json({
       status: true,
       message: "ok",
@@ -59,7 +65,7 @@ module.exports.upload = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(400).json({ status: false, message: e.message });
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -68,9 +74,20 @@ module.exports.uploadMultiple = async (req, res) => {
     const files = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
-    const optimize = req.body.optimize;
+    let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
+    if(files.length >= 100) return res.status(200).json({status: false, message: `file Upload Above Limit`});
+    if (feeRate <= 1) {
+      return res.status(200).json({ status: false, message: `Fee rate too low` });
+    }
+    files.forEach((file) => {
+      if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
+        return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
+      }
+    })
     const details = await initBulk(files, feeRate, networkName, optimize, receiveAddress);
+    if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
+    if(details.resError) return res.status(200).json({status: false, message: details.resError})
     return res.status(200).json({
       status: true,
       message: "ok",
@@ -204,8 +221,10 @@ module.exports.sendUtxo = async (req, res) => {
       },
     });
   } catch (e) {
-    console.log(e);
-    return res.status(400).json({ status: false, message: e.message });
+    console.log(e.message);
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -310,8 +329,10 @@ module.exports.inscribe = async (req, res) => {
       });
     }
   } catch (e) {
-    console.log(e);
-    return res.status(400).json({ status: false, message: e.message });
+    console.log(e.message);
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -347,8 +368,10 @@ module.exports.sendInscription = async (req, res) => {
       txId: result.data.userResponse.data,
     });
   } catch (e) {
-    console.log(e);
-    return res.status(400).json({ status: false, message: e.message });
+    console.log(e.message);
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -372,6 +395,9 @@ module.exports.inscriptionCalc = async (req, res) => {
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
     const details = await getInscriptionCost(file, feeRate, optimize);
+    if(typeof(details) === `string`){
+      return res.status(200).json({status: false, message: details});
+    }
 
     return res.status(200).json({
       status: true,
@@ -389,7 +415,18 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
     const files = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
+
+    if(files.length >= 100) return res.status(200).json({status: false, message: `file Upload Above Limit`});
+    if (feeRate <= 1) {
+      res.status(200).json({ status: false, message: `Fee rate too low` });
+    }
+    files.forEach((file) => {
+      if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
+        return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
+      }
+    })
     const data = await getBulkInscriptionCost(files, feeRate, optimize);
+    
     const details = {
       compImage: { compPercentage: "", sizeIn: "", sizeOut: "" },
       inscriptionCost: {
@@ -544,7 +581,9 @@ module.exports.checkUtxo = async (req, res) => {
     }
   } catch (e) {
     console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -812,7 +851,9 @@ module.exports.completePayment = async (req, res) => {
     }
   } catch (e) {
     console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -889,15 +930,14 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress) => {
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     const fileName = new Date().getTime().toString() + path.extname(file.name);
-    const savePath = path.join(
-      process.cwd(),
-      "src",
-      "img",
-      "uncompressed",
-      fileName
-    );
-    await file.mv(savePath);
-
+      const savePath = path.join(
+        process.cwd(),
+        "src",
+        "img",
+        "uncompressed",
+        fileName
+      );
+      await file.mv(savePath);
     if (optimize === `true`) {
       const compImage = await compressAndSave(fileName, true);
       const inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut);
@@ -1000,6 +1040,8 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress) => {
     }
   } catch (e) {
     console.log(e.message);
+    if(e.request) return {reqError: e.message};
+    if(e.response) return {resError: e.response.data};
   }
 };
 
@@ -1104,7 +1146,9 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
       inscriptionId: inscriptionId,
     };
   } catch (e) {
-    console.log(e);
+    console.log(e.message);
+    if(e.request) return {reqError: e.message};
+    if(e.response) return {resError: e.response.data};
   }
 };
 
@@ -1130,6 +1174,14 @@ const getInscriptionCost = async (file, feeRate, optimize) => {
     let sizeIn;
     let sizeOut;
     let compPercentage;
+    
+    if (feeRate <= 1) {
+      return  `Fee rate too low`;
+    }
+    if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
+      return `cannot optimaize ${file.mimetype}`;
+    }
+
     const fileName = new Date().getTime().toString() + path.extname(file.name);
     const savePath = path.join(
       process.cwd(),
@@ -1171,6 +1223,9 @@ const getInscriptionCost = async (file, feeRate, optimize) => {
 
 const getBulkInscriptionCost = async (files, feeRate, optimize) => {
   try {
+    if (feeRate <= 1) {
+      return  `Fee rate too low`;
+    }
     let id = uuidv4();
     if (!existsSync(process.cwd() + `/src/bulk/${id}`)) {
       mkdirSync(
