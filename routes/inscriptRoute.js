@@ -3,7 +3,6 @@ const controller = require("../controllers/inscriptionController");
 const path = require("path");
 const router = express.Router();
 const fileUpload = require("express-fileupload");
-const multer = require("multer");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 router.use(express.urlencoded({ extended: false }));
