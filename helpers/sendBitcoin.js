@@ -3,7 +3,7 @@ const mempoolJS = require("@mempool/mempool.js");
 const dotenv = require("dotenv");
 dotenv.config();
 
-const { createHDWallet } = require("./createWallet.js");
+const { createHDWallet } = require("./walletHelper.js");
 
 const init = async (network) => {
   const {

@@ -19,7 +19,7 @@ router.use(
 
 router.post("/upload", controller.upload);
 router.post("/upload/multiple", controller.uploadMultiple);
-router.post("/send/utxo", controller.sendUtxo);
+router.post("/send/utxo", controller.sendUtxo1);
 router.post("/inscribe", controller.inscribe);
 router.post("/sendInscription", controller.sendInscription);
 router.post("/inscription/calc", controller.inscriptionCalc);
@@ -37,6 +37,9 @@ router.post("/getConversion", controller.getConversion);
 router.post("/getPayLinkDetails", controller.getPayLinkDetails);
 router.post("/orderDetails", controller.getOrderDetails);
 router.post("/getInscriptions", controller.getInscriptions);
+router.post("/brc20", controller.brc20);
+router.post("/text", controller.inscribeText);
+router.post("/brc721", controller.brc721);
 router.get("/getRecFee", controller.getRecFee);
 router.get("/getNetwork", controller.getNetwork);
 

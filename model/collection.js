@@ -23,6 +23,9 @@ const collection = new mongoose.Schema(
     collectionDetails: {
       type: Object,
     },
+    collectionAddress: {
+      type: String,
+    },
     description: {
       type: String,
     },

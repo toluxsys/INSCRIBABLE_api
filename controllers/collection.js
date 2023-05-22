@@ -16,8 +16,8 @@ const {
   createHDWallet,
   addWalletToOrd,
   utxoDetails,
-} = require("../helpers/createWallet");
-const { compressAndSaveBulk } = require("../helpers/compressImage");
+} = require("../helpers/walletHelper");
+const { compressAndSaveBulk } = require("../helpers/imageHelper");
 const {
   sendBitcoin,
   createLegacyAddress,
@@ -79,6 +79,7 @@ module.exports.addCollection = async (req, res) => {
       website,
       twitter,
       discord,
+      networkName,
     } = req.body;
 
     const banner = req.files.banner;
@@ -86,6 +87,11 @@ module.exports.addCollection = async (req, res) => {
     const collectionId = `c${uuidv4()}`;
     files.push(banner);
     files.push(featuredImage);
+    const count = await Collection.find({}, { _id: 0 });
+
+    const collactionAddressDetailss = await createLegacyAddress(networkName, count.length);
+    let collectionAddress = collactionAddressDetailss.p2pkh_addr;
+    let collectionAddressId = count.length;
 
     if (!existsSync(process.cwd() + `/src/bulk/${collectionId}`)) {
       mkdirSync(
@@ -120,6 +126,8 @@ module.exports.addCollection = async (req, res) => {
     let collectionDetails = {
       creatorName: creatorName,
       creatorsAddress: creatorsAddress,
+      collectionAddress: collectionAddress,
+      collectionAddressId: collectionAddressId,
       email: email,
       website: website,
       twitter: twitter,
@@ -134,6 +142,7 @@ module.exports.addCollection = async (req, res) => {
       name: collectionName,
       price: price,
       collectionDetails: collectionDetails,
+      collectionAddress: collectionAddress,
       description: description,
       category: category,
       cids: cids,
@@ -240,7 +249,6 @@ module.exports.addCollectionItems = async (req, res) => {
 };
 
 module.exports.seleteItem = async (req, res) => {
-  // collectionId, imageIndex,
   try {
     const { collectionId, receiverAddress, feeRate, imageNames, networkName } =
       req.body;
@@ -295,14 +303,19 @@ module.exports.seleteItem = async (req, res) => {
     );
     const total = cost.total * imageNames.length;
     const cardinals = cost.inscriptionCost * imageNames.length;
-    const payDetails = await createLegacyAddress(networkName, count.length);
-    let paymentAddress = payDetails.p2pkh_addr;
 
     const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const blockHeight = await axios.post(ORD_API_URL + `/ord/getLatestBlock`);
-    if (blockHeight.data.message !== `ok`) {
-      return res.status(200).json({ message: blockHeight.data.message });
+    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    const r_data = {
+      collectionName: inscriptionId,
+      addrCount: 1,
+      networkName: networkName,
+    };
+    const result = await axios.post(url, r_data);
+    if (result.data.message !== "ok") {
+      return res.status(200).json({status: false, message: result.data.message});
     }
+    let paymentAddress = result.data.userResponse.data[0];
 
     if (imageNames.length > 1) {
       const inscription = new BulkInscription({
@@ -312,14 +325,12 @@ module.exports.seleteItem = async (req, res) => {
 
         inscriptionDetails: {
           payAddress: paymentAddress,
-          payAddressId: count.length,
           cid: cid,
         },
         fileNames: imageNames,
         walletDetails: {
           keyPhrase: walletKey,
           walletName: inscriptionId,
-          creationBlock: blockHeight.data.userResponse.data,
         },
         cost: { costPerInscription: cost, total: total, cardinal: cardinals },
         feeRate: feeRate,
@@ -341,14 +352,12 @@ module.exports.seleteItem = async (req, res) => {
 
         inscriptionDetails: {
           payAddress: paymentAddress,
-          payAddressId: count.length,
           cid: cid,
         },
         fileNames: imageNames,
         walletDetails: {
           keyPhrase: walletKey,
           walletName: inscriptionId,
-          creationBlock: blockHeight.data.userResponse.data,
         },
         cost: cost,
         feeRate: feeRate,
@@ -490,6 +499,58 @@ module.exports.sendUtxo = async (req, res) => {
   }
 };
 
+module.exports.sendUtxo1 = async(req,res) => {
+  try{
+    const inscriptionId = req.body.inscriptionId;
+    const networkName = req.body.networkName;
+    const inscriptionType = getType(inscriptionId);
+    const collectionId = req.body.collectionId;
+
+    let inscription;
+    let instance;
+    let balance;
+    let ORD_API_URL;
+
+    if (networkName === `mainnet`){
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    } else if(networkName === `testnet`){
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL
+    }
+    
+    if (inscriptionType === "single") {
+      inscription = await Inscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+    } else if (inscriptionType === "bulk") {
+      inscription = await BulkInscription.where("id").equals(inscriptionId);
+      instance = inscription[0];
+    }
+    
+    const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
+      walletName: inscriptionId,
+      networkName: networkName,
+    });
+    balance = result.data.userResponse.data;
+
+    if (balance < instance.cost.inscriptionCost) {
+      return res.status(200).json({
+        status: false,
+        message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+      });
+    } else {
+      instance.stage = "stage 2";
+      await instance.save();
+      return res
+        .status(200)
+        .json({ status: true, message: `ok`, userResponse: true });
+    }
+  }catch(e){
+    console.log(e.message);
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
+  }
+}
+
 module.exports.getImages = async(req, res) => {
   try{
     const {collectionId} = req.body;
@@ -523,6 +584,7 @@ module.exports.inscribe = async (req, res) => {
     let ORD_API_URL;
 
     const collection = await Collection.findOne({id: collectionId});
+    const changeAddress = collection.collectionAddress;
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -568,6 +630,7 @@ module.exports.inscribe = async (req, res) => {
           networkName: networkName,
           collectionId: collectionId,
           imageNames: imageNames,
+          changeAddress: changeAddress
         });
   
         if (newInscription.data.message !== "ok") {

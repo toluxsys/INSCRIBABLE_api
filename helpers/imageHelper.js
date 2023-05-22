@@ -2,6 +2,7 @@ const { compress } = require("compress-images/promise");
 const { Web3Storage, getFilesFromPath } = require("web3.storage");
 const { sort } = require("./sort");
 const fs = require("fs");
+const { cwd } = require("process");
 const dotenv = require("dotenv").config();
 
 const initStorage = async () => {
@@ -118,9 +119,9 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
   let fileSize = [];
   try {
     if (optimize === true) {
-      if (!fs.existsSync(__dirname + `/build/bulk/${inscriptionId}/`)) {
+      if (!fs.existsSync(process.cwd() + `/build/bulk/${inscriptionId}/`)) {
         fs.mkdirSync(
-          __dirname + `/build/bulk/${inscriptionId}/`,
+          process.cwd() + `/build/bulk/${inscriptionId}/`,
           { recursive: true },
           (err) => {
             console.log(err);
@@ -129,8 +130,6 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
       }
 
       const fileNames = fs.readdirSync(`./src/bulk/${inscriptionId}`);
-      console.log(fileNames);
-
       for (const fileName of fileNames) {
         let fromPath = `./src/bulk/${inscriptionId}/${fileName}`;
         let toPath = `./build/bulk/${inscriptionId}/`;
@@ -157,21 +156,17 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
         fileSize.push(imageFile[0].size);
       }
       const sortFileSize = fileSize.sort((a, b) => a - b);
-      console.log(sortFileSize);
 
       const rootCid = await storage.put(files);
       const newData = {
         cid: rootCid,
         largestFile: sortFileSize[sortFileSize.length - 1],
       };
-      console.log(`Image Saved: CID (${rootCid})`);
       fs.rmSync(`./src/bulk/${inscriptionId}`, { recursive: true });
       fs.rmSync(`./build/bulk/${inscriptionId}`, { recursive: true });
       return newData;
     } else {
       const fileNames = fs.readdirSync(`./src/bulk/${inscriptionId}`);
-      console.log(fileNames);
-
       for (const fileName of fileNames) {
         const imageFile = await getFilesFromPath(
           `./src/bulk/${inscriptionId}/${fileName}`
@@ -181,13 +176,11 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
       }
 
       const sortFileSize = fileSize.sort((a, b) => a - b);
-      console.log(sortFileSize);
       const rootCid = await storage.put(files);
       const newData = {
         cid: rootCid,
         largestFile: sortFileSize[sortFileSize.length - 1],
       };
-      console.log(`Image Saved: CID (${rootCid})`);
       fs.rmSync(`./src/bulk/${inscriptionId}`, { recursive: true });
       return newData;
     }
@@ -195,6 +188,23 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
     console.log(e.message);
   }
 };
+
+const saveFile = async (fileName) => {
+  try{
+    const storage = await initStorage();
+    const filePath = `${process.cwd()}/build/files/${fileName}`
+    const n_file = await getFilesFromPath(filePath);
+      const rootCid = await storage.put(n_file);
+      fs.unlinkSync(filePath);
+      const newData = {
+        cid: rootCid,
+        size: n_file[0].size,
+      };
+      return newData;
+  } catch(e) {
+    console.log(e.message)
+  }
+}
 
 const compressAndSave = async (fileName, optimize) => {
   let fromPath = `./src/img/uncompressed/${fileName}`;
@@ -230,7 +240,6 @@ const compressAndSave = async (fileName, optimize) => {
         input: stats.input,
         cid: rootCid,
       };
-      console.log(`Image Saved: CID (${rootCid})`);
       return newData;
     } else if (optimize === false) {
       const compdImg = await getFilesFromPath(fromPath);
@@ -239,7 +248,6 @@ const compressAndSave = async (fileName, optimize) => {
       const newData = {
         cid: rootCid,
       };
-      console.log(`Image Saved: CID (${rootCid})`);
       return newData;
     }
   } catch (e) {
@@ -252,4 +260,5 @@ module.exports = {
   compressAndSave,
   compressAndSaveBulk,
   compressBulk,
+  saveFile,
 };

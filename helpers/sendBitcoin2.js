@@ -12,7 +12,7 @@ const {
   createHDWallet,
   createCollectionHDWallet,
   createPayLinkWallet,
-} = require("./createWallet");
+} = require("./walletHelper");
 const mempoolJS = require("@mempool/mempool.js");
 const dotenv = require("dotenv");
 const { default: axios } = require("axios");

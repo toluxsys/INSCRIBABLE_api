@@ -7,10 +7,7 @@ const inscriptionSchema = new mongoose.Schema(
     sent: { type: Boolean },
     feeRate: { type: Number },
     utxoTxid: { type: String },
-    encryptedPassKey: {
-      type: String,
-      immutable: true,
-    },
+    inscriptionType: { type: String },
     inscriptionDetails: {
       type: Object,
     },
