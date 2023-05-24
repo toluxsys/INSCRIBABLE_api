@@ -64,7 +64,6 @@ module.exports.inscribeText = async (req, res) => {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
-    const count = await Ids.find({}, { _id: 0 });
     let ORD_API_URL;
     const fileName = new Date().getTime().toString() + `.txt`;
 
@@ -79,14 +78,18 @@ module.exports.inscribeText = async (req, res) => {
     let fileDetail = await saveFile(fileName);
     const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
-    const payDetails = await createLegacyAddress(networkName, count.length);
-    let paymentAddress = payDetails.p2pkh_addr;
-
     const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const blockHeight = await axios.post(ORD_API_URL + `/ord/getLatestBlock`);
-    if (blockHeight.data.message !== `ok`) {
-      return res.status(200).json({ status: false, message: blockHeight.data.message });
-    }
+      const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const data = {
+        collectionName: inscriptionId,
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
+      }
+      let paymentAddress = result.data.userResponse.data[0];
     const inscription = new Inscription({
       id: inscriptionId,
       inscribed: false,
@@ -97,27 +100,19 @@ module.exports.inscribeText = async (req, res) => {
       inscriptionDetails: {
         fileName: fileName,
         payAddress: paymentAddress,
-        payAddressId: count.length,
         cid: fileDetail.cid,
       },
       walletDetails: {
         keyPhrase: walletKey,
         walletName: inscriptionId,
-        creationBlock: blockHeight.data.userResponse.data,
       },
       cost: inscriptionCost,
       feeRate: feeRate,
       stage: "stage 1",
     });
 
-    const savedInscription = await inscription.save();
-    const ids = new Ids({
-      id: savedInscription._id,
-      type: "single",
-      startTime: Date.now(),
-    });
-    await ids.save();
-
+    await inscription.save();
+   
     res.status(200).json({
       status: true,
       message: "ok",
@@ -141,7 +136,6 @@ module.exports.brc20 = async (req, res) => {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
-    const count = await Ids.find({}, { _id: 0 });
     let ORD_API_URL;
     const fileName = new Date().getTime().toString() + `.txt`;
 
@@ -175,14 +169,18 @@ module.exports.brc20 = async (req, res) => {
     let fileDetail = await saveFile(fileName);
     const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
-    const payDetails = await createLegacyAddress(networkName, count.length);
-    let paymentAddress = payDetails.p2pkh_addr;
-
     const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const blockHeight = await axios.post(ORD_API_URL + `/ord/getLatestBlock`);
-    if (blockHeight.data.message !== `ok`) {
-      return res.status(200).json({ status: false, message: blockHeight.data.message });
+    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    const u_data = {
+      collectionName: inscriptionId,
+      addrCount: 1,
+      networkName: networkName,
+    };
+    const result = await axios.post(url, u_data);
+    if (result.data.message !== "ok") {
+      return res.status(200).json({status: false, message: result.data.message});
     }
+    let paymentAddress = result.data.userResponse.data[0];
     const inscription = new Inscription({
       id: inscriptionId,
       inscribed: false,
@@ -193,26 +191,18 @@ module.exports.brc20 = async (req, res) => {
       inscriptionDetails: {
         fileName: fileName,
         payAddress: paymentAddress,
-        payAddressId: count.length,
         cid: fileDetail.cid,
       },
       walletDetails: {
         keyPhrase: walletKey,
         walletName: inscriptionId,
-        creationBlock: blockHeight.data.userResponse.data,
       },
       cost: inscriptionCost,
       feeRate: feeRate,
       stage: "stage 1",
     });
 
-    const savedInscription = await inscription.save();
-    const ids = new Ids({
-      id: savedInscription._id,
-      type: "single",
-      startTime: Date.now(),
-    });
-    await ids.save();
+    await inscription.save();
 
     res.status(200).json({
       status: true,
@@ -231,12 +221,12 @@ module.exports.brc20 = async (req, res) => {
   }
 }
 
-module.exports.brc721 = async (req, res) => {
+module.exports.brc1155 = async (req, res) => {
 
   // BRC721 Spec
   /**
    * {
-   *    p: "brc-721",
+   *    p: "brc-1155",
    *    op: "mint",
    *    content: https://ipfs.io/cid/fileName,
    * }
@@ -270,7 +260,7 @@ module.exports.brc721 = async (req, res) => {
       const saved_file = await compressAndSave(s_fileName, false);
       
       let data = {
-        p: "brc-721",
+        p: "brc-1155",
         op: "mint",
         content: process.env.IPFS_IMAGE_URL + `${saved_file.cid}/${s_fileName}`
       }
@@ -280,45 +270,40 @@ module.exports.brc721 = async (req, res) => {
       let fileDetail = await saveFile(fileName);
       const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
-      const payDetails = await createLegacyAddress(networkName, count.length);
-      let paymentAddress = payDetails.p2pkh_addr;
-
-      const walletKey = await addWalletToOrd(inscriptionId, networkName);
-      const blockHeight = await axios.post(ORD_API_URL + `/ord/getLatestBlock`);
-      if (blockHeight.data.message !== `ok`) {
-        return res.status(200).json({ status: false, message: blockHeight.data.message });
-      }
+    const walletKey = await addWalletToOrd(inscriptionId, networkName);
+    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    const u_data = {
+      collectionName: inscriptionId,
+      addrCount: 1,
+      networkName: networkName,
+    };
+    const result = await axios.post(url, u_data);
+    if (result.data.message !== "ok") {
+      return res.status(200).json({status: false, message: result.data.message});
+    }
+    let paymentAddress = result.data.userResponse.data[0];
       const inscription = new Inscription({
         id: inscriptionId,
         inscribed: false,
         feeRate: feeRate,
         receiver: receiveAddress,
-        inscriptionType: "brc721",
+        inscriptionType: "brc1155",
 
         inscriptionDetails: {
           fileName: fileName,
           payAddress: paymentAddress,
-          payAddressId: count.length,
           cid: fileDetail.cid,
         },
         walletDetails: {
           keyPhrase: walletKey,
           walletName: inscriptionId,
-          creationBlock: blockHeight.data.userResponse.data,
         },
         cost: inscriptionCost,
         feeRate: feeRate,
         stage: "stage 1",
       });
 
-      const savedInscription = await inscription.save();
-      const ids = new Ids({
-        id: savedInscription._id,
-        type: "single",
-        startTime: Date.now(),
-      });
-      await ids.save();
-
+      await inscription.save();
       res.status(200).json({
         status: true,
         message: "ok",
