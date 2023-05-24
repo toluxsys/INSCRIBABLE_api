@@ -193,6 +193,17 @@ const saveFile = async (fileName) => {
   try{
     const storage = await initStorage();
     const filePath = `${process.cwd()}/build/files/${fileName}`
+
+    if (!fs.existsSync(filePath)) {
+      fs.mkdirSync(
+        filePath,
+        { recursive: true },
+        (err) => {
+          console.log(err);
+        }
+      );
+    }
+
     const n_file = await getFilesFromPath(filePath);
       const rootCid = await storage.put(n_file);
       fs.unlinkSync(filePath);

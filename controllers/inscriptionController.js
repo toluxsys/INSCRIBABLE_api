@@ -76,6 +76,7 @@ module.exports.inscribeText = async (req, res) => {
     
     writeFile(path, textBody);
     let fileDetail = await saveFile(fileName);
+    console.log(fileDetail);
     const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
     const walletKey = await addWalletToOrd(inscriptionId, networkName);
