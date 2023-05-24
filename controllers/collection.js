@@ -256,7 +256,6 @@ module.exports.seleteItem = async (req, res) => {
     const cid = collection.cids[0];
     const price = collection.price;
     const items = await getLinks(cid);
-    const count = await Ids.find({}, { _id: 0 });
 
     const minted = collection.minted;
     imageNames.forEach(async (image) => {
@@ -339,11 +338,6 @@ module.exports.seleteItem = async (req, res) => {
       });
 
       savedInscription = await inscription.save();
-      ids = new Ids({
-        id: savedInscription._id,
-        type: "bulk",
-      });
-      await ids.save();
     } else {
       const inscription = new Inscription({
         id: inscriptionId,
@@ -365,11 +359,6 @@ module.exports.seleteItem = async (req, res) => {
       });
 
       savedInscription = await inscription.save();
-      ids = new Ids({
-        id: savedInscription._id,
-        type: "single",
-      });
-      await ids.save();
     }
 
     userResponse = {
@@ -390,6 +379,69 @@ module.exports.seleteItem = async (req, res) => {
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.checkPayment = async (req, res) => {
+  try {
+    const { networkName, inscriptionId, collectionId } = req.body;
+    const type = getType(inscriptionId);
+    let inscription;
+    let balance;
+    let cost;
+
+    if (type === `single`) {
+      inscription = await Inscription.findOne({ id: inscriptionId });
+      balance = await getWalletBalance(
+        inscription.inscriptionDetails.payAddress,
+        networkName
+      );
+      cost = inscription.cost.total;
+    } else if (type === `bulk`) {
+      inscription = await BulkInscription.findOne({ id: inscriptionId });
+      balance = await getWalletBalance(
+        inscription.inscriptionDetails.payAddress,
+        networkName
+      );
+      cost = inscription.cost.total;
+    }
+
+    if (inscription.stage === "stage 2") {
+      return res.status(200).json({ status: true, message: "utxo sent" });
+    } else if (inscription.stage === "stage 3") {
+      return res.status(200).json({
+        status: true,
+        message: "inscription complete",
+        userResponse: inscription.inscription,
+      });
+    }
+
+    if (!balance.status[0])
+      return res.status(200).json({
+        status: false,
+        message: `Waiting for payment`,
+      });
+
+    if (!balance.status[0].confirmed) {
+      await Collection.findOneAndUpdate({id: collectionId}, {$push: {minted: {$each: imageNames, $position: -1}}}, {new: true});
+      return res.status(200).json({
+        status: false,
+        message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+      });
+    }
+
+    if (balance.totalAmountAvailable < cost)
+      return res.status(200).json({
+        status: false,
+        message: `payment not received. Available: ${balance.totalAmountAvailable}, Required: ${cost}`,
+      });
+
+    return res
+      .status(200)
+      .json({ status: true, message: `ok`, userResponse: true });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
   }
 };
 
@@ -555,12 +607,26 @@ module.exports.getImages = async(req, res) => {
   try{
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
+    let minted = collection.minted;
     let items = [];
     const imageNames = await getLinks(collection.cids[0]);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
-    imageNames.forEach(async (newItem, index) => {
-      let imageUrl = process.env.IPFS_IMAGE_URL + collection.cids[0] + `/${newItem.name}`;
-      items.push(imageUrl);
+    imageNames.forEach((newItem, index) => {
+      let i_data;
+      if(minted.includes(newItem.name)){
+         i_data = {
+          name: newItem.name,
+          imageUrl: process.env.IPFS_IMAGE_URL + collection.cids[0] + `/${newItem.name}`,
+          minted: true,
+        }
+      } else {
+        i_data = {
+          name: newItem.name,
+          imageUrl: process.env.IPFS_IMAGE_URL + collection.cids[0] + `/${newItem.name}`,
+          minted: false,
+        }
+      }
+      items.push(i_data);
     })
     return res.status(200).json({status: true, message:"ok", userResponse: items})
   } catch(e){
@@ -650,8 +716,6 @@ module.exports.inscribe = async (req, res) => {
         });
     
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, { new: true });
-    await Collection.findOneAndUpdate({id: collectionId}, {$push: {minted: {$each: imageNames, $position: -1}}}, {new: true});
-  
 
     if (!receiverAddress) {
       instance.inscription = details;
