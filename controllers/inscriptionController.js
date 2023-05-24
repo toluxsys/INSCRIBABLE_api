@@ -76,7 +76,6 @@ module.exports.inscribeText = async (req, res) => {
     
     writeFile(path, textBody);
     let fileDetail = await saveFile(fileName);
-    console.log(fileDetail);
     const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
     const walletKey = await addWalletToOrd(inscriptionId, networkName);
@@ -235,12 +234,12 @@ module.exports.brc1155 = async (req, res) => {
 
   try {
     const file = req.files.file;
-    const {feeRate, networkName, receiveAddress } = req.body;
+    const {networkName, receiveAddress } = req.body;
+    let feeRate = parseInt(req.body.feeRate);
     
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
-    const count = await Ids.find({}, { _id: 0 });
     let ORD_API_URL;
 
     if (networkName === "mainnet")
