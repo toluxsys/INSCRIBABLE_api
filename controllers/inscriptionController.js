@@ -794,15 +794,9 @@ module.exports.checkPayment = async (req, res) => {
     let inscription;
     let balance;
     let cost;
-    let collection;
-
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
-      if(inscription.collectionId){
-        collection = await Collection.findOne({id: inscription.collectionId});
-      }
-      
       balance = await getWalletBalance(
         inscription.inscriptionDetails.payAddress,
         networkName
@@ -810,10 +804,6 @@ module.exports.checkPayment = async (req, res) => {
       cost = inscription.cost.total;
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
-      if(inscription.collectionId){
-        collection = await Collection.findOne({id: inscription.collectionId});
-      }
-
       balance = await getWalletBalance(
         inscription.inscriptionDetails.payAddress,
         networkName
@@ -831,6 +821,26 @@ module.exports.checkPayment = async (req, res) => {
       });
     }
 
+    if(inscription.collectionId){
+      if (!balance.status[0]) return res.status(200).json({status: false, message: "Waiting for payment"});
+      if(!balance.status[0].confirmed){
+        if(inscription.collectionPayment === "waiting"){
+          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}}, {new: true});
+          inscription.collectionPayment = "received";
+          await inscription.save();
+          return res.status(200).json({
+            status: false,
+            message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+          });
+        }else if (inscription.collectionPayment === "received"){
+          return res.status(200).json({
+            status: false,
+            message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+          });
+        }
+      }
+    }
+
     if (!balance.status[0])
       return res.status(200).json({
         status: false,
@@ -838,28 +848,12 @@ module.exports.checkPayment = async (req, res) => {
       });
 
     if (!balance.status[0].confirmed) {
-      if(collection){
-        if(inscription.collectionPayment === false){
-          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}}, {new: true});
-          inscription.collectionPayment = true;
-          return res.status(200).json({
-            status: false,
-            message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-          });
-        } else {
-          return res.status(200).json({
-            status: false,
-            message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-          });
-        } 
-      }else{
-        return res.status(200).json({
-          status: false,
-          message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-        });
-      }
+      return res.status(200).json({
+        status: false,
+        message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+      });
     }
-
+  
     if (balance.totalAmountAvailable < cost){
       return res.status(200).json({
         status: false,

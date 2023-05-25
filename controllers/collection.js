@@ -193,8 +193,8 @@ module.exports.addCollectionItems = async (req, res) => {
       );
     }
 
-    if (collectionItems === undefined){
-        if (itemCid === undefined) res.status(200).json({status: false, message: "choose item(s) to upload or input collection item cid"});
+    if (!collectionItems){
+        if (!itemCid) res.status(200).json({status: false, message: "choose item(s) to upload or input collection item cid"});
         cid.push(itemCid);
         await Collection.findOneAndUpdate(
         { id: collectionId },
@@ -205,7 +205,7 @@ module.exports.addCollectionItems = async (req, res) => {
       );
     }
 
-    if (collectionItems.length > 100) return res.status(200).json({status:false, message: "collection items above 100, upload images to ipfs and pass CID"});
+    if (collectionItems.length > 20) return res.status(200).json({status:false, message: "collection items above 100, upload images to ipfs and pass CID"});
 
     collectionItems.forEach(async (file, index) => {
       ext = path.extname(file.name);
@@ -378,69 +378,6 @@ module.exports.seleteItem = async (req, res) => {
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
-  }
-};
-
-module.exports.checkPayment = async (req, res) => {
-  try {
-    const { networkName, inscriptionId, collectionId } = req.body;
-    const type = getType(inscriptionId);
-    let inscription;
-    let balance;
-    let cost;
-
-    if (type === `single`) {
-      inscription = await Inscription.findOne({ id: inscriptionId });
-      balance = await getWalletBalance(
-        inscription.inscriptionDetails.payAddress,
-        networkName
-      );
-      cost = inscription.cost.total;
-    } else if (type === `bulk`) {
-      inscription = await BulkInscription.findOne({ id: inscriptionId });
-      balance = await getWalletBalance(
-        inscription.inscriptionDetails.payAddress,
-        networkName
-      );
-      cost = inscription.cost.total;
-    }
-
-    if (inscription.stage === "stage 2") {
-      return res.status(200).json({ status: true, message: "utxo sent" });
-    } else if (inscription.stage === "stage 3") {
-      return res.status(200).json({
-        status: true,
-        message: "inscription complete",
-        userResponse: inscription.inscription,
-      });
-    }
-
-    if (!balance.status[0])
-      return res.status(200).json({
-        status: false,
-        message: `Waiting for payment`,
-      });
-
-    if (!balance.status[0].confirmed) {
-      await Collection.findOneAndUpdate({id: collectionId}, {$push: {minted: {$each: imageNames, $position: -1}}}, {new: true});
-      return res.status(200).json({
-        status: false,
-        message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-      });
-    }
-
-    if (balance.totalAmountAvailable < cost)
-      return res.status(200).json({
-        status: false,
-        message: `payment not received. Available: ${balance.totalAmountAvailable}, Required: ${cost}`,
-      });
-
-    return res
-      .status(200)
-      .json({ status: true, message: `ok`, userResponse: true });
-  } catch (e) {
-    console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
   }
 };
 

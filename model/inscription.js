@@ -9,7 +9,7 @@ const inscriptionSchema = new mongoose.Schema(
     utxoTxid: { type: String },
     inscriptionType: { type: String },
     collectionId: {type: String},
-    collectionPayment: {type: Boolean, default: false},
+    collectionPayment: {type: String, default: "waiting"},
     inscriptionDetails: {
       type: Object,
     },

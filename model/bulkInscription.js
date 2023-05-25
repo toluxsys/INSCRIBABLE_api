@@ -8,7 +8,7 @@ const bulkInscription = new mongoose.Schema(
     feeRate: { type: Number },
     utxoTxid: { type: String },
     collectionId: {type: String},
-    collectionPayment: {type: Boolean, default: false},
+    collectionPayment: {type: String, default: "waiting"},
     inscriptionDetails: {
       type: Object,
     },
