@@ -266,9 +266,7 @@ module.exports.seleteItem = async (req, res) => {
 
     let images = [];
     let fileSize = [];
-    let ids;
     let inscriptionId;
-    let savedInscription;
     let userResponse;
 
     let ORD_API_URL;
@@ -321,7 +319,7 @@ module.exports.seleteItem = async (req, res) => {
         id: inscriptionId,
         inscribed: false,
         feeRate: feeRate,
-
+        collectionId: collectionId,
         inscriptionDetails: {
           payAddress: paymentAddress,
           cid: cid,
@@ -337,12 +335,13 @@ module.exports.seleteItem = async (req, res) => {
         stage: "stage 1"
       });
 
-      savedInscription = await inscription.save();
+      await inscription.save();
     } else {
       const inscription = new Inscription({
         id: inscriptionId,
         inscribed: false,
         feeRate: feeRate,
+        collectionId: collectionId,
 
         inscriptionDetails: {
           payAddress: paymentAddress,
@@ -358,7 +357,7 @@ module.exports.seleteItem = async (req, res) => {
         stage: "stage 1"
       });
 
-      savedInscription = await inscription.save();
+     await inscription.save();
     }
 
     userResponse = {

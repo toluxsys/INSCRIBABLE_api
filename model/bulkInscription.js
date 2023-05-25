@@ -7,10 +7,8 @@ const bulkInscription = new mongoose.Schema(
     sent: { type: Boolean },
     feeRate: { type: Number },
     utxoTxid: { type: String },
-    encryptedPassKey: {
-      type: String,
-      immutable: true,
-    },
+    collectionId: {type: String},
+    collectionPayment: {type: Boolean, default: false},
     inscriptionDetails: {
       type: Object,
     },

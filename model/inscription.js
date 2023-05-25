@@ -8,6 +8,8 @@ const inscriptionSchema = new mongoose.Schema(
     feeRate: { type: Number },
     utxoTxid: { type: String },
     inscriptionType: { type: String },
+    collectionId: {type: String},
+    collectionPayment: {type: Boolean, default: false},
     inscriptionDetails: {
       type: Object,
     },
