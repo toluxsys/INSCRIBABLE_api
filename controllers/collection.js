@@ -65,7 +65,6 @@ const inscriptionPrice = (feeRate, fileSize, price) => {
 module.exports.addCollection = async (req, res) => {
   try {
     let files = [];
-    let cids = [];
     let b_ext;
     let f_ext;
     const {
@@ -135,7 +134,6 @@ module.exports.addCollection = async (req, res) => {
     };
 
     const data = await compressAndSaveBulk(collectionId, false);
-    cids.push(data.cid);
     const collection = new Collection({
       id: collectionId,
       status: `pending`,
@@ -145,10 +143,10 @@ module.exports.addCollection = async (req, res) => {
       collectionAddress: collectionAddress,
       description: description,
       category: category,
-      cids: cids,
-      banner: process.env.IPFS_IMAGE_URL + cids[0] + `/banner${b_ext}`,
+      featuredCid: data.cid,
+      banner: process.env.IPFS_IMAGE_URL + data.cid + `/banner${b_ext}`,
       featuredImage:
-        process.env.IPFS_IMAGE_URL + cids[0] + `/featuredImage${f_ext}`,
+        process.env.IPFS_IMAGE_URL + data.cid + `/featuredImage${f_ext}`,
     });
     await collection.save();
     return res
@@ -195,14 +193,9 @@ module.exports.addCollectionItems = async (req, res) => {
 
     if (!collectionItems){
         if (!itemCid) res.status(200).json({status: false, message: "choose item(s) to upload or input collection item cid"});
-        cid.push(itemCid);
-        await Collection.findOneAndUpdate(
-        { id: collectionId },
-        { $push: { cids: { $each: cid, $position: -1 } } },
-        { largestFile: data.largestFile },
-        { status: `approved` },
-        { new: true }
-      );
+        let collection =await Collection.findOne({ id: collectionId });
+        collection.itemCid = itemCid;
+        await collection.save();
     }
 
     if (collectionItems.length > 20) return res.status(200).json({status:false, message: "collection items above 100, upload images to ipfs and pass CID"});
@@ -221,16 +214,9 @@ module.exports.addCollectionItems = async (req, res) => {
     });
 
     const data = await compressAndSaveBulk(collectionId, optimized);
-    cid.push(data.cid);
-    await Collection.findOneAndUpdate(
-      { id: collectionId },
-      { $push: { cids: { $each: cid, $position: -1 } } },
-      { largestFile: data.largestFile },
-      { status: `approved` },
-      { new: true }
-    );
-
     let collection = await Collection.findOne({ id: collectionId });
+    collection.itemCid = data.cid;
+    await collection.save();
 
     return res.status(200).json({
       status: true,
@@ -253,15 +239,15 @@ module.exports.seleteItem = async (req, res) => {
     const { collectionId, receiverAddress, feeRate, imageNames, networkName } =
       req.body;
     const collection = await Collection.findOne({ id: collectionId });
-    const cid = collection.cids[0];
+    const cid = collection.itemCid;
+    console.log("cid:",cid);
     const price = collection.price;
     const items = await getLinks(cid);
 
     const minted = collection.minted;
     imageNames.forEach(async (image) => {
-      minted.forEach((img) => {
-        if (img === image) return res.status(200).json({status: false, message: `item with name ${image}, already inscribed`});
-      })
+     
+        if (minted.includes(image)) return res.status(200).json({status: false, message: `item with name ${image}, already inscribed`});
     })
 
     let images = [];
@@ -374,7 +360,7 @@ module.exports.seleteItem = async (req, res) => {
 
     return res.status(200).json({ status:true, message: `ok`, userResponse: userResponse });
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
@@ -545,20 +531,20 @@ module.exports.getImages = async(req, res) => {
     const collection = await Collection.findOne({id: collectionId});
     let minted = collection.minted;
     let items = [];
-    const imageNames = await getLinks(collection.cids[0]);
+    const imageNames = await getLinks(collection.itemCid);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
     imageNames.forEach((newItem, index) => {
       let i_data;
       if(minted.includes(newItem.name)){
          i_data = {
           name: newItem.name,
-          imageUrl: process.env.IPFS_IMAGE_URL + collection.cids[0] + `/${newItem.name}`,
+          imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${newItem.name}`,
           minted: true,
         }
       } else {
         i_data = {
           name: newItem.name,
-          imageUrl: process.env.IPFS_IMAGE_URL + collection.cids[0] + `/${newItem.name}`,
+          imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${newItem.name}`,
           minted: false,
         }
       }
@@ -627,7 +613,7 @@ module.exports.inscribe = async (req, res) => {
         newInscription = await axios.post(ORD_API_URL + `/ord/inscribe`, {
           feeRate: instance.feeRate,
           receiverAddress: receiverAddress,
-          cid: collection.cids[0],
+          cid: collection.itemCid,
           inscriptionId: inscriptionId,
           networkName: networkName,
           collectionId: collectionId,
@@ -722,7 +708,7 @@ module.exports.getCollection = async (req, res) => {
   try{
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
-    let collectionItems = await getLinks(collection.cids[0]);
+    let collectionItems = await getLinks(collection.itemCid);
     let mintedItems = collection.minted;
     let collectionCount = collectionItems.length;
     let mintedCount = mintedItems.length;

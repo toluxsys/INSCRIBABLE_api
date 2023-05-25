@@ -32,8 +32,11 @@ const collection = new mongoose.Schema(
     category: {
       type: String,
     },
-    cids: {
-      type: Array,
+    itemCid: {
+      type: String
+    },
+    featuredCid: {
+      type: String
     },
     largestFile: {
       type: Number,
