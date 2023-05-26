@@ -160,7 +160,7 @@ module.exports.addCollection = async (req, res) => {
 
 module.exports.addCollectionItems = async (req, res) => {
   try {
-    let cid = [];
+    req.setTimeout(450000);
     const collectionId = req.body.collectionId;
     const collectionItems = req.files.items;
     const optimize = req.body.optimize;
@@ -198,7 +198,7 @@ module.exports.addCollectionItems = async (req, res) => {
         await collection.save();
     }
 
-    if (collectionItems.length > 20) return res.status(200).json({status:false, message: "collection items above 100, upload images to ipfs and pass CID"});
+    if (collectionItems.length > 100) return res.status(200).json({status:false, message: "collection items above 100, upload images to ipfs and pass CID"});
 
     collectionItems.forEach(async (file, index) => {
       ext = path.extname(file.name);
@@ -610,7 +610,7 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     }
-        newInscription = await axios.post(ORD_API_URL + `/ord/inscribe`, {
+        newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/change`, {
           feeRate: instance.feeRate,
           receiverAddress: receiverAddress,
           cid: collection.itemCid,
