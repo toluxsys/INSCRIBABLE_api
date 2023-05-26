@@ -630,8 +630,7 @@ module.exports.inscribe = async (req, res) => {
         n_inscriptions = newInscription.data.userResponse.data;
         n_inscriptions.forEach((item) => {
           const data = {
-            inscription: item.inscriptions[0],
-            commit: item.commit,
+            inscription: item.inscriptions,
           };
     
           details.push(data);
