@@ -639,12 +639,11 @@ module.exports.inscribe = async (req, res) => {
         .status(200)
         .json({ status: false, message: newInscription.data.message });
     }
-    n_inscriptions = newInscription.data.userResponse.data;
+    n_inscriptions = newInscription.data.userResponse.data.inscriptions;
     n_inscriptions.forEach((item) => {
       const data = {
-        inscription: item.inscriptions,
+        inscription: item,
       };
-
       details.push(data);
     });
     instance.inscription = details;

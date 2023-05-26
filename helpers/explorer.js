@@ -4,7 +4,7 @@ const dotenv = require("dotenv").config();
 const ordApiUrl = "https://ordapi.xyz/";
 const contentUrl = "https://ordapi.xyz/content/";
 const previewUrl = "https://ordapi.xyz/preview/"
-const protocols = ["brc-20", "BRC-20", "sns", "SNS", "brc-721", "BRC-721"];
+const protocols = ["brc-20", "BRC-20", "sns", "SNS", "brc-1155", "BRC-1155"];
 
 const getJsonInscription = async (start, stop, limit) => {
     try {
