@@ -560,7 +560,7 @@ module.exports.getImages = async(req, res) => {
 module.exports.inscribe = async (req, res) => {
   try{
     req.setTimeout(450000);
-    const {collectionId, inscriptionId, receiverAddress, networkName} = req.body;
+    const {collectionId, inscriptionId, receiveAddress, networkName} = req.body;
     const type = getType(inscriptionId);
     let inscription;
     let instance;
@@ -612,7 +612,7 @@ module.exports.inscribe = async (req, res) => {
     }
         newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/change`, {
           feeRate: instance.feeRate,
-          receiverAddress: receiverAddress,
+          receiverAddress: receiveAddress,
           cid: collection.itemCid,
           inscriptionId: inscriptionId,
           networkName: networkName,
@@ -639,7 +639,7 @@ module.exports.inscribe = async (req, res) => {
     
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, { new: true });
 
-    if (!receiverAddress) {
+    if (!receiveAddress) {
       instance.inscription = details;
       instance.inscribed = true;
       instance.stage = "stage 3";
@@ -654,7 +654,7 @@ module.exports.inscribe = async (req, res) => {
       instance.sent = true;
       instance.inscribed = true;
       instance.stage = "stage 3";
-      instance.receiver = receiverAddress;
+      instance.receiver = receiveAddress;
       await instance.save();
       return res.status(200).json({
         status: true,
