@@ -162,7 +162,7 @@ const getInscriptionByAddress = async (address) => {
           genesisHeight: e.genesis_height,
           id: e.id,
           inscriptionNumber: e.inscription_number,
-          preview: await previewInscriptionContent(e.id),
+          //preview: await previewInscriptionContent(e.id),
           sat: e.sat,
           timestamp: e.timestamp,
           title: e.title
@@ -220,18 +220,3 @@ module.exports = {
   getInscriptionByAddress,
   getInscriptionByNumber
 };
-  
-// getInscriptionById("2e7d44fd3f3019aeeac59b003aff5ac90c94ff9b06bfaf2bfcbc94d6ba216044i0").then((res) => {
-//     console.log(res);
-//   })
-//   .catch((err) => {
-//     console.error(err);
-//   });
-  
-  getJsonInscription(800000, 999999, 100)
-    .then((res) => {
-      console.log(res);
-    })
-    .catch((err) => {
-      console.error(err);
-    });

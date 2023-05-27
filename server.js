@@ -4,6 +4,7 @@ const axios = require("axios");
 const mongoose = require("mongoose");
 const inscriptRoute = require("./routes/inscriptRoute.js");
 const collectionRoute = require("./routes/collectionRoute.js");
+const explorerRoute = require("./routes/explorerRoute.js");
 const interval = process.env.INDEXING_INTERVAL;
 let timerId;
 let blockHeight = 0;
@@ -46,6 +47,7 @@ mongoose
 
 app.use(`/api/inscript`, inscriptRoute);
 app.use(`/api/collection`, collectionRoute);
+app.use(`/api/explore`, explorerRoute);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "You are connected to the server" });
