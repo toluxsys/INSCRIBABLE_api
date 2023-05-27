@@ -150,7 +150,7 @@ module.exports.brc20 = async (req, res) => {
     if (method === "deploy") {
       data = {
         p: "brc-20",
-        op: "mint",
+        op: "deploy",
         tick: tick,
         max: maxSupply,
         lim: limit
@@ -188,6 +188,94 @@ module.exports.brc20 = async (req, res) => {
       feeRate: feeRate,
       receiver: receiveAddress,
       inscriptionType: "brc20",
+
+      inscriptionDetails: {
+        fileName: fileName,
+        payAddress: paymentAddress,
+        cid: fileDetail.cid,
+      },
+      walletDetails: {
+        keyPhrase: walletKey,
+        walletName: inscriptionId,
+      },
+      cost: inscriptionCost,
+      feeRate: feeRate,
+      stage: "stage 1",
+    });
+
+    await inscription.save();
+
+    res.status(200).json({
+      status: true,
+      message: "ok",
+      userResponse: {
+        cost: inscriptionCost,
+        paymentAddress: paymentAddress,
+        inscriptionId: inscriptionId,
+      },
+    });
+  } catch (e){
+    console.log(e.message);
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
+  }
+}
+
+module.exports.satNames = async (req, res) => {
+  try{
+    const {name, method, feeRate, receiveAddress,  networkName} = req.body;
+    const id = await import("nanoid");
+    const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
+    const inscriptionId = `s${uuidv4()}`;
+    let ORD_API_URL;
+    const fileName = new Date().getTime().toString() + `.txt`;
+
+    if (networkName === "mainnet")
+      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+    let data;
+    let s_path = `./build/files/${fileName}`;
+    
+    if (method === "register") {
+      data = {
+        p: "sns",
+        op: "reg",
+        name: name
+      }
+    }
+
+    if (method === "mint"){
+      data = {
+        p: "sns",
+        op: "mint",
+        name: name
+      }
+    }
+    let s_data = JSON.stringify(data).toString();
+    writeFile(s_path, s_data);
+    let fileDetail = await saveFile(fileName);
+    const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+
+    const walletKey = await addWalletToOrd(inscriptionId, networkName);
+    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    const u_data = {
+      collectionName: inscriptionId,
+      addrCount: 1,
+      networkName: networkName,
+    };
+    const result = await axios.post(url, u_data);
+    if (result.data.message !== "ok") {
+      return res.status(200).json({status: false, message: result.data.message});
+    }
+    let paymentAddress = result.data.userResponse.data[0];
+    const inscription = new Inscription({
+      id: inscriptionId,
+      inscribed: false,
+      feeRate: feeRate,
+      receiver: receiveAddress,
+      inscriptionType: "sns",
 
       inscriptionDetails: {
         fileName: fileName,
@@ -639,12 +727,15 @@ module.exports.inscribe = async (req, res) => {
         .status(200)
         .json({ status: false, message: newInscription.data.message });
     }
-    n_inscriptions = newInscription.data.userResponse.data.inscriptions;
+    n_inscriptions = newInscription.data.userResponse.data;
     n_inscriptions.forEach((item) => {
-      const data = {
-        inscription: item,
-      };
-      details.push(data);
+      let inscriptions = item.inscriptions;
+      inscriptions.map((e) => {
+        const data = {
+          inscription: e,
+        };
+        details.push(data);
+      }) 
     });
     instance.inscription = details;
     if (!receiverAddress) {

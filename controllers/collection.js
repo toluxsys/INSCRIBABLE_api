@@ -627,13 +627,16 @@ module.exports.inscribe = async (req, res) => {
             .json({ status: false, message: newInscription.data.message });
         }
   
-    n_inscriptions = newInscription.data.userResponse.data.inscriptions;
-    n_inscriptions.forEach((item) => {
-      const data = {
-        inscription: item,
-      };
-      details.push(data);
-    });
+        n_inscriptions = newInscription.data.userResponse.data;
+        n_inscriptions.forEach((item) => {
+          let inscriptions = item.inscriptions;
+          inscriptions.map((e) => {
+            const data = {
+              inscription: e,
+            };
+            details.push(data);
+          }) 
+        });
     
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, { new: true });
 
