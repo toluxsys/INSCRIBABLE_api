@@ -912,8 +912,8 @@ module.exports.checkPayment = async (req, res) => {
     }
 
     if(inscription.collectionId){
-      if (!balance.status[0]) return res.status(200).json({status: false, message: "Waiting for payment"});
-      if(!balance.status[0].confirmed){
+      if (balance.status[0] === undefined) return res.status(200).json({status: false, message: "Waiting for payment"});
+      if(balance.status[0].confirmed === false){
         if(inscription.collectionPayment === "waiting"){
           await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}}, {new: true});
           inscription.collectionPayment = "received";
@@ -931,7 +931,7 @@ module.exports.checkPayment = async (req, res) => {
       }
     }
 
-    if (!balance.status[0])
+    if (balance.status[0] === undefined)
       return res.status(200).json({
         status: false,
         message: `Waiting for payment`,
@@ -957,7 +957,7 @@ module.exports.checkPayment = async (req, res) => {
     
   } catch (e) {
     console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 

@@ -164,25 +164,25 @@ module.exports = {
   sendBitcoin,
 };
 
-// const start = async () => {
-//   // const { transactions } = await init();
-//   // const available = await chechAddress(
-//   //   "msgfzF5z2K9xtAbtFoiYwEaStZCnS3TXJy",
-//   //   "testnet"
-//   // );
-//   // console.log(available.utxos[0].status.confirmed);
-//   // console.log(available.totalAmountAvailable);
+//  const start = async () => {
+//   const { transactions } = await init();
+//   const available = await getWalletBalance(
+//     "tb1pvywaz6qa7dtfygdqd2trd35eggdzkht775epsej054k2gftle2gq9zah2g",
+//     "testnet"
+//   );
+//   console.log(available.status[0]);
+//   console.log(available.totalAmountAvailable);
 
-//   const details = [
-//     {
-//       address: `n4cuRMgarrU3vwxcMDMmbXWVHn7cJBvNtc`,
-//       amount: 53072,
-//     },
-//   ];
+// //   const details = [
+// //     {
+// //       address: `n4cuRMgarrU3vwxcMDMmbXWVHn7cJBvNtc`,
+// //       amount: 53072,
+// //     },
+// //   ];
 
-//   console.log(await sendBitcoin(2, details, "testnet"));
+// //   console.log(await sendBitcoin(2, details, "testnet"));
 
-//   //console.log(await getRecomendedFee());
-// };
+// //   //console.log(await getRecomendedFee());
+//  };
 
 // start();
