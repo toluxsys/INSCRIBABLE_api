@@ -179,7 +179,7 @@ const getInscriptionByAddress = async (address) => {
 
 const getInscriptionByNumber = async (inscriptionNumber) => {
   try{
-    const feedPath = ordApiUrl + `inscriptions/?start=${inscriptionNumber}&end=${inscriptionNumber}&limit=${1}`;
+    const feedPath = ordApiUrl + `inscriptions/?start=${inscriptionNumber}&end=${inscriptionNumber + 100}&limit=${1}`;
     const s_result = await axios.get(feedPath);
     let data = s_result.data;
     let inscriptions = [];
@@ -199,10 +199,12 @@ const getInscriptionByNumber = async (inscriptionNumber) => {
           timestamp: e.timestamp,
           title: e.title
         }
+
+        console.log(s_data);
         inscriptions.push(s_data);
       }
     )
-  )
+  );
   return inscriptions;
   }catch(e){
     console.log(e.message)
@@ -220,3 +222,18 @@ module.exports = {
   getInscriptionByAddress,
   getInscriptionByNumber
 };
+  
+  // getInscriptionByNumber(998000).then((res) => {
+  //     console.log(res);
+  //   })
+  //   .catch((err) => {
+  //     console.error(err);
+  //   });
+  
+  // getJsonInscription(2000000, 3000000, 1000)
+  //   .then((res) => {
+  //     console.log(res);
+  //   })
+  //   .catch((err) => {
+  //     console.error(err);
+  //   });

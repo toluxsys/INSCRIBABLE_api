@@ -937,7 +937,7 @@ module.exports.checkPayment = async (req, res) => {
         message: `Waiting for payment`,
       });
 
-    if (!balance.status[0].confirmed) {
+    if (balance.status[0].confirmed === false) {
       return res.status(200).json({
         status: false,
         message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
