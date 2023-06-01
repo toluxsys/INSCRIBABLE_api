@@ -742,8 +742,8 @@ module.exports.getImages = async(req, res) => {
         s_free.push(i_data);
       }
     })
-
-    return res.status(200).json({status: true, message:"ok", userResponse: {selected: s_selected, free: s_free, minted: s_minted}})
+    let data = items.concat(s_selected, s_free, s_minted);
+    return res.status(200).json({status: true, message:"ok", userResponse: data})
   } catch(e){
     console.log(e.message);
     return res.status(500).json({status: false, message: e.message})
