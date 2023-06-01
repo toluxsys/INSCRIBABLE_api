@@ -224,7 +224,7 @@ module.exports.brc20 = async (req, res) => {
 
 module.exports.satNames = async (req, res) => {
   try{
-    const {name, method, feeRate, receiveAddress,  networkName} = req.body;
+    const {name,feeRate, receiveAddress, networkName} = req.body;
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
@@ -237,22 +237,17 @@ module.exports.satNames = async (req, res) => {
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
     let data;
     let s_path = `./build/files/${fileName}`;
-    
-    if (method === "register") {
-      data = {
-        p: "sns",
-        op: "reg",
-        name: name
-      }
-    }
 
-    if (method === "mint"){
-      data = {
-        p: "sns",
-        op: "mint",
-        name: name
-      }
+    if(name.split("").includes(".")){
+      return res.status(200).json({status: false, message: `${name} contains unsupported character`});
     }
+    
+    data = {
+      p: "sns",
+      op: "reg",
+      name: name + `.sats`
+    }
+    
     let s_data = JSON.stringify(data).toString();
     writeFile(s_path, s_data);
     let fileDetail = await saveFile(fileName);
@@ -915,7 +910,7 @@ module.exports.checkPayment = async (req, res) => {
       if (balance.status[0] === undefined) return res.status(200).json({status: false, message: "Waiting for payment"});
       if(balance.status[0].confirmed === false){
         if(inscription.collectionPayment === "waiting"){
-          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}}, {new: true});
+          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.fileNames}}}, {new: true});
           inscription.collectionPayment = "received";
           await inscription.save();
           return res.status(200).json({

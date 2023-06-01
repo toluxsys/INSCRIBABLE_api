@@ -48,6 +48,7 @@ const collection = new mongoose.Schema(
       type: Object,
     },
     inscriptions: { type: Array },
+    selected: [{ type: mongoose.Schema.Types.ObjectId, ref: "SelectedItem" }],
     minted: { type: Array },
   },
   { timestamps: true }

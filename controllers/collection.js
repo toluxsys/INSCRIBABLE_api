@@ -11,6 +11,7 @@ const Inscription = require("../model/inscription");
 const BulkInscription = require("../model/bulkInscription");
 const Ids = require("../model/ids");
 const Collection = require("../model/collection");
+const SelectedItems = require("../model/selectedItems");
 const { getType } = require("../helpers/getType");
 const {
   createHDWallet,
@@ -30,6 +31,7 @@ const {
   getWalletBalance,
 } = require("../helpers/sendBitcoin");
 const { rejects } = require("assert");
+const inscription = require("../model/inscription");
 
 const getLinks = async (cid) => {
   const client = await import("ipfs-http-client");
@@ -236,136 +238,287 @@ module.exports.addCollectionItems = async (req, res) => {
 
 module.exports.seleteItem = async (req, res) => {
   try {
-    const { collectionId, receiverAddress, feeRate, imageNames, networkName } =
-      req.body;
+    const { collectionId, receiverAddress, feeRate, imageNames, networkName } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
-    console.log("cid:",cid);
     const price = collection.price;
     const items = await getLinks(cid);
-
     const minted = collection.minted;
-    imageNames.forEach(async (image) => {
-     
-        if (minted.includes(image)) return res.status(200).json({status: false, message: `item with name ${image}, already inscribed`});
-    })
-
+    let s_selectedItems = await SelectedItems.find({collectionId: collectionId});
+    let inscription;
+    let s_items = [];
+    let s_selected = [];
+    let s_minted = [];
     let images = [];
     let fileSize = [];
     let inscriptionId;
     let userResponse;
-
+    let savedSelected;
+    let paymentAddress;
     let ORD_API_URL;
 
     if (networkName === "mainnet")
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === "testnet")
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+    ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     if (imageNames.length > 1) {
       inscriptionId = `b${uuidv4()}`;
     } else {
       inscriptionId = `s${uuidv4()}`;
     }
-
-    items.forEach(async (newItem, index) => {
-      for (const imageName of imageNames) {
-        if (newItem.name === imageName) {
-          images.push(newItem);
-          fileSize.push(newItem.size);
+  
+    if (s_selectedItems.length === 0){
+      items.forEach(async (newItem, index) => {
+        for (const imageName of imageNames) {
+          if (newItem.name === imageName) {
+            images.push(newItem);
+            fileSize.push(newItem.size);
+          }
         }
+      });
+
+      const sortedImages = fileSize.sort((a, b) => a - b);
+
+      const cost = inscriptionPrice(
+        feeRate,
+        sortedImages[sortedImages.length - 1],
+        price
+      );
+      const total = cost.total * imageNames.length;
+      const cardinals = cost.inscriptionCost * imageNames.length;
+
+      const walletKey = await addWalletToOrd(inscriptionId, networkName);
+      const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const r_data = {
+        collectionName: inscriptionId,
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, r_data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
       }
-    });
+      paymentAddress = result.data.userResponse.data[0];
 
-    const sortedImages = fileSize.sort((a, b) => a - b);
+      const selectedItems = new SelectedItems({
+        collectionId : collectionId,
+        items: imageNames
+      })
+      savedSelected = await selectedItems.save();
+      await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
+      
+      if (imageNames.length > 1) {
+        inscription = new BulkInscription({
+          id: inscriptionId,
+          inscribed: false,
+          feeRate: feeRate,
+          collectionId: collectionId,
+          selected: savedSelected._id,
+          inscriptionDetails: {
+            payAddress: paymentAddress,
+            cid: cid,
+          },
+          fileNames: imageNames,
+          walletDetails: {
+            keyPhrase: walletKey,
+            walletName: inscriptionId,
+          },
+          cost: { costPerInscription: cost, total: total, cardinal: cardinals },
+          feeRate: feeRate,
+          receiver: receiverAddress,
+          stage: "stage 1"
+        });
+  
+        await inscription.save();
+      } else {
+        inscription = new Inscription({
+          id: inscriptionId,
+          inscribed: false,
+          feeRate: feeRate,
+          collectionId: collectionId,
+          selected: savedSelected._id,
+  
+          inscriptionDetails: {
+            payAddress: paymentAddress,
+            cid: cid,
+          },
+          fileNames: imageNames,
+          walletDetails: {
+            keyPhrase: walletKey,
+            walletName: inscriptionId,
+          },
+          cost: cost,
+          feeRate: feeRate,
+          stage: "stage 1"
+        });
+  
+       await inscription.save();
+      }
 
-    const cost = inscriptionPrice(
-      feeRate,
-      sortedImages[sortedImages.length - 1],
-      price
-    );
-    const total = cost.total * imageNames.length;
-    const cardinals = cost.inscriptionCost * imageNames.length;
-
-    const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
-    const r_data = {
-      collectionName: inscriptionId,
-      addrCount: 1,
-      networkName: networkName,
-    };
-    const result = await axios.post(url, r_data);
-    if (result.data.message !== "ok") {
-      return res.status(200).json({status: false, message: result.data.message});
-    }
-    let paymentAddress = result.data.userResponse.data[0];
-
-    if (imageNames.length > 1) {
-      const inscription = new BulkInscription({
-        id: inscriptionId,
-        inscribed: false,
-        feeRate: feeRate,
-        collectionId: collectionId,
-        inscriptionDetails: {
-          payAddress: paymentAddress,
-          cid: cid,
+      userResponse = {
+        cost: {
+          serviceCharge: cost.serviceCharge * imageNames.length,
+          inscriptionCost: cost.inscriptionCost * imageNames.length,
+          sizeFee: cost.sizeFee * imageNames.length,
+          postageFee: cost.postageFee,
+          total: cost.total * imageNames.length,
         },
-        fileNames: imageNames,
-        walletDetails: {
-          keyPhrase: walletKey,
-          walletName: inscriptionId,
-        },
-        cost: { costPerInscription: cost, total: total, cardinal: cardinals },
-        feeRate: feeRate,
-        receiver: receiverAddress,
-        stage: "stage 1"
+        paymentAddress: paymentAddress,
+        inscriptionId: inscriptionId,
+        createdAt: inscription.createdAt,
+      };
+
+    }else {
+      
+      s_selectedItems.forEach((selected) => {
+        s_items = s_items.concat(selected.items);
+      })
+
+      imageNames.forEach((image) => {
+        if (s_items.includes(image)) {
+          s_selected.push(image);
+        } else if (minted.includes(image)) {
+          s_minted.push(image);
+        }    
+      })
+
+      if(s_selected.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_selected});
+      if(s_minted.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_minted});
+
+      items.forEach(async (newItem, index) => {
+        for (const imageName of imageNames) {
+          if (newItem.name === imageName) {
+            images.push(newItem);
+            fileSize.push(newItem.size);
+          }
+        }
       });
 
-      await inscription.save();
-    } else {
-      const inscription = new Inscription({
-        id: inscriptionId,
-        inscribed: false,
-        feeRate: feeRate,
-        collectionId: collectionId,
+      const sortedImages = fileSize.sort((a, b) => a - b);
 
-        inscriptionDetails: {
-          payAddress: paymentAddress,
-          cid: cid,
-        },
-        fileNames: imageNames,
-        walletDetails: {
-          keyPhrase: walletKey,
-          walletName: inscriptionId,
-        },
-        cost: cost,
-        feeRate: feeRate,
-        stage: "stage 1"
-      });
+      const cost = inscriptionPrice(
+        feeRate,
+        sortedImages[sortedImages.length - 1],
+        price
+      );
+      const total = cost.total * imageNames.length;
+      const cardinals = cost.inscriptionCost * imageNames.length;
 
-     await inscription.save();
+      const walletKey = await addWalletToOrd(inscriptionId, networkName);
+      const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const r_data = {
+        collectionName: inscriptionId,
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, r_data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
+      }
+      paymentAddress = result.data.userResponse.data[0];
+      const selectedItems = new SelectedItems({
+        collectionId : collectionId,
+        items: imageNames
+      })
+      savedSelected = await selectedItems.save();
+      await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
+
+      if (imageNames.length > 1) {
+        inscription = new BulkInscription({
+          id: inscriptionId,
+          inscribed: false,
+          feeRate: feeRate,
+          collectionId: collectionId,
+          selected: savedSelected._id,
+          inscriptionDetails: {
+            payAddress: paymentAddress,
+            cid: cid,
+          },
+          fileNames: imageNames,
+          walletDetails: {
+            keyPhrase: walletKey,
+            walletName: inscriptionId,
+          },
+          cost: { costPerInscription: cost, total: total, cardinal: cardinals },
+          feeRate: feeRate,
+          receiver: receiverAddress,
+          stage: "stage 1"
+        });
+  
+        await inscription.save();
+      } else {
+        inscription = new Inscription({
+          id: inscriptionId,
+          inscribed: false,
+          feeRate: feeRate,
+          collectionId: collectionId,
+          selected: savedSelected._id,
+  
+          inscriptionDetails: {
+            payAddress: paymentAddress,
+            cid: cid,
+          },
+          fileNames: imageNames,
+          walletDetails: {
+            keyPhrase: walletKey,
+            walletName: inscriptionId,
+          },
+          cost: cost,
+          feeRate: feeRate,
+          stage: "stage 1"
+        });
+  
+       await inscription.save();
+      }
+
+      userResponse = {
+        cost: {
+          serviceCharge: cost.serviceCharge * imageNames.length,
+          inscriptionCost: cost.inscriptionCost * imageNames.length,
+          sizeFee: cost.sizeFee * imageNames.length,
+          postageFee: cost.postageFee,
+          total: cost.total * imageNames.length,
+        },
+        paymentAddress: paymentAddress,
+        inscriptionId: inscriptionId,
+        createdAt: inscription.createdAt,
+      };
     }
-
-    userResponse = {
-      cost: {
-        serviceCharge: cost.serviceCharge * imageNames.length,
-        inscriptionCost: cost.inscriptionCost * imageNames.length,
-        sizeFee: cost.sizeFee * imageNames.length,
-        postageFee: cost.postageFee,
-        total: cost.total * imageNames.length,
-      },
-      paymentAddress: paymentAddress,
-      inscriptionId: inscriptionId,
-    };
-
     return res.status(200).json({ status:true, message: `ok`, userResponse: userResponse });
   } catch (e) {
-    console.log(e);
+    console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
   }
 };
+
+module.exports.undoSelection = async (req, res) => {
+  try{
+    const inscriptionId = req.params.inscriptionId;
+    const type = getType(inscriptionId);
+    let inscription;
+
+    if(type === "single"){
+      inscription = await Inscription.findOne({id: inscriptionId});
+      if (!inscription) return res.status(200).json({status: false, message: "id does not exist"});
+      await Collection.findOneAndUpdate({id: inscription.collectionId}, {$pull: {selected: {$in: inscription.selected}}}, {new: true});
+      await SelectedItems.deleteOne({_id: inscription.selected});
+      await Inscription.deleteOne({id: inscriptionId})
+    }else if(type === "bulk"){
+      inscription = await BulkInscription.findOne({id: inscriptionId})
+      if (!inscription) return res.status(200).json({status: false, message: "id does not exist"});
+      await Collection.findOneAndUpdate({id: inscription.collectionId}, {$pull: {selected: {$in: inscription.selected}}}, {new: true});
+      await SelectedItems.deleteOne({_id: inscription.selected});
+      await Inscription.deleteOne({id: inscriptionId})
+    } 
+    return res.status(200).json({status: true, message: "item(s) unselected", userResponse: inscription.fileNames});
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({ status: false, message: e.message });
+  }
+}
 
 module.exports.sendUtxo = async (req, res) => {
   try {
@@ -530,27 +683,54 @@ module.exports.getImages = async(req, res) => {
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
     let minted = collection.minted;
-    let items = [];
+    let selectedItems = await SelectedItems.find({collectionId: collectionId});
+    let s_items = [];
+    let s_minted = [];
+    let s_free = [];
+    let s_selected = [];
+
     const imageNames = await getLinks(collection.itemCid);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
-    imageNames.forEach((newItem, index) => {
-      let i_data;
-      if(minted.includes(newItem.name)){
-         i_data = {
-          name: newItem.name,
-          imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${newItem.name}`,
-          minted: true,
-        }
-      } else {
-        i_data = {
-          name: newItem.name,
-          imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${newItem.name}`,
-          minted: false,
-        }
-      }
-      items.push(i_data);
+
+    selectedItems.forEach((selected) => {
+      let items = selected.items;
+      let timestamp = selected.createdAt;
+      s_items.push({items: items, timestamp: timestamp});
     })
-    return res.status(200).json({status: true, message:"ok", userResponse: items})
+
+    s_items.forEach((item)=>{
+      item.items.forEach((image) => {
+        let data = {
+          name: image,
+          imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
+          status: "selected",
+          timestamp: item.timestamp
+        }
+        s_selected.push(data)
+      })
+    })
+
+    imageNames.forEach((image) => {
+      
+      let i_data;
+      
+     if (minted.includes(image.name)) {
+        i_data = {
+          name: image.name,
+          imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image.name}`,
+          status: "minted",
+        }
+        s_minted.push(i_data);
+      }else {
+        i_data = {
+          name: image.name,
+          imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image.name}`,
+          status: "open",
+        }
+        s_free.push(i_data);
+      }    
+    })
+    return res.status(200).json({status: true, message:"ok", userResponse: {selected: s_selected, minted: s_minted, free: s_free }})
   } catch(e){
     console.log(e.message);
     return res.status(500).json({status: false, message: e.message})
