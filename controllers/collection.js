@@ -684,10 +684,12 @@ module.exports.getImages = async(req, res) => {
     const collection = await Collection.findOne({id: collectionId});
     let minted = collection.minted;
     let selectedItems = await SelectedItems.find({collectionId: collectionId});
+    let items = [];
     let s_items = [];
     let s_minted = [];
     let s_free = [];
     let s_selected = [];
+    let selectedImages = [];
 
     const imageNames = await getLinks(collection.itemCid);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
@@ -703,36 +705,49 @@ module.exports.getImages = async(req, res) => {
         let data = {
           name: image,
           imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
-          status: "selected",
+           selected: true,
+           minted: false,
+           open: false,
           timestamp: item.timestamp
         }
+        selectedImages.push(image);
         s_selected.push(data)
       })
     })
 
+    console.log(selectedImages);
+
     imageNames.forEach((image) => {
       
       let i_data;
+      let n_select = [];
       
      if (minted.includes(image.name)) {
         i_data = {
           name: image.name,
           imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image.name}`,
-          status: "minted",
+          selected: false,
+           minted: true,
+           open: false,
         }
         s_minted.push(i_data);
-      }else {
+      } else if (selectedImages.includes(image.name)) {
+        n_select.push(image.name);
+      } else {
         i_data = {
           name: image.name,
           imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image.name}`,
-          status: "open",
+          selected: false,
+           minted: false,
+           open: true,
         }
         s_free.push(i_data);
-      }    
+      }
     })
-    return res.status(200).json({status: true, message:"ok", userResponse: {selected: s_selected, minted: s_minted, free: s_free }})
+
+    return res.status(200).json({status: true, message:"ok", userResponse: {selected: s_selected, free: s_free, minted: s_minted}})
   } catch(e){
-    console.log(e.message);
+    console.log(e);
     return res.status(500).json({status: false, message: e.message})
   }
 }
