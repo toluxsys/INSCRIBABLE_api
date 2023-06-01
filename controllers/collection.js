@@ -715,8 +715,6 @@ module.exports.getImages = async(req, res) => {
       })
     })
 
-    console.log(selectedImages);
-
     imageNames.forEach((image) => {
       
       let i_data;
@@ -747,7 +745,7 @@ module.exports.getImages = async(req, res) => {
 
     return res.status(200).json({status: true, message:"ok", userResponse: {selected: s_selected, free: s_free, minted: s_minted}})
   } catch(e){
-    console.log(e);
+    console.log(e.message);
     return res.status(500).json({status: false, message: e.message})
   }
 }
