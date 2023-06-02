@@ -15,6 +15,8 @@ router.use(
 );
 
 router.post("/add", controller.addCollection);
+router.post("/mintDetails", controller.addMintDetails);
+router.post("/addMintAddress", controller.addMintAddress);
 router.post("/upload", controller.addCollectionItems);
 router.post("/seleteItem", controller.seleteItem);
 router.post("/undoSelection/:inscriptionId", controller.undoSelection);
@@ -25,6 +27,7 @@ router.post("/getInscriptions", controller.getCollectionInscription);
 router.post("/inscribedImages", controller.getInscribedImages);
 router.post("/getCollection", controller.getCollection);
 router.get("/getCollections", controller.getCollections);
+router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 
 
 module.exports = router;

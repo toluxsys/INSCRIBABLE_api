@@ -4,6 +4,8 @@
 
 const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
+const interval = 15;
+const moment = require("moment");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
@@ -32,6 +34,8 @@ const {
 } = require("../helpers/sendBitcoin");
 const { rejects } = require("assert");
 const inscription = require("../model/inscription");
+const MintDetails = require("../model/mintDetails");
+const { promises } = require("dns");
 
 const getLinks = async (cid) => {
   const client = await import("ipfs-http-client");
@@ -63,6 +67,17 @@ const inscriptionPrice = (feeRate, fileSize, price) => {
     total: total,
   };
 };
+
+const checkTimeElapsed = (timestamp) => {
+  const currentTime = moment();
+  const timeDiff = currentTime.diff(timestamp, 'minutes');
+
+  if (timeDiff >= 15) {
+   return true;
+  } else {
+   return false;
+  }
+}
 
 module.exports.addCollection = async (req, res) => {
   try {
@@ -160,6 +175,71 @@ module.exports.addCollection = async (req, res) => {
   }
 };
 
+//details contains mint name, mint limit
+module.exports.addMintDetails = async (req, res) => {
+  try{
+    const {collectionId, details} = req.body;
+    let collection = await Collection.findOne({id: collectionId});
+    if(collection.mintDetails.length > 1) return res.status(200).json({status: false, message: "mint details already added"});
+    details.forEach(async (detail) => {
+      const mintDetails = new MintDetails({
+        collectionId: collectionId,
+        name: detail.name,
+        mintLimit: detail.mintLimit
+      })
+      let savedDetails = await mintDetails.save();
+      await Collection.findOneAndUpdate({id: collectionId}, {$push: {mintDetails: savedDetails._id}}, {new: true});
+    });
+    return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
+  }catch(e){
+    console.log(e.message)
+    return res.status(500).json({ status: false, message: e.message });
+  }
+}
+
+module.exports.getMintDetails = async (req,res) => {
+  try{
+    const collectionId = req.params.collectionId;
+    const collection = await Collection.findOne({id: collectionId});
+    let mintDetails = collection.mintDetails;
+    let details = [];
+    let mappedObjectId = mintDetails.map(val => val.toString())
+    let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
+    s_mintDetails.forEach(async(detail) => {
+      let data = {
+        name: detail.name,
+        mintLimit: detail.mintLimit
+      };
+      details.push(data);
+    })
+    return res.status(200).json({status: true, message: "ok", userResponse: details});
+  }catch(e){
+    console.log(e)
+    return res.status(500).json({ status: false, message: e.message });
+  }
+}
+
+module.exports.addMintAddress = async (req, res) => {
+  try{
+    const {collectionId, name, addresses} = req.body;
+    const mintDetails = await MintDetails.find({collectionId: collectionId});
+    let id;
+    mintDetails.forEach((detail) => {
+      if(detail.name === name) {
+        id = detail._id;
+      }
+    })
+    let s_mintDetails = await MintDetails.findOne({_id: id});
+    if (s_mintDetails.addresses) return res.status(200).josn({status:false, message: `addresses already added for ${name}`});
+    s_mintDetails.addresses = addresses;
+    await s_mintDetails.save();
+    return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
+  }catch(e){
+    console.log(e.message);
+    return res.status(500).json({ status: false, message: e.message });
+  }
+}
+
 module.exports.addCollectionItems = async (req, res) => {
   try {
     req.setTimeout(450000);
@@ -232,7 +312,7 @@ module.exports.addCollectionItems = async (req, res) => {
     });
   } catch (e) {
     console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
+    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -701,18 +781,33 @@ module.exports.getImages = async(req, res) => {
     })
 
     s_items.forEach((item)=>{
-      item.items.forEach((image) => {
-        let data = {
-          name: image,
-          imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
-           selected: true,
-           minted: false,
-           open: false,
-          timestamp: item.timestamp
-        }
-        selectedImages.push(image);
-        s_selected.push(data)
-      })
+      if(checkTimeElapsed(item.timestamp) === true) {
+        let s_selected = [];
+        item.items.forEach((image) => {
+          let data = {
+            name: image,
+            imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
+             selected: false,
+             minted: false,
+             open: true,
+            timestamp: item.timestamp
+          }
+          s_selected.push(data)
+        })
+      }else if (checkTimeElapsed(item.timestamp) === false){
+        item.items.forEach((image) => {
+          let data = {
+            name: image,
+            imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
+             selected: true,
+             minted: false,
+             open: false,
+            timestamp: item.timestamp
+          }
+          selectedImages.push(image);
+          s_selected.push(data)
+        })
+      }  
     })
 
     imageNames.forEach((image) => {
