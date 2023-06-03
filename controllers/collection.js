@@ -72,7 +72,7 @@ const checkTimeElapsed = (timestamp) => {
   const currentTime = moment();
   const timeDiff = currentTime.diff(timestamp, 'minutes');
 
-  if (timeDiff >= 15) {
+  if (timeDiff >= interval) {
    return true;
   } else {
    return false;
@@ -777,11 +777,12 @@ module.exports.getImages = async(req, res) => {
     selectedItems.forEach((selected) => {
       let items = selected.items;
       let timestamp = selected.createdAt;
-      s_items.push({items: items, timestamp: timestamp});
+      s_items.push({items: items, timestamp: timestamp, id: selected._id});
     })
 
-    s_items.forEach((item)=>{
-      if(checkTimeElapsed(item.timestamp) === true) {
+    s_items.forEach(async (item)=>{
+      if(checkTimeElapsed(item.timestamp) === true) { 
+        await SelectedItems.deleteOne({_id: item.id});
         let s_selected = [];
         item.items.forEach((image) => {
           let data = {
@@ -840,7 +841,7 @@ module.exports.getImages = async(req, res) => {
     let data = items.concat(s_selected, s_free, s_minted);
     return res.status(200).json({status: true, message:"ok", userResponse: data})
   } catch(e){
-    console.log(e.message);
+    console.log(e);
     return res.status(500).json({status: false, message: e.message})
   }
 }
@@ -926,8 +927,8 @@ module.exports.inscribe = async (req, res) => {
           }) 
         });
     
-    await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, { new: true });
-
+    await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: instance.selected}}}, { new: true }); 
+    await SelectedItems.deleteOne({_id: instance.selected});
     if (!receiveAddress) {
       instance.inscription = details;
       instance.inscribed = true;
