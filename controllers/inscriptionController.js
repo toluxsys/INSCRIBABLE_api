@@ -8,7 +8,7 @@ const Inscription = require("../model/inscription");
 const Network = require("../model/network");
 const Ids = require("../model/ids");
 const PayIds = require("../model/paymentIds");
-const selectedItems = require("../model/selectedItems");
+const SelectedItems = require("../model/selectedItems");
 const PayLink = require("../model/paymentLink");
 const BulkInscription = require("../model/bulkInscription");
 const Collection = require("../model/collection");
@@ -913,7 +913,8 @@ module.exports.checkPayment = async (req, res) => {
       if (balance.status[0] === undefined) return res.status(200).json({status: false, message: "Waiting for payment"});
       if(balance.status[0].confirmed === false){
         if(inscription.collectionPayment === "waiting"){
-          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.fileNames}}}, {new: true});
+          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+          await SelectedItems.deleteOne({_id: inscription.selected});
           inscription.collectionPayment = "received";
           await inscription.save();
           return res.status(200).json({
