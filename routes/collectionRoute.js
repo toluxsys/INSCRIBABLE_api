@@ -15,7 +15,6 @@ router.use(
 );
 
 router.post("/add", controller.addCollection);
-router.post("/mintDetails", controller.addMintDetails);
 router.post("/addMintAddress", controller.addMintAddress);
 router.post("/upload", controller.addCollectionItems);
 router.post("/seleteItem", controller.seleteItem);

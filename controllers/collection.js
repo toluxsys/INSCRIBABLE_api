@@ -79,6 +79,27 @@ const checkTimeElapsed = (timestamp) => {
   }
 }
 
+const addMintDetails = async (collectionId, items) => {
+  try{
+    let details = await JSON.parse(items);
+    let collection = await Collection.findOne({id: collectionId});
+    if(collection.mintDetails.length > 1) throw new Error("mint details already added");
+    details.details.forEach(async (detail) => {
+      const mintDetails = new MintDetails({
+        collectionId: collectionId,
+        name: detail.name,
+        mintLimit: detail.mintLimit
+      })
+      let savedDetails = await mintDetails.save();
+      await Collection.findOneAndUpdate({id: collectionId}, {$push: {mintDetails: savedDetails._id}}, {new: true});
+    });
+    return true;
+  }catch(e){
+    console.log(e.message);
+    return false;
+  }
+}
+
 module.exports.addCollection = async (req, res) => {
   try {
     let files = [];
@@ -96,6 +117,7 @@ module.exports.addCollection = async (req, res) => {
       twitter,
       discord,
       networkName,
+      mintDetails,
     } = req.body;
 
     const banner = req.files.banner;
@@ -166,6 +188,7 @@ module.exports.addCollection = async (req, res) => {
         process.env.IPFS_IMAGE_URL + data.cid + `/featuredImage${f_ext}`,
     });
     await collection.save();
+    await addMintDetails(collectionId, mintDetails)
     return res
       .status(200)
       .json({ status: true, message: `ok`, userResponse: collectionId });
@@ -174,28 +197,6 @@ module.exports.addCollection = async (req, res) => {
     return res.status(400).json({ status: false, message: e.message });
   }
 };
-
-//details contains mint name, mint limit
-module.exports.addMintDetails = async (req, res) => {
-  try{
-    const {collectionId, details} = req.body;
-    let collection = await Collection.findOne({id: collectionId});
-    if(collection.mintDetails.length > 1) return res.status(200).json({status: false, message: "mint details already added"});
-    details.forEach(async (detail) => {
-      const mintDetails = new MintDetails({
-        collectionId: collectionId,
-        name: detail.name,
-        mintLimit: detail.mintLimit
-      })
-      let savedDetails = await mintDetails.save();
-      await Collection.findOneAndUpdate({id: collectionId}, {$push: {mintDetails: savedDetails._id}}, {new: true});
-    });
-    return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
-  }catch(e){
-    console.log(e.message)
-    return res.status(500).json({ status: false, message: e.message });
-  }
-}
 
 module.exports.getMintDetails = async (req,res) => {
   try{
