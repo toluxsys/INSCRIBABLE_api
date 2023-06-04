@@ -337,8 +337,6 @@ module.exports.seleteItem = async (req, res) => {
     let paymentAddress;
     let ORD_API_URL;
 
-    if(!receiverAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
-
     if (networkName === "mainnet")
     ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === "testnet")
@@ -861,6 +859,8 @@ module.exports.inscribe = async (req, res) => {
     let details = [];
     let ids;
     let ORD_API_URL;
+
+    if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
 
     const collection = await Collection.findOne({id: collectionId});
     const changeAddress = collection.collectionAddress;
