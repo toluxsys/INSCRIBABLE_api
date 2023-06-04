@@ -10,6 +10,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
 const Inscription = require("../model/inscription");
+const Address = require("../model/address");
 const BulkInscription = require("../model/bulkInscription");
 const Ids = require("../model/ids");
 const Collection = require("../model/collection");
@@ -36,6 +37,8 @@ const { rejects } = require("assert");
 const inscription = require("../model/inscription");
 const MintDetails = require("../model/mintDetails");
 const { promises } = require("dns");
+const { address } = require("bitcoinjs-lib");
+const { timeStamp } = require("console");
 
 const getLinks = async (cid) => {
   const client = await import("ipfs-http-client");
@@ -88,7 +91,8 @@ const addMintDetails = async (collectionId, items) => {
       const mintDetails = new MintDetails({
         collectionId: collectionId,
         name: detail.name,
-        mintLimit: detail.mintLimit
+        mintLimit: detail.mintLimit,
+        price: detail.price
       })
       let savedDetails = await mintDetails.save();
       await Collection.findOneAndUpdate({id: collectionId}, {$push: {mintDetails: savedDetails._id}}, {new: true});
@@ -97,6 +101,176 @@ const addMintDetails = async (collectionId, items) => {
   }catch(e){
     console.log(e.message);
     return false;
+  }
+}
+
+const verifyMint = async (collectionId, address, amount) => {
+  try{
+    const collection = await Collection.findOne({id: collectionId});
+    const mintStage = await MintDetails.findOne({_id: collection.mintStage}); 
+    let allowedAddress = mintStage.addresses;
+    let data;
+    let c_address;
+    if(mintStage.name === "public"){
+      let s_address = await Address.find({mintStage: collection.mintStage});
+      if(s_address.length === 0) {
+        let n_address = new Address({
+          collectionId: collectionId,
+          address: address,
+          mintStage: collection.mintStage,
+          mintCount : 0
+        })
+        let savedAddress = await n_address.save();
+        c_address = savedAddress;
+        console.log(c_address);
+      }
+      s_address.forEach(async (addr)=>{
+        if(addr.address === address) {
+          c_address = addr
+        }else{
+          let n_address = new Address({
+            collectionId: collectionId,
+            address: address,
+            mintStage: collection.mintStage,
+            mintCount : 0
+          })
+          let savedAddress = await n_address.save();
+          c_address = savedAddress;
+        }
+      })
+      
+      if (c_address.mintCount >= mintStage.mintLimit){
+        data = {
+          valid: false,
+          price: mintStage.price,
+          mintCount: c_address.mintCount,
+          message: "mint limit reached"
+        }
+      }else if (amount > mintStage.mintLimit) {
+        data = {
+          valid: false,
+          price: mintStage.price,
+          mintCount: c_address.mintCount,
+          message: "selected amount exceeds limit"
+        }
+      }else{
+        let count = c_address.mintCount + amount;
+        await Address.findOneAndUpdate({_id: c_address._id}, {mintCount: count}, {new: true});
+        data = {
+          valid: true,
+          price: mintStage.price,
+          mintCount: count,
+          message: "valid mint"
+        }
+      }
+    }else if(allowedAddress.includes(address)){
+      let s_address = await Address.find({mintStage: collection.mintStage});
+      if(s_address.length === 0) {
+        let n_address = new Address({
+          collectionId: collectionId,
+          address: address,
+          mintStage: collection.mintStage,
+          mintCount : 0
+        })
+        let savedAddress = await n_address.save();
+        c_address = savedAddress;
+        console.log(c_address);
+      }
+      s_address.forEach(async (addr)=>{
+        if(addr.address === address) {
+          c_address = addr
+        }else{
+          let n_address = new Address({
+            collectionId: collectionId,
+            address: address,
+            mintStage: collection.mintStage,
+            mintCount : 0
+          })
+          let savedAddress = await n_address.save();
+          c_address = savedAddress;
+        }
+      })
+
+      if (c_address.mintCount >= mintStage.mintLimit){
+        data = {
+          valid: false,
+          price: mintStage.price,
+          mintCount: c_address.mintCount,
+          message: "mint limit reached"
+        }
+      }else if (amount > mintStage.mintLimit) {
+        data = {
+          valid: false,
+          price: mintStage.price,
+          mintCount: c_address.mintCount,
+          message: "selected amount exceeds limit"
+        }
+      }else{
+        let count = c_address.mintCount + amount;
+        await Address.findOneAndUpdate({_id: c_address._id}, {mintCount: count}, {new: true});
+        data = {
+          valid: true,
+          price: mintStage.price,
+          mintCount: count,
+          message: "valid mint"
+        }
+      }
+
+    }else{
+      data = {
+        valid: false,
+        price: mintStage.price,
+        mintCount: mintStage.mintLimit,
+        message: `address not valid for mint stage ${mintStage.name}`
+      }
+    }
+    return data; 
+  }catch(e){
+    console.log(e)
+  }
+}
+
+
+
+const updateMintStage = async (collectionId, stage) => {
+  try{
+    const collection = await Collection.findOne({id: collectionId});
+    const mintDetails = collection.mintDetails;
+    //let savedCollection;
+
+    let mappedObjectId = mintDetails.map(val => val.toString())
+    let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
+    let stageId; 
+
+    s_mintDetails.forEach(async (detail) => {
+      if (detail.name === stage) {
+        stageId = detail._id;
+      };
+    })
+    return stageId
+  }catch(e){
+    console.log(e.message);
+    throw new Error(e.message);
+  }
+}
+
+module.exports.updateMintStage = async (req, res) => {
+  try{
+    const {collectionId, stage} = req.body;
+    let mintStage = await updateMintStage(collectionId, stage);
+    let mintDetail = await MintDetails.findOne({_id: mintStage});
+    if(!mintDetail) return res.status(200).json({status: false, message: "Invalid stage provided"});
+    await Collection.findOneAndUpdate({id: collectionId}, {mintStage: mintStage});
+    let userResponse = {
+      stage: mintDetail.name,
+      mintLimit: mintDetail.mintLimit,
+      price: mintDetail.price,
+      lastUpdate: mintDetail.updatedAt
+    }
+    return res.status(200).json({status: true, message: "mint stage updated", userResponse: userResponse})
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: "mint stage not updated"})
   }
 }
 
@@ -209,13 +383,15 @@ module.exports.getMintDetails = async (req,res) => {
     s_mintDetails.forEach(async(detail) => {
       let data = {
         name: detail.name,
-        mintLimit: detail.mintLimit
+        mintLimit: detail.mintLimit,
+        price: detail.price,
+        lastUpdatedAt: detail.updatedAt 
       };
       details.push(data);
     })
     return res.status(200).json({status: true, message: "ok", userResponse: details});
   }catch(e){
-    console.log(e)
+    console.log(e.message);
     return res.status(500).json({ status: false, message: e.message });
   }
 }
@@ -224,14 +400,16 @@ module.exports.addMintAddress = async (req, res) => {
   try{
     const {collectionId, name, addresses} = req.body;
     const mintDetails = await MintDetails.find({collectionId: collectionId});
+    let mappedObjectId = mintDetails.map(val => val)
+    let n_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
     let id;
-    mintDetails.forEach((detail) => {
+    n_mintDetails.forEach((detail) => {
       if(detail.name === name) {
         id = detail._id;
       }
     })
     let s_mintDetails = await MintDetails.findOne({_id: id});
-    if (s_mintDetails.addresses) return res.status(200).josn({status:false, message: `addresses already added for ${name}`});
+    if (s_mintDetails.addresses.length > 0){ return res.status(200).json({status:false, message: `addresses already added for ${name}`})};
     s_mintDetails.addresses = addresses;
     await s_mintDetails.save();
     return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
@@ -319,12 +497,12 @@ module.exports.addCollectionItems = async (req, res) => {
 
 module.exports.seleteItem = async (req, res) => {
   try {
-    const { collectionId, receiverAddress, feeRate, imageNames, networkName } = req.body;
+    const { collectionId, receiveAddress, feeRate, imageNames, networkName } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
-    const price = collection.price;
     const items = await getLinks(cid);
     const minted = collection.minted;
+    const mintStage = collection.mintStage;
     let s_selectedItems = await SelectedItems.find({collectionId: collectionId});
     let inscription;
     let s_items = [];
@@ -337,11 +515,19 @@ module.exports.seleteItem = async (req, res) => {
     let savedSelected;
     let paymentAddress;
     let ORD_API_URL;
+    if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
+    if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
+    let mintDetails = await MintDetails.findOne({_id: mintStage});
+    const price = mintDetails.price;
 
     if (networkName === "mainnet")
     ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === "testnet")
     ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+
+    let verified = await verifyMint(collectionId, receiveAddress, imageNames.length);
+    console.log(verified);
+    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
 
     if (imageNames.length > 1) {
       inscriptionId = `b${uuidv4()}`;
@@ -407,7 +593,7 @@ module.exports.seleteItem = async (req, res) => {
           },
           cost: { costPerInscription: cost, total: total, cardinal: cardinals },
           feeRate: feeRate,
-          receiver: receiverAddress,
+          receiver: receiveAddress,
           stage: "stage 1"
         });
   
@@ -430,6 +616,7 @@ module.exports.seleteItem = async (req, res) => {
             walletName: inscriptionId,
           },
           cost: cost,
+          receiver: receiveAddress,
           feeRate: feeRate,
           stage: "stage 1"
         });
@@ -523,7 +710,7 @@ module.exports.seleteItem = async (req, res) => {
           },
           cost: { costPerInscription: cost, total: total, cardinal: cardinals },
           feeRate: feeRate,
-          receiver: receiverAddress,
+          receiver: receiveAddress,
           stage: "stage 1"
         });
   
@@ -546,6 +733,7 @@ module.exports.seleteItem = async (req, res) => {
             walletName: inscriptionId,
           },
           cost: cost,
+          receiver: receiveAddress,
           feeRate: feeRate,
           stage: "stage 1"
         });
@@ -566,7 +754,7 @@ module.exports.seleteItem = async (req, res) => {
         createdAt: inscription.createdAt,
       };
     }
-    return res.status(200).json({ status:true, message: `ok`, userResponse: userResponse });
+    return res.status(200).json({ status:true, message: verified.message, userResponse: userResponse });
   } catch (e) {
     console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
@@ -592,8 +780,14 @@ module.exports.undoSelection = async (req, res) => {
       if (!inscription) return res.status(200).json({status: false, message: "id does not exist"});
       await Collection.findOneAndUpdate({id: inscription.collectionId}, {$pull: {selected: {$in: inscription.selected}}}, {new: true});
       await SelectedItems.deleteOne({_id: inscription.selected});
-      await Inscription.deleteOne({id: inscriptionId})
-    } 
+      await Inscription.findOneAndUpdate({id: inscriptionId}, {selected: null});
+    }
+    let address = await Address.find({collectionId: inscription.collectionId});
+    let c_address;
+    address.forEach((addr)=> {
+      if(addr.address === inscription.receiver) c_address = addr;
+    })
+    await Address.findOneAndUpdate({_id: c_address._id}, {mintCount: c_address.mintCount - inscription.fileNames.length});
     return res.status(200).json({status: true, message: "item(s) unselected", userResponse: inscription.fileNames});
   }catch(e){
     console.log(e.message);
@@ -850,7 +1044,7 @@ module.exports.getImages = async(req, res) => {
 module.exports.inscribe = async (req, res) => {
   try{
     req.setTimeout(450000);
-    const {collectionId, inscriptionId, receiveAddress, networkName} = req.body;
+    const {collectionId, inscriptionId, networkName} = req.body;
     const type = getType(inscriptionId);
     let inscription;
     let instance;
@@ -860,8 +1054,7 @@ module.exports.inscribe = async (req, res) => {
     let details = [];
     let ids;
     let ORD_API_URL;
-
-    if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
+    let receiveAddress;
 
     const collection = await Collection.findOne({id: collectionId});
     const changeAddress = collection.collectionAddress;
@@ -881,6 +1074,7 @@ module.exports.inscribe = async (req, res) => {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       imageNames = instance.fileNames;
+      receiveAddress = instance.receiver;
       ids = await Ids.where("id").equals(instance._id);
       let cost = instance.cost.inscriptionCost;
       if (balance < cost) {
@@ -893,6 +1087,7 @@ module.exports.inscribe = async (req, res) => {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       imageNames = instance.fileNames;
+      receiveAddress = instance.receiver;
       ids = await Ids.where("id").equals(instance._id);
       let cost = instance.cost.cardinal;
       if (balance < cost) {
@@ -931,7 +1126,7 @@ module.exports.inscribe = async (req, res) => {
         });
     
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: instance.selected}}}, { new: true }); 
-    await SelectedItems.deleteOne({_id: instance.selected});
+    //await SelectedItems.deleteOne({_id: instance.selected});
     if (!receiveAddress) {
       instance.inscription = details;
       instance.inscribed = true;

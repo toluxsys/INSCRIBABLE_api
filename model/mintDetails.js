@@ -11,6 +11,9 @@ const mintDetails = new mongoose.Schema(
     mintLimit: {
         type: Number
     },
+    price: {
+        type: Number
+    },
     addresses: {
       type: Array,
     },

@@ -25,8 +25,10 @@ router.post("/inscribe", controller.inscribe);
 router.post("/getInscriptions", controller.getCollectionInscription);
 router.post("/inscribedImages", controller.getInscribedImages);
 router.post("/getCollection", controller.getCollection);
+router.post("/updateMintStage", controller.updateMintStage);
 router.get("/getCollections", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 
 
 module.exports = router;
+

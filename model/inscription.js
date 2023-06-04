@@ -34,4 +34,4 @@ const inscriptionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Incription", inscriptionSchema);
+module.exports = mongoose.model("Inscription", inscriptionSchema);
