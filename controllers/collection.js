@@ -1196,6 +1196,8 @@ module.exports.getCollection = async (req, res) => {
   try{
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
+    const mintStage = collection.mintStage;
+    let mintDetails = await MintDetails.findOne({_id: mintStage});
     let collectionItems = await getLinks(collection.itemCid);
     let mintedItems = collection.minted;
     let collectionCount = collectionItems.length;
@@ -1205,7 +1207,8 @@ module.exports.getCollection = async (req, res) => {
         collectionName: collection.name,
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
-        price: collection.price,
+        price: mintDetails.price || collection.price,
+        mintStage: mintDetails.name || "open mint",
         category: collection.category,
         collectionCount: collectionCount,
         mintedCount: mintedCount,
