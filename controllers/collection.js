@@ -1,6 +1,3 @@
-//join launchpad
-//mint collection
-//get collection details
 
 const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
@@ -1232,7 +1229,7 @@ module.exports.getCollections = async (req, res) => {
         collectionName: collection.name,
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
-        price: collection.price,
+        price: collection.price / 1e8,
         category: collection.category,
         mintedCount: mintedCount,
         bannerUrl: collection.banner,
@@ -1268,7 +1265,7 @@ module.exports.getCollection = async (req, res) => {
         collectionName: collection.name,
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
-        price: mintDetails.price || collection.price,
+        price: mintDetails.price /1e8 || collection.price/1e8,
         mintStage: mintDetails.name || "open mint",
         category: collection.category,
         collectionCount: collectionCount,
