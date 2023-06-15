@@ -114,120 +114,104 @@ const verifyMint = async (collectionId, address, amount) => {
     let allowedAddress = mintStage.addresses;
     let data;
     let c_address;
-    if(mintStage.name === "public"){
-      let s_address = await Address.find({mintStage: collection.mintStage});
-      if(s_address.length === 0) {
-        let n_address = new Address({
-          collectionId: collectionId,
-          address: address,
-          mintStage: collection.mintStage,
-          mintCount : 0
-        })
-        let savedAddress = await n_address.save();
-        c_address = savedAddress;
-        console.log(c_address);
-      }
-      s_address.forEach(async (addr)=>{
-        if(addr.address === address) {
-          c_address = addr
-        }else{
+    if(mintStage.name === "public"){ 
+      let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
+        if(!s_address) {
           let n_address = new Address({
             collectionId: collectionId,
             address: address,
             mintStage: collection.mintStage,
             mintCount : 0
           })
-          let savedAddress = await n_address.save();
-          c_address = savedAddress;
+          await n_address.save();
+          return data = {
+            valid: true,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "mint limit reached"
+          }
+        }else{ 
+          c_address = s_address;   
         }
-      })
+        if (c_address.mintCount >= mintStage.mintLimit){
+          return data = {
+            valid: false,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "mint limit reached"
+          }
+        }
+        
+        if (amount > mintStage.mintLimit) {
+          return data = {
+            valid: false,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "selected amount exceeds limit"
+          }
+        }
       
-      if (c_address.mintCount >= mintStage.mintLimit){
-        data = {
-          valid: false,
-          price: mintStage.price,
-          mintCount: c_address.mintCount,
-          message: "mint limit reached"
-        }
-      }else if (amount > mintStage.mintLimit) {
-        data = {
-          valid: false,
-          price: mintStage.price,
-          mintCount: c_address.mintCount,
-          message: "selected amount exceeds limit"
-        }
-      }else{
         let count = c_address.mintCount + amount;
         await Address.findOneAndUpdate({_id: c_address._id}, {mintCount: count}, {new: true});
-        data = {
+        return data = {
           valid: true,
           price: mintStage.price,
           mintCount: count,
           message: "valid mint"
         }
-      }
     }else if(allowedAddress.includes(address)){
-      let s_address = await Address.find({mintStage: collection.mintStage});
-      if(s_address.length === 0) {
-        let n_address = new Address({
-          collectionId: collectionId,
-          address: address,
-          mintStage: collection.mintStage,
-          mintCount : 0
-        })
-        let savedAddress = await n_address.save();
-        c_address = savedAddress;
-        console.log(c_address);
-      }
-      s_address.forEach(async (addr)=>{
-        if(addr.address === address) {
-          c_address = addr
-        }else{
+        let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
+        if(!s_address) {
           let n_address = new Address({
             collectionId: collectionId,
             address: address,
             mintStage: collection.mintStage,
             mintCount : 0
           })
-          let savedAddress = await n_address.save();
-          c_address = savedAddress;
+          await n_address.save();
+          return data = {
+            valid: true,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "mint limit reached"
+          }
+        }else{ 
+          c_address = s_address;   
         }
-      })
-
-      if (c_address.mintCount >= mintStage.mintLimit){
-        data = {
-          valid: false,
-          price: mintStage.price,
-          mintCount: c_address.mintCount,
-          message: "mint limit reached"
+        if (c_address.mintCount >= mintStage.mintLimit){
+          return data = {
+            valid: false,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "mint limit reached"
+          }
         }
-      }else if (amount > mintStage.mintLimit) {
-        data = {
-          valid: false,
-          price: mintStage.price,
-          mintCount: c_address.mintCount,
-          message: "selected amount exceeds limit"
+        
+        if (amount > mintStage.mintLimit) {
+          return data = {
+            valid: false,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "selected amount exceeds limit"
+          }
         }
-      }else{
+      
         let count = c_address.mintCount + amount;
         await Address.findOneAndUpdate({_id: c_address._id}, {mintCount: count}, {new: true});
-        data = {
+        return data = {
           valid: true,
           price: mintStage.price,
           mintCount: count,
           message: "valid mint"
         }
-      }
-
-    }else{
-      data = {
+    } else { 
+      return data = {
         valid: false,
         price: mintStage.price,
         mintCount: mintStage.mintLimit,
         message: `address not valid for mint stage ${mintStage.name}`
       }
     }
-    return data; 
   }catch(e){
     console.log(e)
   }
@@ -498,6 +482,7 @@ module.exports.addCollectionItems = async (req, res) => {
 
 module.exports.seleteItem = async (req, res) => {
   try {
+    console.log(req.body);
     const { collectionId, receiveAddress, feeRate, imageNames, networkName, oldSats } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
@@ -518,22 +503,24 @@ module.exports.seleteItem = async (req, res) => {
     let cost;
     let sortedImages = [];
     let satsId;
-    let walletKey = "";
+    let walletKey;
     let ORD_API_URL;
 
     if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
     if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
+    console.log(mintDetails);
     const price = mintDetails.price;
 
     if (networkName === "mainnet")
     ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === "testnet")
     ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-
+    console.log("checking if mint is valid ")
     let verified = await verifyMint(collectionId, receiveAddress, imageNames.length);
-    console.log(verified);
+    console.log(verified.valid)
     if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
+    
 
     if (imageNames.length > 1) {
       inscriptionId = `b${uuidv4()}`;
@@ -541,7 +528,7 @@ module.exports.seleteItem = async (req, res) => {
       inscriptionId = `s${uuidv4()}`;
     }
   
-    if (s_selectedItems.length === 0){
+    if (s_selectedItems.length == 0){
       items.forEach(async (newItem, index) => {
         for (const imageName of imageNames) {
           if (newItem.name === imageName) {
@@ -564,7 +551,7 @@ module.exports.seleteItem = async (req, res) => {
       })
       if(s_selected.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_selected});
       if(s_minted.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_minted});
-      items.forEach(async (newItem, index) => {
+      items.forEach((newItem, index) => {
         for (const imageName of imageNames) {
           if (newItem.name === imageName) {
             images.push(newItem);
@@ -625,7 +612,12 @@ module.exports.seleteItem = async (req, res) => {
 
       await inscription.save();
     } else {
-
+      sortedImages = fileSize.sort((a, b) => a - b);
+      cost = inscriptionPrice(
+        feeRate,
+        sortedImages[sortedImages.length - 1],
+        price
+      );
         //get offset and utxo from db
         if (oldSats === "true"){
           let sats = await Sats.findOne({_id: process.env.OLD_SATS_ID});
@@ -710,7 +702,7 @@ module.exports.seleteItem = async (req, res) => {
       createdAt: inscription.createdAt,
     };
 
-    return res.status(200).json({ status:true, message: verified.message, userResponse: userResponse });
+    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
   } catch (e) {
     console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
@@ -1057,7 +1049,7 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     }
-    
+
     if(instance.sat){ 
       newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
         feeRate: instance.feeRate,
@@ -1230,3 +1222,6 @@ module.exports.getInscribedImages = async (req, res) => {
     return res.status(200).json({status: false, message: e.message});
   }
 }
+
+
+//verifyMint("c235c995b-8ef5-4d4c-bdab-a6b31c883a44", "mnVtct1xY3LwJxR37esRwU1kMxSANd4sMq", 2).then((res) => {console.log(res)}).catch((e) => {});
