@@ -26,6 +26,7 @@ router.post("/getInscriptions", controller.getCollectionInscription);
 router.post("/inscribedImages", controller.getInscribedImages);
 router.post("/getCollection", controller.getCollection);
 router.post("/updateMintStage", controller.updateMintStage);
+router.post("/calc", controller.calc);
 router.get("/getCollections", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 

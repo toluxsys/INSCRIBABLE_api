@@ -482,7 +482,6 @@ module.exports.addCollectionItems = async (req, res) => {
 
 module.exports.seleteItem = async (req, res) => {
   try {
-    console.log(req.body);
     const { collectionId, receiveAddress, feeRate, imageNames, networkName, oldSats } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
@@ -516,9 +515,7 @@ module.exports.seleteItem = async (req, res) => {
     ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === "testnet")
     ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-    console.log("checking if mint is valid ")
     let verified = await verifyMint(collectionId, receiveAddress, imageNames.length);
-    console.log(verified.valid)
     if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
     
 
@@ -700,6 +697,98 @@ module.exports.seleteItem = async (req, res) => {
       paymentAddress: paymentAddress,
       inscriptionId: inscriptionId,
       createdAt: inscription.createdAt,
+    };
+
+    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
+  } catch (e) {
+    console.log(e.message);
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.calc = async (req, res) => {
+  try {
+    const { collectionId, feeRate, imageNames } = req.body;
+    const collection = await Collection.findOne({ id: collectionId });
+    const cid = collection.itemCid;
+    const items = await getLinks(cid);
+    const minted = collection.minted;
+    const mintStage = collection.mintStage;
+    let s_selectedItems = await SelectedItems.find({collectionId: collectionId});
+    let s_items = [];
+    let s_selected = [];
+    let s_minted = [];
+    let images = [];
+    let fileSize = [];
+    let userResponse;
+    let cost;
+    let sortedImages = [];
+
+    if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
+    let mintDetails = await MintDetails.findOne({_id: mintStage});
+    const price = mintDetails.price;
+    
+    if (s_selectedItems.length == 0){
+      items.forEach((newItem, index) => {
+        for (const imageName of imageNames) {
+          if (newItem.name === imageName) {
+            images.push(newItem);
+            fileSize.push(newItem.size);
+          }
+        }
+      });
+    }else {
+      s_selectedItems.forEach((selected) => {
+        s_items = s_items.concat(selected.items);
+      })
+      imageNames.forEach((image) => {
+        if (s_items.includes(image)) {
+          s_selected.push(image);
+        } else if (minted.includes(image)) {
+          s_minted.push(image);
+        }    
+      })
+      if(s_selected.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_selected});
+      if(s_minted.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_minted});
+      items.forEach((newItem, index) => {
+        for (const imageName of imageNames) {
+          if (newItem.name === imageName) {
+            images.push(newItem);
+            fileSize.push(newItem.size);
+          }
+        }
+      });
+    }
+
+    if (imageNames.length > 1) {
+      sortedImages = fileSize.sort((a, b) => a - b);
+      cost = inscriptionPrice(
+        feeRate,
+        sortedImages[sortedImages.length - 1],
+        price
+      );
+    } else {
+      sortedImages = fileSize.sort((a, b) => a - b);
+      cost = inscriptionPrice(
+        feeRate,
+        sortedImages[sortedImages.length - 1],
+        price
+      );
+    }
+
+    userResponse = {
+      cost: {
+        serviceCharge: cost.serviceCharge * imageNames.length,
+        inscriptionCost: cost.inscriptionCost * imageNames.length,
+        sizeFee: cost.sizeFee * imageNames.length,
+        postageFee: cost.postageFee,
+        total: cost.total * imageNames.length,
+      },
+      paymentAddress: "",
+      inscriptionId: "",
+      createdAt: "",
     };
 
     return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
@@ -1224,4 +1313,3 @@ module.exports.getInscribedImages = async (req, res) => {
 }
 
 
-//verifyMint("c235c995b-8ef5-4d4c-bdab-a6b31c883a44", "mnVtct1xY3LwJxR37esRwU1kMxSANd4sMq", 2).then((res) => {console.log(res)}).catch((e) => {});
