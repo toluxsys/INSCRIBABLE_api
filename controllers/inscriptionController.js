@@ -416,7 +416,7 @@ module.exports.upload = async (req, res) => {
     const networkName = req.body.networkName;
     let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
-    const oldSats = req.body.oldSats;
+    let oldSats = req.body.oldSats;
     if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
       return res.status(200).json({status: false, message: `cannot optimaize ${file.mimetype}`})
     }
@@ -683,11 +683,13 @@ module.exports.inscribe = async (req, res) => {
       if(!changeAddress) changeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
     }
     
-    balance = await getWalletBalance(instance.inscriptionDetails.payAddresscriptionId, networkName).totalAmountAvailable;
     
     if (type === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
+
+      balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
+
       if(instance.sat){
         let sat = await Sats.findOne({_id: instance.sat});
         utxo = sat.output;
@@ -696,7 +698,6 @@ module.exports.inscribe = async (req, res) => {
         
         imageName = instance.inscriptionDetails.fileName;
         receiverAddress = instance.receiver;
-        ids = await Ids.where("id").equals(instance._id);
         let cost = instance.cost.inscriptionCost;
         if (balance < cost) {
           return res.status(200).json({
@@ -707,7 +708,6 @@ module.exports.inscribe = async (req, res) => {
       }else{
         imageName = instance.inscriptionDetails.fileName;
         receiverAddress = instance.receiver;
-        ids = await Ids.where("id").equals(instance._id);
         let cost = instance.cost.inscriptionCost;
         if (balance < cost) {
           return res.status(200).json({
@@ -719,6 +719,9 @@ module.exports.inscribe = async (req, res) => {
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
+
+      balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
+      console.log(balance)
       receiverAddress = instance.receiver;
       let cost = instance.cost.cardinal;
       ids = await Ids.where("id").equals(instance._id);
@@ -1448,7 +1451,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
     let inscriptionCost;
     let paymentAddress;
     let walletKey = "";
-    let satsId = "";
+    let satsId;
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -1486,7 +1489,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
           return res.status(200).json({status: false, message: result.data.message});
         }
         paymentAddress = result.data.userResponse.data[0];
-      }else{
+      }else if(oldSats === `false`){
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1521,7 +1524,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
           return res.status(200).json({status: false, message: result.data.message});
         }
         paymentAddress = result.data.userResponse.data[0];
-      }else{
+      }else if(oldSats === `false`){
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
