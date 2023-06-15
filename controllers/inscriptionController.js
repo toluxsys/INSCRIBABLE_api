@@ -1394,21 +1394,21 @@ module.exports.getOrderDetails = async (req, res) => {
   }
 };
 
-module.exports.addSat = async (req, res) => {
+module.exports.addSats = async (req, res) => {
   try {
     const { sats } = req.body;
     const satIds = [];
     sats.forEach(async (sat) => {
       const sat = new Sats({
-        output: sats.output,
-        start: sats.start,
-        end: sats.end,
-        year: sats.year,
-        rarity: sats.rarity,
-        specialAttribute: sats.specialAttribute,
-        startOffset: sats.startOffset,
-        endOffset: sats.endOffset,
-        size: sats.size,
+        output: sat.output,
+        start: sat.start,
+        end: sat.end,
+        year: sat.year,
+        rarity: sat.rarity,
+        specialAttribute: sat.specialAttribute,
+        startOffset: sat.startOffset,
+        endOffset: sat.endOffset,
+        size: sat.size,
         count: 0
       });
       const savedSats = await sat.save();

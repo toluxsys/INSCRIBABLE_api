@@ -37,6 +37,7 @@ router.post("/getConversion", controller.getConversion);
 router.post("/getPayLinkDetails", controller.getPayLinkDetails);
 router.post("/orderDetails", controller.getOrderDetails);
 router.post("/getInscriptions", controller.getInscriptions);
+router.post("/addSats", controller.addSats);
 router.post("/brc20", controller.brc20);
 router.post("/text", controller.inscribeText);
 router.post("/satNames", controller.satNames);
