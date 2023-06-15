@@ -1399,7 +1399,7 @@ module.exports.addSats = async (req, res) => {
     const { sats } = req.body;
     const satIds = [];
     sats.forEach(async (sat) => {
-      const sat = new Sats({
+      const _sat = new Sats({
         output: sat.output,
         start: sat.start,
         end: sat.end,
@@ -1411,7 +1411,7 @@ module.exports.addSats = async (req, res) => {
         size: sat.size,
         count: 0
       });
-      const savedSats = await sat.save();
+      const savedSats = await _sat.save();
       satIds.push({
         id: savedSats._id,
         year: savedSats.year,
