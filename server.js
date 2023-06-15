@@ -26,22 +26,22 @@ mongoose.set(`strictQuery`, false);
 mongoose
   .connect(process.env.MONGO_DB_URI)
   .then((res) => {
-    // console.log(`Mongo DB Connected! to ${res.connection.host}`);
+    console.log(`Mongo DB Connected! to ${res.connection.host}`);
 
-    // timerId = setTimeout(async function indexOrd() {
-    //   const blocks = await axios.post(
-    //     process.env.ORD_MAINNET_API_URL + `/ord/getLatestBlock`
-    //   );
-    //   if (blocks.data.message !== `ok`)
-    //     console.log(
-    //       `[ALERT]: ORD INDEXING ERROR WITH MESSAGE: ${blocks.data.message}`
-    //     );
-    //   if (blocks.data.userResponse.data > blockHeight) {
-    //     await axios.post(process.env.ORD_MAINNET_API_URL + `/ord/index_ord`);
-    //     blockHeight = blocks.data.userResponse.data;
-    //   }
-    //   timerId = setTimeout(indexOrd, interval);
-    // }, interval);
+    timerId = setTimeout(async function indexOrd() {
+      const blocks = await axios.post(
+        process.env.ORD_MAINNET_API_URL + `/ord/getLatestBlock`
+      );
+      if (blocks.data.message !== `ok`)
+        console.log(
+          `[ALERT]: ORD INDEXING ERROR WITH MESSAGE: ${blocks.data.message}`
+        );
+      if (blocks.data.userResponse.data > blockHeight) {
+        await axios.post(process.env.ORD_MAINNET_API_URL + `/ord/index_ord`);
+        blockHeight = blocks.data.userResponse.data;
+      }
+      timerId = setTimeout(indexOrd, interval);
+    }, interval);
   })
   .catch(console.error);
 

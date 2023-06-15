@@ -688,21 +688,33 @@ module.exports.inscribe = async (req, res) => {
     if (type === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-      imageName = instance.inscriptionDetails.fileName;
-      receiverAddress = instance.receiver;
-      ids = await Ids.where("id").equals(instance._id);
-      let cost = instance.cost.inscriptionCost;
-      if (balance < cost) {
-        return res.status(200).json({
-          status: false,
-          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-        });
-      }
       if(instance.sat){
         let sat = await Sats.findOne({_id: instance.sat});
         utxo = sat.output;
         offSet = sat.startOffset + sat.count;
         spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, "mainnet");
+        
+        imageName = instance.inscriptionDetails.fileName;
+        receiverAddress = instance.receiver;
+        ids = await Ids.where("id").equals(instance._id);
+        let cost = instance.cost.inscriptionCost;
+        if (balance < cost) {
+          return res.status(200).json({
+          status: false,
+          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+         });
+        }
+      }else{
+        imageName = instance.inscriptionDetails.fileName;
+        receiverAddress = instance.receiver;
+        ids = await Ids.where("id").equals(instance._id);
+        let cost = instance.cost.inscriptionCost;
+        if (balance < cost) {
+          return res.status(200).json({
+            status: false,
+            message: `not enough cardinal utxo for inscription. Available: ${balance}`,
+          });
+        }
       }
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
