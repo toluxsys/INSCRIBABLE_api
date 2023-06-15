@@ -686,12 +686,6 @@ module.exports.inscribe = async (req, res) => {
     balance = await getWalletBalance(instance.inscriptionDetails.payAddresscriptionId, networkName).totalAmountAvailable;
     
     if (type === "single") {
-      if(instance.sat){
-        let sat = await Sats.findOne({_id: instance.sat});
-        utxo = sat.output;
-        offSet = sat.startOffset + sat.count;
-        spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, "mainnet");
-      }
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
       imageName = instance.inscriptionDetails.fileName;
@@ -703,6 +697,12 @@ module.exports.inscribe = async (req, res) => {
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
         });
+      }
+      if(instance.sat){
+        let sat = await Sats.findOne({_id: instance.sat});
+        utxo = sat.output;
+        offSet = sat.startOffset + sat.count;
+        spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, "mainnet");
       }
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
