@@ -37,7 +37,11 @@ const getWalletBalance = async (address, network) => {
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
-      status.push(element.status);
+      if(!element.status){
+        status = []
+      }else{
+        status.push(element.status);
+      }
     }
 
     return { totalAmountAvailable, status };
@@ -59,6 +63,25 @@ const checkAddress = async (address, network) => {
     }
 
     return { totalAmountAvailable, utxos };
+  } catch (e) {
+    throw new Error(e.message);
+  }
+};
+
+const getSpendUtxo = async (address, network) => {
+  try {
+    const { addresses } = await init(network);
+    const response = await addresses.getAddressTxsUtxo({ address });
+
+    let utxos = response;
+    let outputs =[];
+
+    for (const element of utxos) {
+      let output = element.txid + ":" + element.vout;
+      outputs.push(output);
+    }
+
+    return outputs[0];
   } catch (e) {
     throw new Error(e.message);
   }
@@ -162,16 +185,17 @@ module.exports = {
   getWalletBalance,
   checkAddress,
   sendBitcoin,
+  getSpendUtxo
 };
 
 //  const start = async () => {
 //   const { transactions } = await init();
 //   const available = await getWalletBalance(
-//     "tb1pvywaz6qa7dtfygdqd2trd35eggdzkht775epsej054k2gftle2gq9zah2g",
-//     "testnet"
+//     "bc1qf66zf006smuxhn220f4cctpacggm7c5nhwcdkq",
+//     "mainnet"
 //   );
-//   console.log(available.status[0]);
-//   console.log(available.totalAmountAvailable);
+
+//   console.log(available);
 
 // //   const details = [
 // //     {

@@ -10,6 +10,10 @@ const bulkInscription = new mongoose.Schema(
     collectionId: {type: String},
     selected: {type: mongoose.Schema.Types.ObjectId, ref: "SelectedItem"},
     collectionPayment: {type: String, default: "waiting"},
+    offSet: {type: Number},
+    utxo: { type: String },
+    sat: {type: mongoose.Schema.Types.ObjectId, ref: "Sats"},
+    spendTxid: { type: String },
     inscriptionDetails: {
       type: Object,
     },

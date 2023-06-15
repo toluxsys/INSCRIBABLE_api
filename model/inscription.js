@@ -11,6 +11,10 @@ const inscriptionSchema = new mongoose.Schema(
     collectionId: {type: String},
     selected: {type: mongoose.Schema.Types.ObjectId, ref: "SelectedItem"},
     collectionPayment: {type: String, default: "waiting"},
+    offSet: {type: Number},
+    utxo: { type: String },
+    oldSats: {type: mongoose.Schema.Types.ObjectId, ref: "Sats"},
+    spendTxid: { type: String },
     inscriptionDetails: {
       type: Object,
     },
