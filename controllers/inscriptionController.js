@@ -1489,7 +1489,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
           return res.status(200).json({status: false, message: result.data.message});
         }
         paymentAddress = result.data.userResponse.data[0];
-      }else if(oldSats === `false`){
+      }else {
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1524,7 +1524,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
           return res.status(200).json({status: false, message: result.data.message});
         }
         paymentAddress = result.data.userResponse.data[0];
-      }else if(oldSats === `false`){
+      }else {
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
