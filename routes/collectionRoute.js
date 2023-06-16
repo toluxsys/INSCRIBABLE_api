@@ -14,6 +14,8 @@ router.use(
   })
 );
 
+// create admin validation middleware
+
 router.post("/add", controller.addCollection);
 router.post("/addMintAddress", controller.addMintAddress);
 router.post("/upload", controller.addCollectionItems);
@@ -27,6 +29,9 @@ router.post("/inscribedImages", controller.getInscribedImages);
 router.post("/getCollection", controller.getCollection);
 router.post("/updateMintStage", controller.updateMintStage);
 router.post("/calc", controller.calc);
+router.post("/addFees", controller.addCollectionServiceFee);
+router.post("/updateFees", controller.updateServiceFee);
+router.post("/approve", controller.approveCollection);
 router.get("/getCollections", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 

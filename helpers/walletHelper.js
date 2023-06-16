@@ -56,12 +56,12 @@ const createPayLinkWallet = async (networkName, path) => {
   };
 };
 
-const createCollectionHDWallet = async (networkName, path, index) => {
+const createCollectionHDWallet = async (networkName, path) => {
   let network = getNetwork(networkName);
   let passPhrase = new Mnemonic(process.env.COLLECTION_MNEMONIC);
   let xpriv = passPhrase
     .toHDPrivateKey(passPhrase.toString(), network)
-    .derive(`m/${path}/${index}/0`);
+    .derive(`m/${path}/0/0`);
   return {
     privateKey: xpriv.privateKey.toString(),
     address: xpriv.publicKey.toAddress().toString(),

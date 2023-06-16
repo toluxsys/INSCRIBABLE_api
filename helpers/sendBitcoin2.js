@@ -59,8 +59,8 @@ const getPayLinkKeyPair = async (networkName, path) => {
   });
 };
 
-const getCollectionKeyPair = async (networkName, path, index) => {
-  const wallet = await createCollectionHDWallet(networkName, path, index);
+const getCollectionKeyPair = async (networkName, path) => {
+  const wallet = await createCollectionHDWallet(networkName, path);
   const privateKey = wallet.privateKey;
   const p_key = privateKey.slice(0, 32);
   const network = getNetwork(networkName);
@@ -101,10 +101,10 @@ const createLegacyPayLinkAddress = async (networkName, path) => {
   }
 };
 
-const createCollectionLegacyAddress = async (networkName, path, index) => {
+const createCollectionLegacyAddress = async (networkName, path) => {
   try {
     const network = getNetwork(networkName);
-    const keyPair = await getCollectionKeyPair(networkName, path, index);
+    const keyPair = await getCollectionKeyPair(networkName, path);
     const p2pkh = payments.p2pkh({
       pubkey: keyPair.publicKey,
       network,
@@ -288,7 +288,6 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
 const sendCollectionBitcoin = async (
   networkName,
   path,
-  index,
   receiverDetails
 ) => {
   try {
@@ -310,8 +309,7 @@ const sendCollectionBitcoin = async (
 
     const addressDetails = await createCollectionLegacyAddress(
       networkName,
-      path,
-      index
+      path
     );
     let fee = 0;
     let inputCount = 0;
@@ -372,7 +370,7 @@ const sendCollectionBitcoin = async (
       });
     }
 
-    const keyPair = await getCollectionKeyPair(networkName, path, index);
+    const keyPair = await getCollectionKeyPair(networkName, path);
     const psbt = new Psbt({ network })
       .addInputs(inputs)
       .addOutputs(outputs)

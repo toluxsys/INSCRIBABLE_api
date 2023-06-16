@@ -12,6 +12,7 @@ const BulkInscription = require("../model/bulkInscription");
 const Ids = require("../model/ids");
 const Collection = require("../model/collection");
 const SelectedItems = require("../model/selectedItems");
+const ServiceFee = require("../model/serviceFee");
 const Sats = require("../model/sats");
 const { getType } = require("../helpers/getType");
 const {
@@ -23,6 +24,7 @@ const { compressAndSaveBulk } = require("../helpers/imageHelper");
 const {
   sendBitcoin,
   createLegacyAddress,
+  createCollectionLegacyAddress,
   createTaprootAddress,
 } = require("../helpers/sendBitcoin2");
 const index = require("compress-images");
@@ -33,12 +35,9 @@ const {
   checkAddress,
   getSpendUtxo
 } = require("../helpers/sendBitcoin");
-const { rejects } = require("assert");
-const inscription = require("../model/inscription");
 const MintDetails = require("../model/mintDetails");
-const { promises } = require("dns");
-const { address } = require("bitcoinjs-lib");
-const { timeStamp } = require("console");
+const ObjectId = require('mongoose').Types.ObjectId; 
+
 
 const getLinks = async (cid) => {
   const client = await import("ipfs-http-client");
@@ -56,8 +55,19 @@ const getLinks = async (cid) => {
   }
 };
 
-const inscriptionPrice = (feeRate, fileSize, price) => {
-  const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
+const getServiceFee = async (collectionId) => {
+  try{
+    const serviceFee = await ServiceFee.findOne({collectionId: collectionId});
+    if(!serviceFee) return process.env.COLLECTION_SERVICE_FEE;
+    return serviceFee.serviceFee.toString();
+  }catch(e){
+    console.log(e.message);
+    throw new Error(e.message);
+  }
+}
+
+const inscriptionPrice = async (feeRate, fileSize, price, collectionId) => {
+  const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 2) * feeRate);
   const cost = sats + 1500 + 550;
   const sizeFee = Math.ceil(cost / 2);
@@ -124,8 +134,8 @@ const verifyMint = async (collectionId, address, amount) => {
           return data = {
             valid: true,
             price: mintStage.price,
-            mintCount: c_address.mintCount,
-            message: "mint limit reached"
+            mintCount: 0,
+            message: "valid mint"
           }
         }else{ 
           c_address = s_address;   
@@ -236,6 +246,7 @@ const updateMintStage = async (collectionId, stage) => {
   }
 }
 
+
 module.exports.updateMintStage = async (req, res) => {
   try{
     const {collectionId, stage} = req.body;
@@ -283,7 +294,7 @@ module.exports.addCollection = async (req, res) => {
     files.push(featuredImage);
     const count = await Collection.find({}, { _id: 0 });
 
-    const collactionAddressDetailss = await createLegacyAddress(networkName, count.length);
+    const collactionAddressDetailss = await createCollectionLegacyAddress(networkName, count.length);
     let collectionAddress = collactionAddressDetailss.p2pkh_addr;
     let collectionAddressId = count.length;
 
@@ -477,6 +488,47 @@ module.exports.addCollectionItems = async (req, res) => {
   }
 };
 
+module.exports.addCollectionServiceFee = async (req, res) => {
+  try {
+    const { collectionId, serviceFee } = req.body;
+    const _ser = new ServiceFee({
+      collectionId: collectionId,
+      serviceFee: serviceFee,
+    });
+    await _ser.save();
+    return res.status(200).json({ status: true, message: `service fee added`, userResponse: _ser.serviceFee });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.updateServiceFee = async (req, res) => {
+  try {
+    const { collectionId, serviceFee } = req.body;
+    const _ser = await ServiceFee.findOneAndUpdate({ collectionId: collectionId }, { serviceFee: serviceFee }, { new: true });
+    return res.status(200).json({ status: true, message: `service fee updated`, userResponse: _ser.serviceFee });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.approveCollection = async (req, res) => {
+  try {
+    const { collectionId } = req.body;
+    const collection = await Collection.findOne({ id: collectionId });
+    collection.status = "approved";
+    await collection.save();
+    return res
+      .status(200)
+      .json({ status: true, message: `collection approved`, userResponse: collectionId });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(500).json({ status: false, message: e.message });
+  }
+};
+
 module.exports.seleteItem = async (req, res) => {
   try {
     const { collectionId, receiveAddress, feeRate, imageNames, networkName, oldSats } = req.body;
@@ -505,7 +557,6 @@ module.exports.seleteItem = async (req, res) => {
     if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
     if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
-    console.log(mintDetails);
     const price = mintDetails.price;
 
     if (networkName === "mainnet")
@@ -557,10 +608,11 @@ module.exports.seleteItem = async (req, res) => {
 
     if (imageNames.length > 1) {
       sortedImages = fileSize.sort((a, b) => a - b);
-      cost = inscriptionPrice(
+      cost = await inscriptionPrice(
         feeRate,
         sortedImages[sortedImages.length - 1],
-        price
+        price,
+        collectionId
       );
       const total = cost.total * imageNames.length;
       const cardinals = cost.inscriptionCost * imageNames.length;
@@ -607,14 +659,15 @@ module.exports.seleteItem = async (req, res) => {
       await inscription.save();
     } else {
       sortedImages = fileSize.sort((a, b) => a - b);
-      cost = inscriptionPrice(
+      cost = await inscriptionPrice(
         feeRate,
         sortedImages[sortedImages.length - 1],
-        price
+        price,
+        collectionId
       );
         //get offset and utxo from db
         if (oldSats === "true"){
-          let sats = await Sats.findOne({_id: process.env.OLD_SATS_ID});
+          let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
           if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
           if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
           satsId = sats._id;
@@ -761,17 +814,19 @@ module.exports.calc = async (req, res) => {
 
     if (imageNames.length > 1) {
       sortedImages = fileSize.sort((a, b) => a - b);
-      cost = inscriptionPrice(
+      cost = await inscriptionPrice(
         feeRate,
         sortedImages[sortedImages.length - 1],
-        price
+        price,
+        collectionId
       );
     } else {
       sortedImages = fileSize.sort((a, b) => a - b);
-      cost = inscriptionPrice(
+      cost = await inscriptionPrice(
         feeRate,
         sortedImages[sortedImages.length - 1],
-        price
+        price,
+        collectionId
       );
     }
 
@@ -1086,7 +1141,6 @@ module.exports.inscribe = async (req, res) => {
     let imageNames;
     let n_inscriptions;
     let details = [];
-    let ids;
     let ORD_API_URL;
     let receiveAddress;
     let spendUtxo;
@@ -1107,7 +1161,6 @@ module.exports.inscribe = async (req, res) => {
       instance = inscription[0];
       imageNames = instance.fileNames;
       receiveAddress = instance.receiver;
-      ids = await Ids.where("id").equals(instance._id);
       let cost = instance.cost.inscriptionCost;
       if (balance < cost) {
         return res.status(200).json({
@@ -1126,7 +1179,6 @@ module.exports.inscribe = async (req, res) => {
       instance = inscription[0];
       imageNames = instance.fileNames;
       receiveAddress = instance.receiver;
-      ids = await Ids.where("id").equals(instance._id);
       let cost = instance.cost.cardinal;
       if (balance < cost) {
         return res.status(200).json({
@@ -1143,7 +1195,7 @@ module.exports.inscribe = async (req, res) => {
         cid: collection.itemCid,
         inscriptionId: inscriptionId,
         imageName: imageNames,
-        networkName: networkName,
+        networkName: "mainnet",
         changeAddress: changeAddress,
         collectionId: collectionId,
         utxo: utxo,
@@ -1308,5 +1360,4 @@ module.exports.getInscribedImages = async (req, res) => {
     return res.status(200).json({status: false, message: e.message});
   }
 }
-
 

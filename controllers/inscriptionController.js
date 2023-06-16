@@ -13,6 +13,7 @@ const PayLink = require("../model/paymentLink");
 const BulkInscription = require("../model/bulkInscription");
 const Collection = require("../model/collection");
 const Sats = require("../model/sats");
+const ObjectId = require('mongoose').Types.ObjectId; 
 const {
   compressImage,
   compressAndSave,
@@ -741,7 +742,7 @@ module.exports.inscribe = async (req, res) => {
         inscriptionId: inscriptionId,
         type: type,
         imageName: imageName,
-        networkName: networkName,
+        networkName: "mainnet",
         changeAddress: changeAddress,
         utxo: utxo,
         offSet: offSet,
@@ -1085,7 +1086,6 @@ module.exports.getNetwork = async (req, res) => {
     let stat;
     const networks = await Network.where("status").equals(`active`);
     const active = networks[0];
-
     return res
       .status(200)
       .json({ status: true, message: "ok", userResponse: active.networkName });
@@ -1412,9 +1412,9 @@ module.exports.getOrderDetails = async (req, res) => {
 module.exports.addSats = async (req, res) => {
   try {
     const { sats } = req.body;
-    const satIds = [];
-    sats.forEach(async (sat) => {
-      const _sat = new Sats({
+    let data = [];
+    sats.forEach((sat) => {
+      data.push({
         output: sat.output,
         start: sat.start,
         end: sat.end,
@@ -1425,23 +1425,71 @@ module.exports.addSats = async (req, res) => {
         endOffset: sat.endOffset,
         size: sat.size,
         count: 0
-      });
-      const savedSats = await _sat.save();
-      satIds.push({
-        id: savedSats._id,
-        year: savedSats.year,
-      });
+      }) 
     });
-    
+    const savedSats = await Sats.insertMany(data);
     return res
       .status(200)
-      .json({ status: true, message: "ok", userResponse: satIds });
+      .json({ status: true, message: "ok", userResponse: savedSats });
   } catch (e) {
     console.log(e.message);
     return res.status(400).json({ status: false, message: e.message });
   }
 };
 
+module.exports.getSatsByYear = async (req, res) => {
+  try {
+    const { year } = req.body;
+    const sats = await _getSatsByYear(year)
+    return res
+      .status(200)
+      .json({ status: true, message: "ok", userResponse: sats });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.getSatsById = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const sat = await _getSatById(id)
+    return res
+      .status(200)
+      .json({ status: true, message: "ok", userResponse: sat });
+  } catch (e) {
+    console.log(e.message);
+    return res.status(400).json({ status: false, message: e.message });
+  }
+};
+
+
+
+const _getSatsByYear = async (year) => {
+  try {
+    const sats = await Sats.find({ year: year });
+    let validSats = [];
+    sats.forEach((sat) => {
+      if (sat.count < sat.size){
+        validSats.push(sat);
+      }
+    });
+    return validSats;
+  } catch (e) {
+    console.log(e.message);
+    return [];
+  }
+};
+
+const _getSatById = async (id) => {
+  try {
+    const sat = await Sats.findOne({ _id: id });
+    return sat;
+  } catch (e) {
+    console.log(e.message);
+    return null;
+  }
+};
 
 const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSats) => {
   try {
@@ -1473,12 +1521,12 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
       inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut);
 
       if(oldSats === `true`){
-       let sats = await Sats.findOne({_id: process.env.OLD_SATS_ID});
+        let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
         if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
         if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
         satsId = sats._id;
       
-        const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+        const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
           addrCount: 1,
@@ -1508,12 +1556,12 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
       inscriptionCost = inscriptionPrice(feeRate, file.size);
 
       if(oldSats === `true`){
-        let sats = await Sats.findOne({_id: process.env.OLD_SATS_ID});
+        let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
         if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
         if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
         satsId = sats._id;
       
-        const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+        const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
           addrCount: 1,
