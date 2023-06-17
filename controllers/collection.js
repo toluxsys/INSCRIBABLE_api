@@ -68,7 +68,7 @@ const getServiceFee = async (collectionId) => {
 
 const inscriptionPrice = async (feeRate, fileSize, price, collectionId) => {
   const serviceCharge = parseInt(await getServiceFee(collectionId));
-  const sats = Math.ceil((fileSize / 2) * feeRate);
+  const sats = Math.ceil((fileSize / 4) * feeRate);
   const cost = sats + 1500 + 550;
   const sizeFee = Math.ceil(cost / 2);
   const total = serviceCharge + cost + parseInt(sizeFee) + price;
