@@ -1154,11 +1154,10 @@ module.exports.inscribe = async (req, res) => {
     if (networkName === "testnet")
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
-    balance = await getWalletBalance(instance.inscriptionDetails.payAddresscriptionId, networkName).totalAmountAvailable;
-
     if (type === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
+      balance = await getWalletBalance(instance.inscriptionDetails.payAddresscriptionId, networkName).totalAmountAvailable;
       imageNames = instance.fileNames;
       receiveAddress = instance.receiver;
       let cost = instance.cost.inscriptionCost;
@@ -1177,6 +1176,7 @@ module.exports.inscribe = async (req, res) => {
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
+      balance = await getWalletBalance(instance.inscriptionDetails.payAddresscriptionId, networkName).totalAmountAvailable;
       imageNames = instance.fileNames;
       receiveAddress = instance.receiver;
       let cost = instance.cost.cardinal;
