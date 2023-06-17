@@ -1004,7 +1004,8 @@ module.exports.checkPayment = async (req, res) => {
     
   } catch (e) {
     console.log(e.message);
-    return res.status(500).json({ status: false, message: e.message });
+    if(e.message === "Cannot read properties of undefined (reading 'status')") return res.status(200).json({status: false, message: "Waiting for payment"});
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 
@@ -1152,39 +1153,86 @@ module.exports.getStage = async (req, res) => {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
     }
 
-    if (inscription.stage === "stage 1")
-      return res.status(200).json({
-        status: true,
-        message: "ok",
-        userResponse: {
-          stage: 1,
-          endpoint: "inscription/checkPayment",
-          route: "checkPayment",
-          address: inscription.receiver
+    if (inscription.stage === "stage 1"){
+      if (inscription.collectionId) {
+        return res.status(200).json({
+          status: true,
+          message: "ok",
+          userResponse: {
+            stage: 1,
+            endpoint: "inscription/checkPayment",
+            route: "checkPayment",
+            address: inscription.receiver,
+            collectionId: inscription.collectionId,
+          }
+        });
+      } else {
+        return res.status(200).json({
+          status: true,
+          message: "ok",
+          userResponse: {
+            stage: 1,
+            endpoint: "inscription/checkPayment",
+            route: "checkPayment",
+            address: inscription.receiver
+          }
+        });
+      }
+    }
+      
+    if (inscription.stage === "stage 2"){
+        if (inscription.collectionId) {
+          return res.status(200).json({
+            status: true,
+            message: "ok",
+            userResponse: {
+              stage: 2,
+              endpoint: "collection/checkUtxo",
+              route: "checkUtxo",
+              address: inscription.receiver,
+              collectionId: inscription.collectionId,
+            }
+          });
+        } else {
+          return res.status(200).json({
+            status: true,
+            message: "ok",
+            userResponse: {
+              stage: 2,
+              endpoint: "inscription/checkUtxo",
+              route: "checkUtxo",
+              address: inscription.receiver
+            }
+          });
         }
-      });
-      if (inscription.stage === "stage 2")
-      return res.status(200).json({
-        status: true,
-        message: "ok",
-        userResponse: {
-          stage: 2,
-          endpoint: "inscription/checkUtxo",
-          route: "checkUtxo",
-          address: inscription.receiver
-        }
-      });
-      if (inscription.stage === "stage 3")
-      return res.status(200).json({
-        status: true,
-        message: "ok",
-        userResponse: {
-          stage: 3,
-          endpoint: "",
-          route: "viewInscriptions",
-          address: inscription.receiver
-        }
-      });
+    }
+    
+    if (inscription.stage === "stage 3"){
+      if(inscription.collectionId){
+        return res.status(200).json({
+          status: true,
+          message: "ok",
+          userResponse: {
+            stage: 3,
+            endpoint: "",
+            route: "viewInscriptions",
+            address: inscription.receiver,
+            collectionId: inscription.collectionId,
+          }
+        });
+      }else{
+        return res.status(200).json({
+          status: true,
+          message: "ok",
+          userResponse: {
+            stage: 3,
+            endpoint: "",
+            route: "viewInscriptions",
+            address: inscription.receiver
+          }
+        });
+      }
+    }
   } catch (e) {
     console.log(e.message);
     return res.status(500).json({ status: false, message: e.message });
