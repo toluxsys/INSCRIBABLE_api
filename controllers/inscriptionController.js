@@ -66,12 +66,15 @@ const writeFile = (path, data) => {
 
 module.exports.inscribeText = async (req, res) => {
   try{
-    const {textBody, feeRate, receiveAddress,  networkName} = req.body;
+    const {textBody, feeRate, receiveAddress,  networkName, oldSats} = req.body;
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
     const fileName = new Date().getTime().toString() + `.txt`;
+    let walletKey = "";
+    let paymentAddress;
+    let satsId;
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -84,7 +87,25 @@ module.exports.inscribeText = async (req, res) => {
     let fileDetail = await saveFile(fileName);
     const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
-    const walletKey = await addWalletToOrd(inscriptionId, networkName);
+    if(oldSats === `true`){
+      let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
+      if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
+      if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
+      satsId = sats._id;
+    
+      const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const data = {
+        collectionName: "oldSatsWallet",
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
+      }
+      paymentAddress = result.data.userResponse.data[0];
+    }else {
+      walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: inscriptionId,
@@ -95,13 +116,16 @@ module.exports.inscribeText = async (req, res) => {
       if (result.data.message !== "ok") {
         return res.status(200).json({status: false, message: result.data.message});
       }
-      let paymentAddress = result.data.userResponse.data[0];
+      paymentAddress = result.data.userResponse.data[0];
+    }
     const inscription = new Inscription({
       id: inscriptionId,
+      flag: networkName,
       inscribed: false,
       feeRate: feeRate,
       receiver: receiveAddress,
       inscriptionType: "text",
+      sat: satsId,
 
       inscriptionDetails: {
         fileName: fileName,
@@ -138,12 +162,15 @@ module.exports.inscribeText = async (req, res) => {
 
 module.exports.brc20 = async (req, res) => {
   try{
-    const {tick, maxSupply, limit, method, amount, feeRate, receiveAddress,  networkName} = req.body;
+    const {tick, maxSupply, limit, method, amount, feeRate, receiveAddress,  networkName, oldSats} = req.body;
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
     const fileName = new Date().getTime().toString() + `.txt`;
+    let walletKey = "";
+    let paymentAddress;
+    let satsId;
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -175,24 +202,45 @@ module.exports.brc20 = async (req, res) => {
     let fileDetail = await saveFile(fileName);
     const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
-    const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
-    const u_data = {
-      collectionName: inscriptionId,
-      addrCount: 1,
-      networkName: networkName,
-    };
-    const result = await axios.post(url, u_data);
-    if (result.data.message !== "ok") {
-      return res.status(200).json({status: false, message: result.data.message});
+    if(oldSats === `true`){
+      let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
+      if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
+      if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
+      satsId = sats._id;
+    
+      const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const data = {
+        collectionName: "oldSatsWallet",
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
+      }
+      paymentAddress = result.data.userResponse.data[0];
+    }else {
+      walletKey = await addWalletToOrd(inscriptionId, networkName);
+      const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const data = {
+        collectionName: inscriptionId,
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
+      }
+      paymentAddress = result.data.userResponse.data[0];
     }
-    let paymentAddress = result.data.userResponse.data[0];
     const inscription = new Inscription({
       id: inscriptionId,
+      flag: networkName,
       inscribed: false,
       feeRate: feeRate,
       receiver: receiveAddress,
       inscriptionType: "brc20",
+      sat: satsId,
 
       inscriptionDetails: {
         fileName: fileName,
@@ -229,12 +277,15 @@ module.exports.brc20 = async (req, res) => {
 
 module.exports.satNames = async (req, res) => {
   try{
-    const {name,feeRate, receiveAddress, networkName} = req.body;
+    const {name,feeRate, receiveAddress, networkName, oldSats} = req.body;
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
     const fileName = new Date().getTime().toString() + `.txt`;
+    let walletKey = "";
+    let paymentAddress;
+    let satsId;
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -258,24 +309,45 @@ module.exports.satNames = async (req, res) => {
     let fileDetail = await saveFile(fileName);
     const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
-    const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
-    const u_data = {
-      collectionName: inscriptionId,
-      addrCount: 1,
-      networkName: networkName,
-    };
-    const result = await axios.post(url, u_data);
-    if (result.data.message !== "ok") {
-      return res.status(200).json({status: false, message: result.data.message});
+    if(oldSats === `true`){
+      let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
+      if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
+      if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
+      satsId = sats._id;
+    
+      const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const data = {
+        collectionName: "oldSatsWallet",
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
+      }
+      paymentAddress = result.data.userResponse.data[0];
+    }else {
+      walletKey = await addWalletToOrd(inscriptionId, networkName);
+      const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const data = {
+        collectionName: inscriptionId,
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
+      }
+      paymentAddress = result.data.userResponse.data[0];
     }
-    let paymentAddress = result.data.userResponse.data[0];
     const inscription = new Inscription({
       id: inscriptionId,
+      flag: networkName,
       inscribed: false,
       feeRate: feeRate,
       receiver: receiveAddress,
       inscriptionType: "sns",
+      sat: satsId,
 
       inscriptionDetails: {
         fileName: fileName,
@@ -312,7 +384,7 @@ module.exports.satNames = async (req, res) => {
 
 module.exports.brc1155 = async (req, res) => {
 
-  // BRC721 Spec
+  // BRC1155 Spec
   /**
    * {
    *    p: "brc-1155",
@@ -323,13 +395,16 @@ module.exports.brc1155 = async (req, res) => {
 
   try {
     const file = req.files.file;
-    const {networkName, receiveAddress } = req.body;
+    const {networkName, receiveAddress, oldSats } = req.body;
     let feeRate = parseInt(req.body.feeRate);
     
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
+    let walletKey = "";
+    let paymentAddress;
+    let satsId;
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -359,24 +434,45 @@ module.exports.brc1155 = async (req, res) => {
       let fileDetail = await saveFile(fileName);
       const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
 
-    const walletKey = await addWalletToOrd(inscriptionId, networkName);
-    const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
-    const u_data = {
-      collectionName: inscriptionId,
-      addrCount: 1,
-      networkName: networkName,
-    };
-    const result = await axios.post(url, u_data);
-    if (result.data.message !== "ok") {
-      return res.status(200).json({status: false, message: result.data.message});
-    }
-    let paymentAddress = result.data.userResponse.data[0];
+      if(oldSats === `true`){
+        let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
+        if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
+        if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
+        satsId = sats._id;
+      
+        const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
+        const data = {
+          collectionName: "oldSatsWallet",
+          addrCount: 1,
+          networkName: networkName,
+        };
+        const result = await axios.post(url, data);
+        if (result.data.message !== "ok") {
+          return res.status(200).json({status: false, message: result.data.message});
+        }
+        paymentAddress = result.data.userResponse.data[0];
+      }else {
+        walletKey = await addWalletToOrd(inscriptionId, networkName);
+        const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+        const data = {
+          collectionName: inscriptionId,
+          addrCount: 1,
+          networkName: networkName,
+        };
+        const result = await axios.post(url, data);
+        if (result.data.message !== "ok") {
+          return res.status(200).json({status: false, message: result.data.message});
+        }
+        paymentAddress = result.data.userResponse.data[0];
+      }
       const inscription = new Inscription({
         id: inscriptionId,
+        flag: networkName,
         inscribed: false,
         feeRate: feeRate,
         receiver: receiveAddress,
         inscriptionType: "brc1155",
+        sat: satsId,
 
         inscriptionDetails: {
           fileName: fileName,
@@ -1637,6 +1733,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
     }
     const inscription = new Inscription({
       id: inscriptionId,
+      flag: networkName,
       inscribed: false,
       feeRate: feeRate,
       sat: satsId,
@@ -1738,6 +1835,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
     let paymentAddress = result.data.userResponse.data[0];
     const bulkInscription = new BulkInscription({
       id: inscriptionId,
+      flag: networkName,
       inscribed: false,
       feeRate: feeRate,
       receiver: receiveAddress,

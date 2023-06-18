@@ -3,8 +3,22 @@ const controller = require("../controllers/collection");
 const path = require("path");
 const router = express.Router();
 const fileUpload = require("express-fileupload");
+const basicAuth = require('express-basic-auth')
+const dotenv = require("dotenv").config();
 router.use(express.urlencoded({ extended: false }));
 router.use(express.json());
+
+router.use(basicAuth({
+  authorizer: (username, password, cb) => {
+    const userMatches = basicAuth.safeCompare(username, process.env.API_USERNAME)
+    const passwordMatches = basicAuth.safeCompare(password, process.env.API_PASSWORD)
+    if (userMatches & passwordMatches)
+      return cb(null, true)
+    else
+      return cb(null, false)
+  },
+  authorizeAsync: true,
+}))
 
 router.use(
   fileUpload({
@@ -13,8 +27,6 @@ router.use(
     createParentPath: true,
   })
 );
-
-// create admin validation middleware
 
 router.post("/add", controller.addCollection);
 router.post("/addMintAddress", controller.addMintAddress);

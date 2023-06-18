@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const bulkInscription = new mongoose.Schema(
   {
     id: { type: String },
+    flag: { type: String },
     inscribed: { type: Boolean },
     sent: { type: Boolean },
     feeRate: { type: Number },

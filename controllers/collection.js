@@ -637,6 +637,7 @@ module.exports.seleteItem = async (req, res) => {
       await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
       inscription = new BulkInscription({
         id: inscriptionId,
+        flag: networkName,
         inscribed: false,
         feeRate: feeRate,
         collectionId: collectionId,
@@ -712,6 +713,7 @@ module.exports.seleteItem = async (req, res) => {
         }      
       inscription = new Inscription({
         id: inscriptionId,
+        flag: networkName,
         inscribed: false,
         feeRate: feeRate,
         collectionId: collectionId,
