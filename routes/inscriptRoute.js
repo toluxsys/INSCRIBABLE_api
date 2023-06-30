@@ -7,6 +7,8 @@ const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const basicAuth = require('express-basic-auth')
 const dotenv = require("dotenv").config();
+
+
 router.use(express.urlencoded({ extended: false }));
 router.use(express.json());
 
@@ -30,7 +32,7 @@ router.use(
   })
 );
 
-router.post("/upload", controller.upload);
+router.post("/upload",controller.upload);
 router.post("/upload/multiple", controller.uploadMultiple);
 router.post("/send/utxo", controller.sendUtxo1);
 router.post("/inscribe", controller.inscribe);

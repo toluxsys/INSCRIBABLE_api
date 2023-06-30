@@ -14,17 +14,22 @@ const BulkInscription = require("../model/bulkInscription");
 const Collection = require("../model/collection");
 const Sats = require("../model/sats");
 const ObjectId = require('mongoose').Types.ObjectId; 
+const verifySats = require("../helpers/satNameHelper");
 const {
   compressImage,
   compressAndSave,
   compressAndSaveBulk,
+  compressAndSaveS3,
+  compressAndSaveBulkS3,
   compressBulk,
   saveFile,
+  saveFileS3,
 } = require("../helpers/imageHelper");
 const {
   createHDWallet,
   addWalletToOrd,
   utxoDetails,
+  verifyAddress,
 } = require("../helpers/walletHelper");
 const {
   getRecomendedFee,
@@ -46,9 +51,9 @@ const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/svg`, `ima
 
 const writeFile = (path, data) => {
   try {
-      if(!existsSync(`../build/files/`)) {
+      if(!existsSync(process.cwd()+`/build/files/`)) {
       fs.mkdirSync(
-        `../build/files/`,
+        process.cwd()+`/build/files/`,
         { recursive: true },
         (err) => {
           console.log(err);
@@ -75,6 +80,8 @@ module.exports.inscribeText = async (req, res) => {
     let walletKey = "";
     let paymentAddress;
     let satsId;
+    s3 = false;
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -84,10 +91,12 @@ module.exports.inscribeText = async (req, res) => {
     let path = `./build/files/${fileName}`;
     
     writeFile(path, textBody);
-    let fileDetail = await saveFile(fileName);
-    const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+    let fileDetail;
+    let inscriptionCost;
 
     if(oldSats === `true`){
+      fileDetail = await saveFile(fileName);
+      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
       let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
       if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
       if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
@@ -105,6 +114,9 @@ module.exports.inscribeText = async (req, res) => {
       }
       paymentAddress = result.data.userResponse.data[0];
     }else {
+      fileDetail = await saveFileS3(fileName);
+      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -126,6 +138,7 @@ module.exports.inscribeText = async (req, res) => {
       receiver: receiveAddress,
       inscriptionType: "text",
       sat: satsId,
+      s3: s3,
 
       inscriptionDetails: {
         fileName: fileName,
@@ -167,10 +180,12 @@ module.exports.brc20 = async (req, res) => {
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    const fileName = new Date().getTime().toString() + `.txt`;
+    const fileName = new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
     let satsId;
+    let s3 = false;
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -199,10 +214,11 @@ module.exports.brc20 = async (req, res) => {
     }
     let s_data = JSON.stringify(data).toString();
     writeFile(s_path, s_data);
-    let fileDetail = await saveFile(fileName);
-    const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
-
+    let fileDetail;
+    let inscriptionCost;
     if(oldSats === `true`){
+      fileDetail = await saveFile(fileName);
+      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
       let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
       if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
       if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
@@ -220,6 +236,9 @@ module.exports.brc20 = async (req, res) => {
       }
       paymentAddress = result.data.userResponse.data[0];
     }else {
+      fileDetail = await saveFileS3(fileName);
+      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -241,6 +260,7 @@ module.exports.brc20 = async (req, res) => {
       receiver: receiveAddress,
       inscriptionType: "brc20",
       sat: satsId,
+      s3: s3,
 
       inscriptionDetails: {
         fileName: fileName,
@@ -282,10 +302,12 @@ module.exports.satNames = async (req, res) => {
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    const fileName = new Date().getTime().toString() + `.txt`;
+    const fileName = new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
     let satsId;
+    let s3 = false;
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -297,6 +319,8 @@ module.exports.satNames = async (req, res) => {
     if(name.split("").includes(".")){
       return res.status(200).json({status: false, message: `${name} contains unsupported character`});
     }
+    let verifyName = await verifySats(name + ".sats");
+    if(!verifyName) return res.status(200).json({status: false, message: `${name} already exists`});
     
     data = {
       p: "sns",
@@ -306,10 +330,12 @@ module.exports.satNames = async (req, res) => {
     
     let s_data = JSON.stringify(data).toString();
     writeFile(s_path, s_data);
-    let fileDetail = await saveFile(fileName);
-    const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+    let fileDetail;
+    let inscriptionCost;
 
     if(oldSats === `true`){
+      fileDetail = await saveFile(fileName);
+      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
       let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
       if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
       if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
@@ -327,6 +353,9 @@ module.exports.satNames = async (req, res) => {
       }
       paymentAddress = result.data.userResponse.data[0];
     }else {
+      fileDetail = await saveFileS3(fileName);
+      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -348,6 +377,7 @@ module.exports.satNames = async (req, res) => {
       receiver: receiveAddress,
       inscriptionType: "sns",
       sat: satsId,
+      s3: s3,
 
       inscriptionDetails: {
         fileName: fileName,
@@ -405,6 +435,8 @@ module.exports.brc1155 = async (req, res) => {
     let walletKey = "";
     let paymentAddress;
     let satsId;
+    let s3 = false;
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -412,7 +444,7 @@ module.exports.brc1155 = async (req, res) => {
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     const s_fileName = new Date().getTime().toString() + path.extname(file.name);
-    const fileName = new Date().getTime().toString() + `.txt`
+    const fileName = new Date().getTime().toString() +`.txt`
       const savePath = path.join(
         process.cwd(),
         "src",
@@ -431,10 +463,12 @@ module.exports.brc1155 = async (req, res) => {
       let s_path = `./build/files/${fileName}`;
       let s_data = JSON.stringify(data).toString();
       writeFile(s_path, s_data);
-      let fileDetail = await saveFile(fileName);
-      const inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      let fileDetail;
+      let inscriptionCost;
 
       if(oldSats === `true`){
+        fileDetail = await saveFile(fileName);
+        inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
         let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
         if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
         if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
@@ -452,6 +486,9 @@ module.exports.brc1155 = async (req, res) => {
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
+        fileDetail = await saveFileS3(fileName);
+        inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+        s3 = true;
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -473,6 +510,7 @@ module.exports.brc1155 = async (req, res) => {
         receiver: receiveAddress,
         inscriptionType: "brc1155",
         sat: satsId,
+        s3: s3,
 
         inscriptionDetails: {
           fileName: fileName,
@@ -514,6 +552,9 @@ module.exports.upload = async (req, res) => {
     let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
     let oldSats = req.body.oldSats;
+
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
+    
     if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
       return res.status(200).json({status: false, message: `cannot optimaize ${file.mimetype}`})
     }
@@ -543,6 +584,7 @@ module.exports.uploadMultiple = async (req, res) => {
     const networkName = req.body.networkName;
     let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
     if(files.length >= 100) return res.status(200).json({status: false, message: `file Upload Above Limit`});
     files.forEach((file) => {
       if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
@@ -741,7 +783,7 @@ module.exports.sendUtxo1 = async(req,res) => {
         .json({ status: true, message: `ok`, userResponse: true });
     }
   }catch(e){
-    console.log(e.message);
+    console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
@@ -765,7 +807,6 @@ module.exports.inscribe = async (req, res) => {
     let utxo;
     let offSet;
     let spendUtxo = "";
-    let ids;
     let balance = 0;
     let ORD_API_URL;
     let receiverAddress;
@@ -804,6 +845,7 @@ module.exports.inscribe = async (req, res) => {
         }
       }else{
         imageName = instance.inscriptionDetails.fileName;
+        console.log(imageName);
         receiverAddress = instance.receiver;
         let cost = instance.cost.inscriptionCost;
         if (balance < cost) {
@@ -845,17 +887,31 @@ module.exports.inscribe = async (req, res) => {
         spendUtxo: spendUtxo,
         oldSatWallet: "oldSatsWallet",
       });
-    }else{
-      newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/change`, {
-        feeRate: instance.feeRate,
-        receiverAddress: receiverAddress,
-        cid: instance.inscriptionDetails.cid,
-        inscriptionId: inscriptionId,
-        type: type,
-        imageName: imageName,
-        networkName: networkName,
-        changeAddress: changeAddress,
-      });
+    }else {
+      if(instance.s3 === true){
+        newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/changeS3`, {
+          feeRate: instance.feeRate,
+          receiverAddress: receiverAddress,
+          cid: instance.inscriptionDetails.cid,
+          inscriptionId: inscriptionId,
+          type: type,
+          imageName: imageName,
+          networkName: networkName,
+          changeAddress: changeAddress,
+          imageNames: instance.fileNames,
+        });
+      } else {
+        newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/change`, {
+          feeRate: instance.feeRate,
+          receiverAddress: receiverAddress,
+          cid: instance.inscriptionDetails.cid,
+          inscriptionId: inscriptionId,
+          type: type,
+          imageName: imageName,
+          networkName: networkName,
+          changeAddress: changeAddress,
+        });
+      }   
     }
     if (newInscription.data.message !== "ok") {
       return res
@@ -1054,7 +1110,7 @@ module.exports.checkPayment = async (req, res) => {
     }
 
     if(inscription.collectionId){
-      if (balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment"});
+      if(balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment"});
       if(balance.status[0].confirmed === false){
         if(inscription.collectionPayment === "waiting"){
           await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
@@ -1608,7 +1664,6 @@ module.exports.getSatsById = async (req, res) => {
 };
 
 
-
 const _getSatsByYear = async (year) => {
   try {
     const sats = await Sats.find({ year: year });
@@ -1661,7 +1716,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
     await file.mv(savePath);
     
     if (optimize === `true`) {
-      compImage = await compressAndSave(fileName, true);
+      compImage = await compressAndSaveS3(fileName, true);
       inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut);
 
       if(oldSats === `true`){
@@ -1696,7 +1751,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
         paymentAddress = result.data.userResponse.data[0];
       }
     } else if (optimize === `false`) {
-      compImage = await compressAndSave(fileName, false);
+      compImage = await compressAndSaveS3(fileName, false);
       inscriptionCost = inscriptionPrice(feeRate, file.size);
 
       if(oldSats === `true`){
@@ -1737,6 +1792,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
       inscribed: false,
       feeRate: feeRate,
       sat: satsId,
+      s3: true,
 
       inscriptionDetails: {
         imageSizeIn: compImage.sizeIn / 1e3,
@@ -1778,6 +1834,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
     const inscriptionId = `b${uuidv4()}`;
     const serviceCharge = parseInt(process.env.SERVICE_CHARGE) * files.length;
     let optimized;
+    let imageNames = [];
 
     let ORD_API_URL;
 
@@ -1802,20 +1859,23 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
       );
     }
 
-    files.forEach(async (file, index) => {
-      ext = path.extname(file.name);
-      const fileName = `${index + 1}` + path.extname(file.name);
-      const savePath = path.join(
-        process.cwd(),
-        "src",
-        "bulk",
-        `${inscriptionId}`,
-        fileName
-      );
+    await Promise.all(
+      files.map(async (file, index) => {
+        ext = path.extname(file.name);
+        const fileName = new Date().getTime().toString() + index.toString() + path.extname(file.name);
+        imageNames.push(fileName);
+        const savePath = path.join(
+          process.cwd(),
+          "src",
+          "bulk",
+          `${inscriptionId}`,
+          fileName
+        );
       await file.mv(savePath);
-    });
+      })
+    );
 
-    const data = await compressAndSaveBulk(inscriptionId, optimized);
+    const data = await compressAndSaveBulkS3(inscriptionId, optimized);
     const costPerInscription = inscriptionPrice(feeRate, data.largestFile);
     const totalCost = costPerInscription.total * files.length;
     const cardinals = costPerInscription.inscriptionCost;
@@ -1839,6 +1899,8 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
       inscribed: false,
       feeRate: feeRate,
       receiver: receiveAddress,
+      fileNames: imageNames,
+      s3: true,
 
       inscriptionDetails: {
         largestFile: data.largestFile,
@@ -1858,14 +1920,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
       stage: "stage 1",
     });
 
-    const savedInscription = await bulkInscription.save();
-
-    const ids = new Ids({
-      id: savedInscription._id,
-      type: "bulk",
-      startTime: Date.now(),
-    });
-    await ids.save();
+    await bulkInscription.save();
 
     return {
       data: data,

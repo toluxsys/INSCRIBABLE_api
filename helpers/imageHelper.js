@@ -2,8 +2,121 @@ const { compress } = require("compress-images/promise");
 const { Web3Storage, getFilesFromPath } = require("web3.storage");
 const { sort } = require("./sort");
 const fs = require("fs");
+const {Blob} = require("buffer")
 const { cwd } = require("process");
 const dotenv = require("dotenv").config();
+const aws = require("aws-sdk");
+require('aws-sdk/lib/maintenance_mode_message').suppress = true;
+
+aws.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY,
+  secretAccessKey: process.env.AWS_SECRET_KEY,
+  region: process.env.S3_BUCKET_REGION,
+});
+
+const uploadToS3 = async (fileName, fileBuffer) => {
+  let s3bucket = new aws.S3({
+    ACL :'public-read',
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_KEY,
+    Bucket: process.env.S3_BUCKET_NAME,
+  });
+  const uploadParams = {
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: fileName,
+    Body: fileBuffer,
+  };
+
+  return new Promise((resolve, reject) => {
+    s3bucket.createBucket(() => {
+      s3bucket.upload(uploadParams, (err, data) => {
+        if (err) {
+          reject(new Error("Error occurred while trying to upload to S3 bucket", err));
+        } else {
+          resolve(data);
+        }
+      });
+    });
+  });
+}
+
+const uploadToS3Bulk = async (params) => {
+  try{let s3bucket = new aws.S3({
+    ACL :'public-read',
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_KEY,
+    Bucket: process.env.S3_BUCKET_NAME,
+  });
+ 
+  const responses = await Promise.all(
+      params.map(param => s3bucket.upload(param).promise())
+  )
+
+  return responses;
+}catch(e){
+  console.log(e)
+}
+}
+
+const downloadFromS3 = async (fileName, inscriptionId) => {
+  try{let s3bucket = new aws.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_KEY,
+    Bucket: process.env.S3_BUCKET_NAME,
+  });
+
+  const downloadParams = {
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: fileName,
+  };
+
+  if(!fs.existsSync(process.cwd()+`/src/bulk/${inscriptionId}`)){
+    fs.mkdirSync(process.cwd()+`/src/bulk/${inscriptionId}`, { recursive: true }, (err) => {
+      console.log(err);
+    });
+  }
+
+ const file = fs.createWriteStream(process.cwd()+`/src/bulk/${inscriptionId}/${fileName}`);
+ await Promise.all(s3bucket.getObject(downloadParams).createReadStream().pipe(file).promise());
+  return true;
+}catch(error){
+  console.error('Error occurred during file downloads:', error);
+    return false;
+ }
+};
+
+const downloadBulkFromS3 = async (params, inscriptionId) => {
+  try {
+    const s3bucket = new aws.S3({
+      accessKeyId: process.env.AWS_ACCESS_KEY,
+      secretAccessKey: process.env.AWS_SECRET_KEY,
+      Bucket: process.env.S3_BUCKET_NAME,
+    });
+
+    if (!fs.existsSync(process.cwd() + `/src/bulk/${inscriptionId}`)) {
+      fs.mkdirSync(process.cwd() + `/src/bulk/${inscriptionId}`, { recursive: true });
+    }
+
+    const downloadPromises = params.map((param) => {
+      const file = fs.createWriteStream(process.cwd() + `/src/bulk/${inscriptionId}/${param.Key}`);
+      return new Promise((resolve, reject) => {
+        s3bucket.getObject(param)
+          .createReadStream()
+          .on('error', reject)
+          .pipe(file)
+          .on('finish', resolve)
+          .on('error', reject);
+      });
+    });
+
+    await Promise.all(downloadPromises);
+
+    return true;
+  } catch (error) {
+    console.error('Error occurred during file downloads:', error);
+    return false;
+  }
+};
 
 const initStorage = async () => {
   return new Web3Storage({ token: process.env.WEB3_STORAGE_KEY });
@@ -192,7 +305,7 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
 const saveFile = async (fileName) => {
   try{
     const storage = await initStorage();
-    const filePath = `${process.cwd()}/build/files/${fileName}`
+    const filePath = `${process.cwd()}/build/files`
 
     if (!fs.existsSync(filePath)) {
       fs.mkdirSync(
@@ -204,12 +317,30 @@ const saveFile = async (fileName) => {
       );
     }
 
-    const n_file = await getFilesFromPath(filePath);
+    const n_file = await getFilesFromPath(filePath + `/${fileName}`);
       const rootCid = await storage.put(n_file);
       fs.unlinkSync(filePath);
       const newData = {
         cid: rootCid,
         size: n_file[0].size,
+      };
+      return newData;
+  } catch(e) {
+    console.log(e.message)
+  }
+}
+
+const saveFileS3 = async (fileName) => {
+  try{
+    const storage = await initStorage();
+    const filePath = `${process.cwd()}/build/files`
+
+    const n_file = fs.readFileSync(filePath + `/${fileName}`);
+     let data = await uploadToS3(fileName, n_file);
+      fs.unlinkSync(filePath + `/${fileName}`);
+      const newData = {
+        cid: data.Location,
+        size: n_file.length,
       };
       return newData;
   } catch(e) {
@@ -266,10 +397,158 @@ const compressAndSave = async (fileName, optimize) => {
   }
 };
 
+const compressAndSaveS3 = async (fileName, optimize) => {
+  let fromPath = `./src/img/uncompressed/${fileName}`;
+  let toPath = `./build/img/`;
+  try {
+    if (optimize === true) {
+      const result = await compress({
+        source: fromPath,
+        destination: toPath,
+        enginesSetup: {
+          jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
+          png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
+          svg: { engine: "svgo", command: "--multipass" },
+
+          gif: {
+            engine: "gifsicle",
+            command: ["--colors", "64", "--use-col=web"],
+          },
+        },
+      });
+      const { statistics, errors } = result;
+      const stats = await statistics[0];
+      fs.unlinkSync(stats.input);
+      const compdImg = fs.readFileSync(stats.path_out_new);
+      let data = await uploadToS3(fileName, compdImg);
+      fs.unlinkSync(stats.path_out_new);
+      const newData = {
+        sizeIn: stats.size_in,
+        sizeOut: stats.size_output,
+        comPercentage: stats.percent,
+        outPath: stats.path_out_new,
+        input: stats.input,
+        cid: data.location,
+      };
+      return newData;
+    } else if (optimize === false) {
+      const compdImg = fs.readFileSync(fromPath);
+      let data = await uploadToS3(fileName, compdImg);
+      fs.unlinkSync(fromPath);
+      const newData = {
+        cid: data.location,
+      };
+      return newData;
+    }
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const compressAndSaveBulkS3 = async (inscriptionId, optimize) => {
+  const storage = await initStorage();
+  let files = [];
+  let fileSize = [];
+  try {
+    if (optimize === true) {
+      if (!fs.existsSync(process.cwd() + `/build/bulk/${inscriptionId}/`)) {
+        fs.mkdirSync(
+          process.cwd() + `/build/bulk/${inscriptionId}/`,
+          { recursive: true },
+          (err) => {
+            console.log(err);
+          }
+        );
+      }
+
+      const fileNames = await Promise.all(fs.readdirSync(`./src/bulk/${inscriptionId}`));
+      console.log(fileNames)
+      await Promise.all(fileNames.map(async (fileName) => {
+        let fromPath = `./src/bulk/${inscriptionId}/${fileName}`;
+        let toPath = `./build/bulk/${inscriptionId}/`;
+
+        const result = await compress({
+        source: fromPath,
+        destination: toPath,
+        enginesSetup: {
+          jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
+          png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
+          svg: { engine: "svgo", command: "--multipass" },
+
+          gif: {
+            engine: "gifsicle",
+            command: ["--colors", "64", "--use-col=web"],
+          },
+        },
+        });
+
+        const { statistics, errors } = result;
+        const stats = statistics[0];
+        const imageFile = fs.readFileSync(stats.path_out_new);
+        const file = {name: fileName, buffer: imageFile}
+
+        files.push(file);
+        fileSize.push(imageFile.length);
+      }));
+        
+      const sortFileSize = fileSize.sort((a, b) => a - b);
+      let responseData = [];
+
+      await Promise.all(files.map(async (item) => {
+        let fileName = item.name;
+        let itemBuffer = item.buffer;
+        let data = await uploadToS3(fileName, itemBuffer);
+        responseData.push(data.Location);
+      }));
+
+      fs.rmSync(`./src/bulk/${inscriptionId}`, { recursive: true });
+      fs.rmSync(`./build/bulk/${inscriptionId}`, { recursive: true });
+      return {
+        cid: responseData,
+        largestFile: sortFileSize[sortFileSize.length - 1],
+      };
+    } else {
+      const fileNames = fs.readdirSync(`./src/bulk/${inscriptionId}`);
+      fileNames.forEach(fileName => {
+        const imageFile = fs.readFileSync(`./src/bulk/${inscriptionId}/${fileName}`)
+        let file = {name: fileName, buffer: imageFile}
+        files.push(file);
+        fileSize.push(imageFile.length);
+      })
+      const sortFileSize = fileSize.sort((a, b) => a - b);
+      let params = [];
+
+      files.forEach(item => {
+        let fileName = item.name;
+        let itemBuffer = item.buffer;
+        let _param = {
+          Bucket: process.env.S3_BUCKET_NAME,
+          Key: fileName,
+          Body: itemBuffer,
+        }
+        params.push(_param);
+      })
+      let data = await uploadToS3Bulk(params);
+      data = data.map(item => item.Location);
+
+      fs.rmSync(`./src/bulk/${inscriptionId}`, { recursive: true });
+      return {
+        cid: data,
+        largestFile: sortFileSize[sortFileSize.length - 1],
+      };
+    }
+  } catch (e) {
+    console.log(e.message);
+  }
+};
+
 module.exports = {
   compressImage,
   compressAndSave,
   compressAndSaveBulk,
   compressBulk,
+  compressAndSaveS3,
+  compressAndSaveBulkS3,
   saveFile,
+  saveFileS3,
 };

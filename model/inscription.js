@@ -19,6 +19,9 @@ const inscriptionSchema = new mongoose.Schema(
     inscriptionDetails: {
       type: Object,
     },
+    s3: {
+      type: Boolean,
+    },
     fileNames: {
       type: Array,
     },

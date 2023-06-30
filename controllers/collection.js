@@ -19,6 +19,7 @@ const {
   createHDWallet,
   addWalletToOrd,
   utxoDetails,
+  verifyAddress,
 } = require("../helpers/walletHelper");
 const { compressAndSaveBulk } = require("../helpers/imageHelper");
 const {
@@ -27,7 +28,6 @@ const {
   createCollectionLegacyAddress,
   createTaprootAddress,
 } = require("../helpers/sendBitcoin2");
-const index = require("compress-images");
 
 const {
   getRecomendedFee,
@@ -119,7 +119,6 @@ const verifyMint = async (collectionId, address, amount) => {
     const collection = await Collection.findOne({id: collectionId});
     const mintStage = await MintDetails.findOne({_id: collection.mintStage}); 
     let allowedAddress = mintStage.addresses;
-    let data;
     let c_address;
     if(mintStage.name === "public"){ 
       let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
@@ -159,7 +158,6 @@ const verifyMint = async (collectionId, address, amount) => {
         }
       
         let count = c_address.mintCount + amount;
-        await Address.findOneAndUpdate({_id: c_address._id}, {mintCount: count}, {new: true});
         return data = {
           valid: true,
           price: mintStage.price,
@@ -204,7 +202,6 @@ const verifyMint = async (collectionId, address, amount) => {
         }
       
         let count = c_address.mintCount + amount;
-        await Address.findOneAndUpdate({_id: c_address._id}, {mintCount: count}, {new: true});
         return data = {
           valid: true,
           price: mintStage.price,
@@ -290,6 +287,7 @@ module.exports.addCollection = async (req, res) => {
     const banner = req.files.banner;
     const featuredImage = req.files.featuredImage;
     const collectionId = `c${uuidv4()}`;
+    if(verifyAddress(creatorsAddress, networkName) === false) return res.status(200).json({status: false, message: `crestors address not valid for ${networkName}`});
     files.push(banner);
     files.push(featuredImage);
     const count = await Collection.find({}, { _id: 0 });
@@ -553,6 +551,7 @@ module.exports.seleteItem = async (req, res) => {
     let satsId;
     let walletKey;
     let ORD_API_URL;
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
     if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
     if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
@@ -595,7 +594,7 @@ module.exports.seleteItem = async (req, res) => {
         }    
       })
       if(s_selected.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_selected});
-      if(s_minted.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_minted});
+      if(s_minted.length >= 1) return res.status(200).json({status: false, message: `items already inscribed`, userResponse: s_minted});
       items.forEach((newItem, index) => {
         for (const imageName of imageNames) {
           if (newItem.name === imageName) {
@@ -1234,7 +1233,8 @@ module.exports.inscribe = async (req, res) => {
         details.push(data);
       }) 
     });
-    
+
+    await Address.findOneAndUpdate({mintStage: collection.mintStage, address: instance.receiver}, {mintCount: instance.fileNames.length}, {new: true});
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: instance.selected}}}, { new: true }); 
     if(instance.sat){
       await Sats.findOneAndUpdate({_id: instance.sat}, {$inc: {count: 1} }, {new: true });
@@ -1272,8 +1272,9 @@ module.exports.inscribe = async (req, res) => {
 
 module.exports.getCollections = async (req, res) => {
   try{
+    const { networkName } = req.params;
     let collectionDetails = [];
-    const collections = await Collection.find({}, { _id: 0 });
+    const collections = await Collection.find({ flag: networkName});
 
     collections.forEach(async (collection, index) => {
       let mintedItems = collection.minted;

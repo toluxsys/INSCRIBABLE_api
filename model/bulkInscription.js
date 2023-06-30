@@ -18,6 +18,9 @@ const bulkInscription = new mongoose.Schema(
     inscriptionDetails: {
       type: Object,
     },
+    s3: {
+      type: Boolean,
+    },
     walletDetails: {
       type: Object,
     },

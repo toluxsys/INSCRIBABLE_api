@@ -44,7 +44,7 @@ router.post("/calc", controller.calc);
 router.post("/addFees", controller.addCollectionServiceFee);
 router.post("/updateFees", controller.updateServiceFee);
 router.post("/approve", controller.approveCollection);
-router.get("/getCollections", controller.getCollections);
+router.get("/getCollections/:networkName", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 
 

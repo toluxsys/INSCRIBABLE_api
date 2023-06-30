@@ -131,6 +131,32 @@ const utxoDetails = async (walletName, count, amount, networkName) => {
   }
 };
 
+const verifyAddress = (address, networkName) => {
+  try{
+    if (networkName === "mainnet") {
+      let chars = address.split("");
+      if(chars[0] === "1" || chars[0] === "3"){
+        return true;
+      }else if(chars[0] === "b" && chars[1] === "c" && chars[2] === "1"){
+        return true;
+      }else{
+        return false;
+      }
+    } else if (networkName === "testnet") {
+      let chars = address.split("");
+      if(chars[0] === "m" || chars[0] === "2" || chars[0] === "n"){
+        return true;
+      }else if(chars[0] === "t" && chars[1] === "b" && chars[2] === "1"){
+        return true;
+      }else{
+        return false;
+      }
+    }
+  }catch(e){
+    console.log(e.message);
+  }
+};
+
 module.exports = {
   createWallet,
   createHDWallet,
@@ -139,6 +165,7 @@ module.exports = {
   utxoDetails,
   createCollectionHDWallet,
   createPayLinkWallet,
+  verifyAddress,
 };
 
 // console.log(
