@@ -16,4 +16,4 @@ try{
 
 module.exports = verifyName;
 
-verifyName("nene.sats").then((res) => console.log(res));
+//verifyName("nene.sats").then((res) => console.log(res));
