@@ -31,6 +31,7 @@ const getWalletBalance = async (address, network) => {
     const { addresses } = await init(network);
     const response = await addresses.getAddressTxsUtxo({ address });
     let status = [];
+    let txid = [];
 
     let totalAmountAvailable = 0;
     let utxos = response;
@@ -41,10 +42,11 @@ const getWalletBalance = async (address, network) => {
         status = []
       }else{
         status.push(element.status);
+        txid.push(element.txid);
       }
     }
 
-    return { totalAmountAvailable, status };
+    return { totalAmountAvailable, status, txid };
   } catch (e) {
     console.log(e.message);
   }
@@ -191,8 +193,8 @@ module.exports = {
 //  const start = async () => {
 //   const { transactions } = await init();
 //   const available = await getWalletBalance(
-//     "bc1qf66zf006smuxhn220f4cctpacggm7c5nhwcdkq",
-//     "mainnet"
+//     "mwXxnQvmcXnUtpLA6SyTHVonYrer9sDrfb",
+//     "testnet"
 //   );
 
 //   console.log(available);
@@ -209,4 +211,4 @@ module.exports = {
 // //   //console.log(await getRecomendedFee());
 //  };
 
-// start();
+// start().then(() => {}).catch((e) => console.log(e.message));

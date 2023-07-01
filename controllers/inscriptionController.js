@@ -317,7 +317,7 @@ module.exports.satNames = async (req, res) => {
     let s_path = `./build/files/${fileName}`;
 
     if(name.split("").includes(".")){
-      return res.status(200).json({status: false, message: `${name} contains unsupported character`});
+      return res.status(200).json({status: false, message: `${name} your name can not contain "."`});
     }
     let verifyName = await verifySats(name + ".sats");
     if(!verifyName) return res.status(200).json({status: false, message: `${name} already exists`});
@@ -1080,6 +1080,7 @@ module.exports.checkPayment = async (req, res) => {
     let inscription;
     let balance;
     let cost;
+    let txid;
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
@@ -1089,6 +1090,7 @@ module.exports.checkPayment = async (req, res) => {
         networkName
       );
       cost = inscription.cost.total;
+      txid = balance.txid[0];
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
@@ -1097,6 +1099,7 @@ module.exports.checkPayment = async (req, res) => {
         networkName
       );
       cost = inscription.cost.total;
+      txid = balance.txid[0];
     }
 
     if (inscription.stage === "stage 2") {
@@ -1120,11 +1123,13 @@ module.exports.checkPayment = async (req, res) => {
           return res.status(200).json({
             status: false,
             message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+            userResponse: txid,
           });
         }else if (inscription.collectionPayment === "received"){
           return res.status(200).json({
             status: false,
             message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+            userResponse: txid,
           });
         }
       }
@@ -1140,6 +1145,7 @@ module.exports.checkPayment = async (req, res) => {
       return res.status(200).json({
         status: false,
         message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+        userResponse: txid,
       });
     }
   
@@ -1151,7 +1157,7 @@ module.exports.checkPayment = async (req, res) => {
     }else{
       return res
       .status(200)
-      .json({ status: true, message: `ok`, userResponse: true });
+      .json({ status: true, message: `ok`, userResponse: txid });
     }
     
   } catch (e) {
