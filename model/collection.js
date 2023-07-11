@@ -5,6 +5,9 @@ const collection = new mongoose.Schema(
     id: {
       type: String,
     },
+    flag: {
+      type: String,
+    },
     status: {
       type: String,
     },
@@ -13,6 +16,12 @@ const collection = new mongoose.Schema(
     },
     price: {
       type: Number,
+    },
+    userSelect: {
+      type: String,
+    },
+    specialSat: {
+      type: String
     },
     banner: {
       type: String,

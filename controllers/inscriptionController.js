@@ -960,6 +960,7 @@ module.exports.inscribe = async (req, res) => {
     console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    console.log(e.response);
     return res.status(200).json({ status: false, message: e.message });
   }
 };
@@ -1114,17 +1115,28 @@ module.exports.checkPayment = async (req, res) => {
 
     if(inscription.collectionId){
       if(balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment"});
+      let collection = await Collection.findOne({id: inscription.collectionId});
       if(balance.status[0].confirmed === false){
         if(inscription.collectionPayment === "waiting"){
-          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
-          await SelectedItems.deleteOne({_id: inscription.selected});
-          inscription.collectionPayment = "received";
-          await inscription.save();
-          return res.status(200).json({
-            status: false,
-            message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-            userResponse: txid,
-          });
+          if(collection.specialSat){
+            inscription.collectionPayment = "received";
+            await inscription.save();
+            return res.status(200).json({
+              status: false,
+              message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+              userResponse: txid,
+            });
+          }else{
+            await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+            await SelectedItems.deleteOne({_id: inscription.selected});
+            inscription.collectionPayment = "received";
+            await inscription.save();
+            return res.status(200).json({
+              status: false,
+              message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+              userResponse: txid,
+            });
+          }
         }else if (inscription.collectionPayment === "received"){
           return res.status(200).json({
             status: false,

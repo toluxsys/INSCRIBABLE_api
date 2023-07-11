@@ -78,6 +78,10 @@ const getSpendUtxo = async (address, network) => {
     let utxos = response;
     let outputs =[];
 
+    if(utxos.length === 0){
+      return "no utxos"
+    }
+
     for (const element of utxos) {
       let output = element.txid + ":" + element.vout;
       outputs.push(output);

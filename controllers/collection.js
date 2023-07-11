@@ -37,6 +37,7 @@ const {
 } = require("../helpers/sendBitcoin");
 const MintDetails = require("../model/mintDetails");
 const ObjectId = require('mongoose').Types.ObjectId; 
+let satTypes = ['rare', 'common', 'block9', 'block84', 'pizza','pizza1','uncommon', '2009', '2010', '2011'];
 
 
 const getLinks = async (cid) => {
@@ -282,6 +283,9 @@ module.exports.addCollection = async (req, res) => {
       discord,
       networkName,
       mintDetails,
+      userSelect,
+      fileSize,
+      specialSat,
     } = req.body;
 
     const banner = req.files.banner;
@@ -335,6 +339,7 @@ module.exports.addCollection = async (req, res) => {
       website: website,
       twitter: twitter,
       discord: discord,
+      fileSize: fileSize,
     };
 
     const data = await compressAndSaveBulk(collectionId, false);
@@ -342,7 +347,10 @@ module.exports.addCollection = async (req, res) => {
       id: collectionId,
       status: `pending`,
       name: collectionName,
+      flag: networkName,
       price: price,
+      userSelect: userSelect,
+      specialSat: specialSat,
       collectionDetails: collectionDetails,
       collectionAddress: collectionAddress,
       description: description,
@@ -1234,7 +1242,7 @@ module.exports.inscribe = async (req, res) => {
       }) 
     });
 
-    await Address.findOneAndUpdate({mintStage: collection.mintStage, address: instance.receiver}, {mintCount: instance.fileNames.length}, {new: true});
+    await Address.findOneAndUpdate({mintStage: collection.mintStage, address: instance.receiver}, {$inc: {mintCount: instance.fileNames.length}}, {new: true});
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: instance.selected}}}, { new: true }); 
     if(instance.sat){
       await Sats.findOneAndUpdate({_id: instance.sat}, {$inc: {count: 1} }, {new: true });
@@ -1272,13 +1280,37 @@ module.exports.inscribe = async (req, res) => {
 
 module.exports.getCollections = async (req, res) => {
   try{
-    const { networkName } = req.params;
+    const { networkName, type} = req.query;
+    let collections = await Collection.find({ flag: networkName});
+    let _collections = [];
     let collectionDetails = [];
-    const collections = await Collection.find({ flag: networkName});
+    if(type === "sat"){
+      collections.map(async (collection, index) => {
+        if(satTypes.includes(collection.specialSat)) {
+          _collections.push(collection)
+        }else{
+          _collections = []
+        };
+      });
+    }else if(type === "multiple"){
+      collections.map((collection, index) => {
+        if(collection.userSelect === "true") {
+          _collections.push(collection)
+        }else{
+          _collections = []
+        };
+      });
+    }else if (type === "single"){
+      collections.map((collection, index) => {
+        if(collection.userSelect === "false" && !collection.specialSat) {
+          _collections.push(collection)
+        }else{
+          _collections = []
+        };
+      });
+    }
 
-    collections.forEach(async (collection, index) => {
-      let mintedItems = collection.minted;
-      let mintedCount = mintedItems.length;
+    _collections.forEach(async (collection, index) => {
       data = {
         collectionId: collection.id,
         collectionName: collection.name,
@@ -1286,7 +1318,7 @@ module.exports.getCollections = async (req, res) => {
         description: collection.description,
         price: collection.price / 1e8,
         category: collection.category,
-        mintedCount: mintedCount,
+        mintedCount: collection.inscriptions.length,
         bannerUrl: collection.banner,
         featuredUrl: collection.featuredImage,
         website: collection.collectionDetails.website,
@@ -1311,7 +1343,12 @@ module.exports.getCollection = async (req, res) => {
     const collection = await Collection.findOne({id: collectionId});
     const mintStage = collection.mintStage;
     let mintDetails = await MintDetails.findOne({_id: mintStage});
-    let collectionItems = await getLinks(collection.itemCid);
+    let collectionItems;
+    if(collection.specialSat) {
+      collectionItems = [];  
+    }else{
+      collectionItems = await getLinks(collection.itemCid);
+    };
     let mintedItems = collection.minted;
     let collectionCount = collectionItems.length;
     let mintedCount = mintedItems.length;
@@ -1363,4 +1400,163 @@ module.exports.getInscribedImages = async (req, res) => {
     return res.status(200).json({status: false, message: e.message});
   }
 }
+
+module.exports.mintOnSat = async (req, res) => {
+  try{
+    const { collectionId, receiveAddress, feeRate, networkName } = req.body;
+    const collection = await Collection.findOne({ id: collectionId});
+    const mintStage = collection.mintStage;
+    let inscriptionId;
+    let cost;
+    if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
+    let verified = await verifyMint(collectionId, receiveAddress, 1);
+    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
+    
+    inscriptionId = `s${uuidv4()}`;
+
+    if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
+    if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
+    let mintDetails = await MintDetails.findOne({_id: mintStage});
+    const price = mintDetails.price;
+
+    cost = await inscriptionPrice(
+      feeRate,
+      collection.collectionDetails.fileSize,
+      price,
+      collectionId
+    );
+    
+    const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    const r_data = {
+      collectionName: "oldSatsWallet",
+      addrCount: 1,
+      networkName: networkName,
+    };
+    const result = await axios.post(url, r_data);
+    if (result.data.message !== "ok") {
+      return res.status(200).json({status: false, message: result.data.message});
+    }
+    paymentAddress = result.data.userResponse.data[0];
+
+    let inscription = new Inscription({
+      id: inscriptionId,
+      flag: networkName,
+      inscribed: false,
+      feeRate: feeRate,
+      collectionId: collectionId,
+    
+      inscriptionDetails: {
+        payAddress: paymentAddress,
+      },
+      cost: cost,
+      receiver: receiveAddress,
+      feeRate: feeRate,
+      stage: "stage 1"
+    });
+
+    await inscription.save();
+    userResponse = {
+      cost: {
+        serviceCharge: cost.serviceCharge,
+        inscriptionCost: cost.inscriptionCost,
+        sizeFee: cost.sizeFee,
+        postageFee: cost.postageFee,
+        total: cost.total,
+      },
+      paymentAddress: paymentAddress,
+      inscriptionId: inscriptionId,
+      createdAt: inscription.createdAt,
+    };
+    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
+  } catch (e) {
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
+  }
+}
+
+module.exports.inscribeCount = async (req, res) => {
+  try{
+    const {collectionId} = req.body;
+    const inscriptions = await Inscription.find({collectionId: collectionId});
+    let inscribed = 0;
+    inscriptions.forEach((inscription) => {
+      if(inscription.inscribed === true) inscribed++; 
+    })
+    return res.status(200).json({status: true, message: "ok", userResponse: inscribed});
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+}
+
+module.exports.getAddresses = async (req, res) => {
+  try{
+    const { collectionId } = req.body;
+    const collection = await Collection.findOne({ id: collectionId});
+    if(!collection) return res.status(200).json({status: false, message: "collection not found"});
+    if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
+    const inscriptions = await Inscription.find({collectionId: collectionId});
+    let addresses = [];
+    await Promise.all(inscriptions.map(async (inscription) => {
+      if(inscription.inscribed === false){
+        let spendUtxo = await getSpendUtxo(inscription.inscriptionDetails.payAddress, "mainnet");
+        addresses.push({
+          id: inscription._id,
+          address: inscription.receiver,
+          feeRate: inscription.feeRate,
+          spendUtxo: spendUtxo
+        });
+      }
+    }))
+    return res.status(200).json({status: true, message: "ok", userResponse: addresses});
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.updateInscriptionDetails = async (req, res) => {
+  //details  = [{id: id, inscriptionId: inscriptionId, address: address}]
+  try{
+    const {details, collectionId} = req.body;
+    let collection = await Collection.findOne({id: collectionId});
+    
+    await Address.bulkWrite(details.map((element) => {
+      return {
+          updateOne: {
+              filter: {mintStage: collection.mintStage, address: element.address},
+              update: {$inc: {mintCount: 1}},
+              upsert: true,
+          }
+      }
+    }))
+
+    await Collection.bulkWrite(details.map((element) => {
+      return {
+          updateOne: {
+              filter: {id: collectionId},
+              update: {$push: {inscriptions: {$each: element.inscriptionId, $position: -1}}},
+              upsert: true,
+          }
+      }
+    }));
+    
+    await Inscription.bulkWrite(details.map((element) => {
+        return {
+            updateOne: {
+                filter: {_id: element.id},
+                update: {$set: {inscribed: true, stage: "stage 3"}, $push: {inscription: {$each: element.inscriptionId, $position: -1}}},
+                upsert: true,
+            }
+        }
+    }));
+
+    return res.status(200).json({status: true, message: "ok"});
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+//create a new model for address that has made payment and update the new model at check payment with 
+//change destination, satType, feeRate,
 
