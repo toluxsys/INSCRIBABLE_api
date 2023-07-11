@@ -1280,55 +1280,42 @@ module.exports.inscribe = async (req, res) => {
 
 module.exports.getCollections = async (req, res) => {
   try{
-    const { networkName, type} = req.query;
+    const { networkName} = req.query;
     let collections = await Collection.find({ flag: networkName});
-    let _collections = [];
     let collectionDetails = [];
-    if(type === "sat"){
-      collections.map(async (collection, index) => {
-        if(satTypes.includes(collection.specialSat)) {
-          _collections.push(collection)
-        }else{
-          _collections = []
-        };
-      });
-    }else if(type === "multiple"){
-      collections.map((collection, index) => {
-        if(collection.userSelect === "true") {
-          _collections.push(collection)
-        }else{
-          _collections = []
-        };
-      });
-    }else if (type === "single"){
-      collections.map((collection, index) => {
+    let _collections = [];
+      
+    collections.map((collection, index) => {
         if(collection.userSelect === "false" && !collection.specialSat) {
-          _collections.push(collection)
-        }else{
-          _collections = []
-        };
+          _collections.push({collectionId: collection.id, type: "single"})
+        }else if(collection.userSelect === "true" && !collection.specialSat){
+          _collections.push({collectionId: collection.id, type: "multiple"})
+        }else if(collection.specialSat){
+          _collections.push({collectionId: collection.id, type: "sat"})
+        }
       });
-    }
 
-    _collections.forEach(async (collection, index) => {
-      data = {
-        collectionId: collection.id,
-        collectionName: collection.name,
-        creatorName: collection.collectionDetails.creatorName,
-        description: collection.description,
-        price: collection.price / 1e8,
-        category: collection.category,
-        mintedCount: collection.inscriptions.length,
-        bannerUrl: collection.banner,
-        featuredUrl: collection.featuredImage,
-        website: collection.collectionDetails.website,
-        twitter: collection.collectionDetails.twitter,
-        discord: collection.collectionDetails.discord,
-        createdAt: collection.createdAt,
-        updatedAt: collection.updatedAt
-      }
-      collectionDetails.push(data);
-    })
+    _collections.forEach((element, index) => {
+      //filter the collection by collectionId and create an object that the collectionDetails including the type
+      let collection = collections.filter((collection) => collection.id === element.collectionId);
+      collectionDetails.push({
+        collectionId: collection[0].id,
+        collectionName: collection[0].name,
+        creatorName: collection[0].collectionDetails.creatorName,
+        description: collection[0].description,
+        price: collection[0].price / 1e8,
+        category: collection[0].category,
+        mintedCount: collection[0].inscriptions.length,
+        bannerUrl: collection[0].banner,
+        featuredUrl: collection[0].featuredImage,
+        website: collection[0].collectionDetails.website,
+        twitter: collection[0].collectionDetails.twitter,
+        discord: collection[0].collectionDetails.discord,
+        createdAt: collection[0].createdAt,
+        updatedAt: collection[0].updatedAt,
+        type: element.type
+      });
+    });
 
     return res.status(200).json({status: true, message: "ok", userResponse: collectionDetails})
   }catch(e){
@@ -1344,6 +1331,7 @@ module.exports.getCollection = async (req, res) => {
     const mintStage = collection.mintStage;
     let mintDetails = await MintDetails.findOne({_id: mintStage});
     let collectionItems;
+    let type;
     if(collection.specialSat) {
       collectionItems = [];  
     }else{
@@ -1352,6 +1340,14 @@ module.exports.getCollection = async (req, res) => {
     let mintedItems = collection.minted;
     let collectionCount = collectionItems.length;
     let mintedCount = mintedItems.length;
+    if (collection.userSelect === "false" && !collection.specialSat) {
+      type = "single";
+    }else if(collection.userSelect === "true" && !collection.specialSat){
+      type = "multiple";
+    }else if(collection.specialSat){
+      type = "sat";
+    }
+    
     let collectionData = {
         collectionId: collection.id,
         collectionName: collection.name,
@@ -1368,7 +1364,8 @@ module.exports.getCollection = async (req, res) => {
         twitter: collection.collectionDetails.twitter,
         discord: collection.collectionDetails.discord,
         createdAt: collection.createdAt,
-        updatedAt: collection.updatedAt
+        updatedAt: collection.updatedAt,
+        type: type
     }
     return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
   }catch(e){
