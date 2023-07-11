@@ -1281,7 +1281,7 @@ module.exports.inscribe = async (req, res) => {
 module.exports.getCollections = async (req, res) => {
   try{
     const { networkName} = req.query;
-    let collections = await Collection.find({ flag: networkName});
+    let collections = await Collection.find({ flag: networkName, status: "approved"});
     let collectionDetails = [];
     let _collections = [];
       
