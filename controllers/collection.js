@@ -82,6 +82,41 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId) => {
   };
 };
 
+const updateMintStage1 = async (collectionId) => {
+  try{
+    const collection = await Collection.findOne({id: collectionId});
+    const mintStage = await MintDetails.findOne({_id: collection.mintStage});
+    const stages = collection.mintDetails;
+    let nextStageIndex = stages.indexOf(collection.mintStage) - 1;
+   if(nextStageIndex < 0){
+    if(collection.startMint === false) {
+      return "mint stage updated";
+    }else{
+      collection.startMint = false;
+      await collection.save();
+      return "mint stage updated";
+    }
+   }else{
+    let nextStage = stages[nextStageIndex];
+    const currentTime = moment();
+    const startTime = collection.startAt;
+    const timeDifference = currentTime.diff(startTime , 'seconds');
+    const duration = mintStage.duration;
+
+    if(timeDifference >= duration){
+      collection.mintStage = nextStage;
+      await collection.save();
+      return "mint stage updated";
+    }else{
+      return "stage mint not complete";
+    }
+   };
+  }catch(e){
+    console.log(e);
+    return "error updating mint stage";
+  }
+}
+
 const checkTimeElapsed = (timestamp) => {
   const currentTime = moment();
   const timeDiff = currentTime.diff(timestamp, 'minutes');
@@ -113,7 +148,7 @@ const addMintDetails = async (collectionId, items) => {
     });
     return true;
   }catch(e){
-    console.log(e.message);
+    console.log(e);
     return false;
   }
 }
@@ -1334,6 +1369,7 @@ module.exports.getCollections = async (req, res) => {
 module.exports.getCollection = async (req, res) => {
   try{
     const {collectionId} = req.body;
+    await updateMintStage1(collectionId);
     const collection = await Collection.findOne({id: collectionId});
     const mintStage = collection.mintStage;
     let _mintStage;
@@ -1388,7 +1424,6 @@ module.exports.getCollection = async (req, res) => {
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
         price: mintDetails.price /1e8 || collection.price/1e8,
-        mintStage: _mintStage,
         category: collection.category,
         collectionCount: collectionCount,
         mintedCount: mintedCount,
@@ -1401,11 +1436,13 @@ module.exports.getCollection = async (req, res) => {
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
         type: type,
-        mintDetails: details
+        mintStage: _mintStage,
+        startedAt: collection.startAt,
+        stages: details,
     }
     return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
   }catch(e){
-    console.log(e.message);
+    console.log(e);
     return res.status(200).json({status: false, message: e.message});
   }
 }
@@ -1544,6 +1581,7 @@ module.exports.getAddresses = async (req, res) => {
         });
       }
     }))
+    console.log(new Date());
     return res.status(200).json({status: true, message: "ok", userResponse: addresses});
   }catch(e){
     return res.status(200).json({ status: false, message: e.message });
@@ -1595,7 +1633,7 @@ module.exports.updateInscriptionDetails = async (req, res) => {
 module.exports.startMint = async (req, res) => {
   try{
     const {collectionId} = req.body;
-    const collection = await Collection.findOneAndUpdate({id: collectionId}, {startMint: true}, {new: true});
+    const collection = await Collection.findOneAndUpdate({id: collectionId}, {startMint: true, startAt: new Date()},{new: true});
     return res.status(200).json({status: true, message: "ok"});
   }catch(e){
     return res.status(200).json({ status: false, message: e.message });

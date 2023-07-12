@@ -67,6 +67,9 @@ const collection = new mongoose.Schema(
     cost: {
       type: Object,
     },
+    startAt: {
+      type: Date,
+    },
     mintStage: { type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"},
     inscriptions: { type: Array },
     selected: [{ type: mongoose.Schema.Types.ObjectId, ref: "SelectedItem" }],

@@ -1092,7 +1092,8 @@ module.exports.checkPayment = async (req, res) => {
         networkName
       );
       cost = inscription.cost.total;
-      txid = balance.txid[0];
+      let _txid = balance.txid[0].split(`:`)[0];
+      txid = `https://mempool.space/tx/${_txid}`
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
@@ -1101,7 +1102,8 @@ module.exports.checkPayment = async (req, res) => {
         networkName
       );
       cost = inscription.cost.total;
-      txid = balance.txid[0];
+      let _txid = balance.txid[0].split(`:`)[0];
+      txid = `https://mempool.space/tx/${_txid}`
     }
 
     if (inscription.stage === "stage 2") {
@@ -1188,7 +1190,7 @@ module.exports.checkPayment = async (req, res) => {
       }
 
       if(!inscription.spendTxid){
-        spendTxid = txid;
+        await inscription.findOneAndUpdate({id: inscriptionId}, {spendTxid: balance.txid[0]}, {new: true});
       }
     }
 
