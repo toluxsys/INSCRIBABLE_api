@@ -99,11 +99,14 @@ const addMintDetails = async (collectionId, items) => {
     let collection = await Collection.findOne({id: collectionId});
     if(collection.mintDetails.length > 1) throw new Error("mint details already added");
     details.details.forEach(async (detail) => {
+      //convert duration from hours to seconds
+      let duration = detail.duration * 60 * 60;
       const mintDetails = new MintDetails({
         collectionId: collectionId,
         name: detail.name,
         mintLimit: detail.mintLimit,
-        price: detail.price
+        price: detail.price,
+        duration: duration,
       })
       let savedDetails = await mintDetails.save();
       await Collection.findOneAndUpdate({id: collectionId}, {$push: {mintDetails: savedDetails._id}}, {new: true});
@@ -1329,7 +1332,29 @@ module.exports.getCollection = async (req, res) => {
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
     const mintStage = collection.mintStage;
-    let mintDetails = await MintDetails.findOne({_id: mintStage});
+    let _mintStage;
+    let mintDetails = collection.mintDetails;
+    let mappedObjectId = mintDetails.map(val => val.toString())
+    let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
+    let details = [];
+    s_mintDetails.forEach((item, index) => {
+      if(item._id.toString() === mintStage.toString()){
+        _mintStage = item.name;
+        details.push({
+          stage: item.name,
+          price: item.price/1e8,
+          mintLimit: item.mintLimit,
+          duration: item.duration,
+        })
+      }else{
+        details.push({
+          stage: item.name,
+          price: item.price/1e8,
+          mintLimit: item.mintLimit,
+          duration: item.duration,
+        })
+      }
+    });
     let collectionItems;
     let type;
     if(collection.specialSat) {
@@ -1354,7 +1379,7 @@ module.exports.getCollection = async (req, res) => {
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
         price: mintDetails.price /1e8 || collection.price/1e8,
-        mintStage: mintDetails.name || "open mint",
+        mintStage: _mintStage,
         category: collection.category,
         collectionCount: collectionCount,
         mintedCount: mintedCount,
@@ -1365,7 +1390,8 @@ module.exports.getCollection = async (req, res) => {
         discord: collection.collectionDetails.discord,
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
-        type: type
+        type: type,
+        mintDetails: details
     }
     return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
   }catch(e){
