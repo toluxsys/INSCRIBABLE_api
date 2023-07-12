@@ -23,6 +23,14 @@ const collection = new mongoose.Schema(
     specialSat: {
       type: String
     },
+    startMint: {
+      type: Boolean,
+      default: false
+    },
+    paused: {
+      type: Boolean,
+      default: false
+    },
     banner: {
       type: String,
     },
@@ -40,6 +48,9 @@ const collection = new mongoose.Schema(
     },
     category: {
       type: String,
+    },
+    mintCount: {
+      type: Number,
     },
     itemCid: {
       type: String

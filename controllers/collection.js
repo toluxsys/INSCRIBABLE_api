@@ -289,6 +289,7 @@ module.exports.addCollection = async (req, res) => {
       userSelect,
       fileSize,
       specialSat,
+      totalSupply,
     } = req.body;
 
     const banner = req.files.banner;
@@ -299,8 +300,8 @@ module.exports.addCollection = async (req, res) => {
     files.push(featuredImage);
     const count = await Collection.find({}, { _id: 0 });
 
-    const collactionAddressDetailss = await createCollectionLegacyAddress(networkName, count.length);
-    let collectionAddress = collactionAddressDetailss.p2pkh_addr;
+    const collactionAddressDetails = await createCollectionLegacyAddress(networkName, count.length);
+    let collectionAddress = collactionAddressDetails.p2pkh_addr;
     let collectionAddressId = count.length;
 
     if (!existsSync(process.cwd() + `/src/bulk/${collectionId}`)) {
@@ -343,6 +344,7 @@ module.exports.addCollection = async (req, res) => {
       twitter: twitter,
       discord: discord,
       fileSize: fileSize,
+      totalSupply: totalSupply,
     };
 
     const data = await compressAndSaveBulk(collectionId, false);
@@ -562,8 +564,10 @@ module.exports.seleteItem = async (req, res) => {
     let satsId;
     let walletKey;
     let ORD_API_URL;
-    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
-
+    if(collection.minted.length === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "collection has been minted"});
+    if(collection.startMint === false) return res.status(200).json({status: false, message: "Mint has not started"});
+    if(collection.paused === true) return res.status(200).json({status: false, message: "Mint has been paused"});
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
     if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
     if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
@@ -1365,6 +1369,11 @@ module.exports.getCollection = async (req, res) => {
     let mintedItems = collection.minted;
     let collectionCount = collectionItems.length;
     let mintedCount = mintedItems.length;
+
+    if(collection.specialSat){
+      mintedCount = collection.mintCount;
+    }
+
     if (collection.userSelect === "false" && !collection.specialSat) {
       type = "single";
     }else if(collection.userSelect === "true" && !collection.specialSat){
@@ -1383,6 +1392,7 @@ module.exports.getCollection = async (req, res) => {
         category: collection.category,
         collectionCount: collectionCount,
         mintedCount: mintedCount,
+        totalSupply: collection.collectionDetails.totalSupply,
         bannerUrl: collection.banner,
         featuredUrl: collection.featuredImage,
         website: collection.collectionDetails.website,
@@ -1431,6 +1441,9 @@ module.exports.mintOnSat = async (req, res) => {
     const mintStage = collection.mintStage;
     let inscriptionId;
     let cost;
+    if(collection.mintCount === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "Collection has been minted out"})
+    if(collection.startMint === false) return res.status(200).json({status: false, message: "Mint has not started"});
+    if(collection.paused === true) return res.status(200).json({status: false, message: "Mint has been paused"});
     if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
     let verified = await verifyMint(collectionId, receiveAddress, 1);
@@ -1515,20 +1528,19 @@ module.exports.inscribeCount = async (req, res) => {
 
 module.exports.getAddresses = async (req, res) => {
   try{
-    const { collectionId } = req.body;
+    const { collectionId} = req.body;
     const collection = await Collection.findOne({ id: collectionId});
     if(!collection) return res.status(200).json({status: false, message: "collection not found"});
     if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
     const inscriptions = await Inscription.find({collectionId: collectionId});
     let addresses = [];
-    await Promise.all(inscriptions.map(async (inscription) => {
-      if(inscription.inscribed === false){
-        let spendUtxo = await getSpendUtxo(inscription.inscriptionDetails.payAddress, "mainnet");
+    await Promise.all(inscriptions.map(async (inscription) => { 
+      if(inscription.inscribed === false && inscription.collectionPayment === "paid"){
         addresses.push({
           id: inscription._id,
           address: inscription.receiver,
           feeRate: inscription.feeRate,
-          spendUtxo: spendUtxo
+          spendUtxo: inscription.spendTxid,
         });
       }
     }))
@@ -1575,6 +1587,50 @@ module.exports.updateInscriptionDetails = async (req, res) => {
     }));
 
     return res.status(200).json({status: true, message: "ok"});
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.startMint = async (req, res) => {
+  try{
+    const {collectionId} = req.body;
+    const collection = await Collection.findOneAndUpdate({id: collectionId}, {startMint: true}, {new: true});
+    return res.status(200).json({status: true, message: "ok"});
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.stopMint = async (req, res) => {
+  try{
+    const {collectionId} = req.body;
+    const collection = await Collection.findOneAndUpdate({id: collectionId}, {startMint: false}, {new: true});
+    return res.status(200).json({status: true, message: "ok"});
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.pause = async (req, res) => {
+  try{
+    const {collectionId} = req.body;
+    const collection = await Collection.findOne({id: collectionId});
+    if(!collection) return res.status(200).json({status: false, message: "collection not found"});
+    if(collection.paused === true) return res.status(200).json({status: false, message: "collection already paused"});
+    await Collection.findOneAndUpdate({id: collectionId}, {paused: true}, {new: true});
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.unpause = async (req, res) => {
+  try{
+    const {collectionId} = req.body;
+    const collection = await Collection.findOne({id: collectionId});
+    if(!collection) return res.status(200).json({status: false, message: "collection not found"});
+    if(collection.paused === false) return res.status(200).json({status: false, message: "collection already paused"});
+    await Collection.findOneAndUpdate({id: collectionId}, {paused: false}, {new: true});
   }catch(e){
     return res.status(200).json({ status: false, message: e.message });
   }

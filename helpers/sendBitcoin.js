@@ -42,7 +42,7 @@ const getWalletBalance = async (address, network) => {
         status = []
       }else{
         status.push(element.status);
-        txid.push(element.txid);
+        txid.push(element.txid + ":" + element.vout);
       }
     }
 

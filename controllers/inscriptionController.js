@@ -46,6 +46,7 @@ const {
 const { getType } = require("../helpers/getType");
 const { btcToUsd } = require("../helpers/btcToUsd");
 const { get } = require("http");
+const e = require("express");
 
 const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/svg`, `image/svg+xml`];
 
@@ -1119,6 +1120,7 @@ module.exports.checkPayment = async (req, res) => {
       if(balance.status[0].confirmed === false){
         if(inscription.collectionPayment === "waiting"){
           if(collection.specialSat){
+            await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
             inscription.collectionPayment = "received";
             await inscription.save();
             return res.status(200).json({
@@ -1137,13 +1139,56 @@ module.exports.checkPayment = async (req, res) => {
               userResponse: txid,
             });
           }
-        }else if (inscription.collectionPayment === "received"){
+        }else if (inscription.collectionPayment === "received" && balance.status[0].confirmed === false){
           return res.status(200).json({
             status: false,
             message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
             userResponse: txid,
           });
         }
+      }else if (balance.status[0].confirmed === true){
+        if(inscription.collectionPayment === "waiting"){
+          if(collection.specialSat){
+            await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
+            inscription.collectionPayment = "paid";
+            await inscription.save();
+            return res.status(200).json({
+              status: true,
+              message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
+              userResponse: txid,
+            });
+          }else{
+            await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+            await SelectedItems.deleteOne({_id: inscription.selected});
+            inscription.collectionPayment = "received";
+            await inscription.save();
+            return res.status(200).json({
+              status: true,
+              message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
+              userResponse: txid,
+            });
+          }
+        }else if(inscription.collectionPayment === "received"){
+          if(collection.specialSat){
+            inscription.collectionPayment = "paid";
+            await inscription.save();
+            return res.status(200).json({
+              status: true,
+              message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
+              userResponse: txid,
+            });
+          }else{
+            return res.status(200).json({
+              status: true,
+              message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
+              userResponse: txid,
+            });
+          }
+        }
+      }
+
+      if(!inscription.spendTxid){
+        spendTxid = txid;
       }
     }
 
