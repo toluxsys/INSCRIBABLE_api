@@ -89,21 +89,24 @@ const updateMintStage1 = async (collectionId) => {
     const mintStage = await MintDetails.findOne({_id: collection.mintStage});
     const stages = collection.mintDetails;
     let nextStageIndex = stages.indexOf(collection.mintStage) - 1;
-   if(nextStageIndex < 0){
-    if(collection.startMint === false) {
-      return "mint stage updated";
-    }else{
-      collection.startMint = false;
-      await collection.save();
-      return "mint stage updated";
-    }
-   }else{
-    let nextStage = stages[nextStageIndex];
     const currentTime = moment();
     const startTime = collection.startAt;
     const timeDifference = currentTime.diff(startTime , 'seconds');
     const duration = mintStage.duration;
-
+   if(nextStageIndex < 0){
+    if(collection.startMint === false) {
+      return "mint stage updated";
+    }else{
+      if(timeDifference >= duration){
+        collection.startMint = false;
+        await collection.save();
+        return "mint stage updated";
+      }else{
+        return "stage mint not complete";
+      } 
+    }
+   }else{
+    let nextStage = stages[nextStageIndex];
     if(timeDifference >= duration){
       collection.mintStage = nextStage;
       collection.startAt = new Date();
