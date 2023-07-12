@@ -1411,7 +1411,11 @@ module.exports.getCollection = async (req, res) => {
     let mintedCount = mintedItems.length;
 
     if(collection.specialSat){
-      mintedCount = collection.mintCount;
+      if(!collection.mintCount) {
+        mintedCount = 0;
+      }else{
+        mintedCount = collection.mintCount;
+      }
     }
 
     if (collection.userSelect === "false" && !collection.specialSat) {
@@ -1420,6 +1424,12 @@ module.exports.getCollection = async (req, res) => {
       type = "multiple";
     }else if(collection.specialSat){
       type = "sat";
+    }
+    let startedAt;
+    if(!collection.startAt){
+      startedAt = collection.createdAt;
+    }else{
+      startedAt = collection.startAt;
     }
     
     let collectionData = {
@@ -1441,7 +1451,7 @@ module.exports.getCollection = async (req, res) => {
         updatedAt: collection.updatedAt,
         type: type,
         mintStage: _mintStage,
-        startedAt: collection.startAt,
+        startedAt: startedAt,
         stages: details,
     }
     return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
