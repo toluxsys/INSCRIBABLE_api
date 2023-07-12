@@ -36,6 +36,7 @@ const {
   getSpendUtxo
 } = require("../helpers/sendBitcoin");
 const MintDetails = require("../model/mintDetails");
+const { start } = require("repl");
 const ObjectId = require('mongoose').Types.ObjectId; 
 let satTypes = ['rare', 'common', 'block9', 'block84', 'pizza','pizza1','uncommon', '2009', '2010', '2011'];
 
@@ -105,6 +106,7 @@ const updateMintStage1 = async (collectionId) => {
 
     if(timeDifference >= duration){
       collection.mintStage = nextStage;
+      collection.startAt = new Date();
       await collection.save();
       return "mint stage updated";
     }else{
