@@ -1083,6 +1083,7 @@ module.exports.checkPayment = async (req, res) => {
     let balance;
     let cost;
     let txid;
+    let _txid;
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
@@ -1092,8 +1093,6 @@ module.exports.checkPayment = async (req, res) => {
         networkName
       );
       cost = inscription.cost.total;
-      let _txid = balance.txid[0].split(`:`)[0];
-      txid = `https://mempool.space/tx/${_txid}`
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
@@ -1102,7 +1101,7 @@ module.exports.checkPayment = async (req, res) => {
         networkName
       );
       cost = inscription.cost.total;
-      let _txid = balance.txid[0].split(`:`)[0];
+      _txid = balance.txid[0].split(`:`)[0];
       txid = `https://mempool.space/tx/${_txid}`
     }
 
@@ -1120,6 +1119,8 @@ module.exports.checkPayment = async (req, res) => {
       if(balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment"});
       let collection = await Collection.findOne({id: inscription.collectionId});
       if(balance.status[0].confirmed === false){
+        _txid = balance.txid[0].split(`:`)[0];
+        txid = `https://mempool.space/tx/${_txid}`
         if(inscription.collectionPayment === "waiting"){
           if(collection.specialSat){
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
@@ -1149,6 +1150,8 @@ module.exports.checkPayment = async (req, res) => {
           });
         }
       }else if (balance.status[0].confirmed === true){
+        _txid = balance.txid[0].split(`:`)[0];
+        txid = `https://mempool.space/tx/${_txid}`
         if(inscription.collectionPayment === "waiting"){
           if(collection.specialSat){
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
@@ -1201,6 +1204,8 @@ module.exports.checkPayment = async (req, res) => {
       });
 
     if (balance.status[0].confirmed === false) {
+      _txid = balance.txid[0].split(`:`)[0];
+      txid = `https://mempool.space/tx/${_txid}`
       return res.status(200).json({
         status: false,
         message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
