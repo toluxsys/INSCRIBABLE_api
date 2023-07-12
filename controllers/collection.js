@@ -1,4 +1,3 @@
-
 const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
 const interval = 15;
@@ -1504,6 +1503,14 @@ module.exports.mintOnSat = async (req, res) => {
       price,
       collectionId
     );
+
+    let _cost = {
+        serviceCharge: cost.serviceCharge,
+        inscriptionCost: cost.inscriptionCost + 10000,
+        sizeFee: cost.sizeFee,
+        postageFee: cost.postageFee,
+        total: cost.total + 10000,
+    }
     
     const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
     const r_data = {
@@ -1527,7 +1534,7 @@ module.exports.mintOnSat = async (req, res) => {
       inscriptionDetails: {
         payAddress: paymentAddress,
       },
-      cost: cost,
+      cost: _cost,
       receiver: receiveAddress,
       feeRate: feeRate,
       stage: "stage 1"
@@ -1536,11 +1543,11 @@ module.exports.mintOnSat = async (req, res) => {
     await inscription.save();
     userResponse = {
       cost: {
-        serviceCharge: cost.serviceCharge,
-        inscriptionCost: cost.inscriptionCost,
-        sizeFee: cost.sizeFee,
-        postageFee: cost.postageFee,
-        total: cost.total,
+        serviceCharge: _cost.serviceCharge,
+        inscriptionCost: _cost.inscriptionCost,
+        sizeFee: _cost.sizeFee,
+        postageFee: _cost.postageFee,
+        total: _cost.total,
       },
       paymentAddress: paymentAddress,
       inscriptionId: inscriptionId,
