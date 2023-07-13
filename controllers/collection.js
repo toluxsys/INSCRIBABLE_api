@@ -1616,44 +1616,45 @@ module.exports.getAddresses = async (req, res) => {
 };
 
 module.exports.updateInscriptionDetails = async (req, res) => {
-  //details  = [{id: id, inscriptionId: inscriptionId, address: address}]
-  try{
-    const {details, collectionId} = req.body;
-    let collection = await Collection.findOne({id: collectionId});
-    
-    await Address.bulkWrite(details.map((element) => {
-      return {
-          updateOne: {
-              filter: {mintStage: collection.mintStage, address: element.address},
-              update: {$inc: {mintCount: 1}},
-              upsert: true,
-          }
-      }
-    }))
+  try {
+    req.setTimeout(450000);
+    const { details, collectionId } = req.body;
+    const collection = await Collection.findOne({ id: collectionId });
 
-    await Collection.bulkWrite(details.map((element) => {
-      return {
-          updateOne: {
-              filter: {id: collectionId},
-              update: {$push: {inscriptions: {$each: element.inscriptionId, $position: -1}}},
-              upsert: true,
-          }
-      }
-    }));
-    
-    await Inscription.bulkWrite(details.map((element) => {
-        return {
-            updateOne: {
-                filter: {_id: element.id},
-                update: {$set: {inscribed: true, stage: "stage 3"}, $push: {inscription: {$each: element.inscriptionId, $position: -1}}},
-                upsert: true,
-            }
-        }
+    const addressBulkOperations = details.map((element) => ({
+      updateOne: {
+        filter: { mintStage: collection.mintStage, address: element.address },
+        update: { $inc: { mintCount: 1 } },
+        upsert: true,
+      },
     }));
 
-    return res.status(200).json({status: true, message: "ok"});
-  }catch(e){
-    return res.status(200).json({ status: false, message: e.message });
+    const collectionBulkOperations = details.map((element) => ({
+      updateOne: {
+        filter: { id: collectionId },
+        update: { $push: { inscriptions: { $each: element.inscriptionId, $position: -1 } } },
+        upsert: true,
+      },
+    }));
+
+    const inscriptionBulkOperations = details.map((element) => ({
+      updateOne: {
+        filter: { _id: element.id },
+        update: {
+          $set: { inscribed: true, stage: "stage 3" },
+          $push: { inscription: { $each: element.inscriptionId, $position: -1 } },
+        },
+        upsert: true,
+      },
+    }));
+
+    await Address.bulkWrite(addressBulkOperations);
+    await Collection.bulkWrite(collectionBulkOperations);
+    await Inscription.bulkWrite(inscriptionBulkOperations);
+
+    return res.status(200).json({ status: true, message: "ok" });
+  } catch (error) {
+    return res.status(200).json({ status: false, message: error.message });
   }
 };
 
