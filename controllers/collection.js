@@ -105,14 +105,18 @@ const updateMintStage1 = async (collectionId) => {
       } 
     }
    }else{
-    let nextStage = stages[nextStageIndex];
-    if(timeDifference >= duration){
-      collection.mintStage = nextStage;
-      collection.startAt = new Date();
-      await collection.save();
+    if(collection.startMint === false) {
       return "mint stage updated";
     }else{
-      return "stage mint not complete";
+      let nextStage = stages[nextStageIndex];
+      if(timeDifference >= duration){
+        collection.mintStage = nextStage;
+        collection.startAt = new Date();
+        await collection.save();
+        return "mint stage updated";
+      }else{
+        return "stage mint not complete";
+      }
     }
    };
   }catch(e){
