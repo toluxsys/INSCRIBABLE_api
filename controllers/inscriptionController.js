@@ -1156,6 +1156,7 @@ module.exports.checkPayment = async (req, res) => {
           if(collection.specialSat){
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
             inscription.collectionPayment = "paid";
+            inscription.spendTxid = balance.txid[0];
             await inscription.save();
             return res.status(200).json({
               status: true,
@@ -1176,6 +1177,7 @@ module.exports.checkPayment = async (req, res) => {
         }else if(inscription.collectionPayment === "received"){
           if(collection.specialSat){
             inscription.collectionPayment = "paid";
+            inscription.spendTxid = balance.txid[0];
             await inscription.save();
             return res.status(200).json({
               status: true,
@@ -1190,10 +1192,6 @@ module.exports.checkPayment = async (req, res) => {
             });
           }
         }
-      }
-
-      if(!inscription.spendTxid){
-        await inscription.findOneAndUpdate({id: inscriptionId}, {spendTxid: balance.txid[0]}, {new: true});
       }
     }
 
