@@ -1454,9 +1454,11 @@ module.exports.getCollection = async (req, res) => {
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
         type: type,
+        mintStarted: collection.startMint,
         mintStage: _mintStage,
         startedAt: startedAt,
         stages: details,
+        
     }
     return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
   }catch(e){
