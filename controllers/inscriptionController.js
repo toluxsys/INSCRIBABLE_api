@@ -1116,7 +1116,7 @@ module.exports.checkPayment = async (req, res) => {
     }
 
     if(inscription.collectionId){
-      if(balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment"});
+      if(balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment", txid: null});
       let collection = await Collection.findOne({id: inscription.collectionId});
       if(balance.status[0].confirmed === false){
         _txid = balance.txid[0].split(`:`)[0];
