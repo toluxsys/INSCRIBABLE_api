@@ -1106,6 +1106,11 @@ module.exports.checkPayment = async (req, res) => {
     }
 
     if (inscription.stage === "stage 2") {
+      if(inscription.collectionId){
+        let collection = await Collection.findOne({id: inscription.collectionId});
+        if (collection.specialSat)return res.status(200).json({status: true, message: "payment received"});
+        return res.status(200).json({ status: true, message: "utxo sent" });
+      }
       return res.status(200).json({ status: true, message: "utxo sent" });
     } else if (inscription.stage === "stage 3") {
       return res.status(200).json({
@@ -1125,6 +1130,7 @@ module.exports.checkPayment = async (req, res) => {
           if(collection.specialSat){
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
             inscription.collectionPayment = "received";
+            inscription.stage = "stage 2";
             await inscription.save();
             return res.status(200).json({
               status: false,
@@ -1157,6 +1163,7 @@ module.exports.checkPayment = async (req, res) => {
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
             inscription.collectionPayment = "paid";
             inscription.spendTxid = balance.txid[0];
+            inscription.stage = "stage 2"
             await inscription.save();
             return res.status(200).json({
               status: true,
