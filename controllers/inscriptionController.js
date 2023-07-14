@@ -1161,7 +1161,7 @@ module.exports.checkPayment = async (req, res) => {
             return res.status(200).json({
               status: true,
               message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-              userResponse: {txid: txid},
+              txid: txid,
             });
           }else{
             await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
@@ -1171,7 +1171,7 @@ module.exports.checkPayment = async (req, res) => {
             return res.status(200).json({
               status: true,
               message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-              userResponse: {txid: txid},
+              txid: txid,
             });
           }
         }else if(inscription.collectionPayment === "received"){
@@ -1182,13 +1182,13 @@ module.exports.checkPayment = async (req, res) => {
             return res.status(200).json({
               status: true,
               message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-              userResponse: {txid: txid},
+              txid: txid,
             });
           }else{
             return res.status(200).json({
               status: true,
               message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-              userResponse: {txid: txid}
+              txid: txid,
             });
           }
         }
@@ -1199,6 +1199,7 @@ module.exports.checkPayment = async (req, res) => {
       return res.status(200).json({
         status: false,
         message: `Waiting for payment`,
+        txid: null
       });
 
     if (balance.status[0].confirmed === false) {
@@ -1207,7 +1208,7 @@ module.exports.checkPayment = async (req, res) => {
       return res.status(200).json({
         status: false,
         message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-        userResponse: {txid: txid},
+        txid: txid,
       });
     }
   
@@ -1215,11 +1216,12 @@ module.exports.checkPayment = async (req, res) => {
       return res.status(200).json({
         status: false,
         message: `payment not received. Available: ${balance.totalAmountAvailable}, Required: ${cost}`,
+        txid: null
       });
     }else{
       return res
       .status(200)
-      .json({ status: true, message: `ok`, userResponse: {txid: txid} });
+      .json({ status: true, message: `ok`, txid: txid });
     }
     
   } catch (e) {
