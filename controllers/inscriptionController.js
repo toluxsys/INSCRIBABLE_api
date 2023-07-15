@@ -11,6 +11,7 @@ const PayIds = require("../model/paymentIds");
 const SelectedItems = require("../model/selectedItems");
 const PayLink = require("../model/paymentLink");
 const BulkInscription = require("../model/bulkInscription");
+const Address = require("../model/address");
 const Collection = require("../model/collection");
 const Sats = require("../model/sats");
 const ObjectId = require('mongoose').Types.ObjectId; 
@@ -1124,6 +1125,7 @@ module.exports.checkPayment = async (req, res) => {
         if(inscription.collectionPayment === "waiting"){
           if(collection.specialSat){
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
+            await Address.findOneAndUpdate({mintCount: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
             inscription.collectionPayment = "received";
             await inscription.save();
             return res.status(200).json({
@@ -1155,6 +1157,7 @@ module.exports.checkPayment = async (req, res) => {
         if(inscription.collectionPayment === "waiting"){
           if(collection.specialSat){
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
+            await Address.findOneAndUpdate({mintCount: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
             inscription.collectionPayment = "paid";
             inscription.spendTxid = balance.txid[0];
             await inscription.save();
