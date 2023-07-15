@@ -1112,7 +1112,7 @@ module.exports.checkPayment = async (req, res) => {
       let collection = await Collection.findOne({id: inscription.collectionId});
       if (collection.specialSat){
         let n_txid = inscription.spendTxid.split(":")[0]
-        return res.status(200).json({status: true, message: "inscription done", txid:`https://mempool.space/tx/${n_txid}` })
+        return res.status(200).json({status: true, type: "sat", message: "inscription done", txid:`https://mempool.space/tx/${n_txid}` })
       }else{
         return res.status(200).json({
           status: true,
