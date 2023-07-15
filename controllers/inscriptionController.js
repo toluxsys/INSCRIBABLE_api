@@ -1108,15 +1108,7 @@ module.exports.checkPayment = async (req, res) => {
 
     if (inscription.stage === "stage 2") {
       return res.status(200).json({ status: true, message: "utxo sent" });
-    } else if (inscription.stage === "stage 3") {
-      return res.status(200).json({
-        status: true,
-        message: "inscription complete",
-        userResponse: inscription.inscription,
-      });
-    }
-
-    if(inscription.stage === "stage 3" && inscription.collectionId){
+    }else if(inscription.stage === "stage 3" && inscription.collectionId){
       let collection = await Collection.findOne({id: inscription.collectionId});
       if (collection.specialSat){
         let n_txid = inscription.spendTxid.split(":")[0]
@@ -1128,6 +1120,12 @@ module.exports.checkPayment = async (req, res) => {
           userResponse: inscription.inscription,
         });
       }
+    } else if (inscription.stage === "stage 3") {
+      return res.status(200).json({
+        status: true,
+        message: "inscription complete",
+        userResponse: inscription.inscription,
+      });
     }
 
     if(inscription.collectionId){
