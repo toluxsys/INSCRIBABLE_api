@@ -1549,7 +1549,6 @@ module.exports.mintOnSat = async (req, res) => {
       id: inscriptionId,
       flag: networkName,
       inscribed: false,
-      feeRate: _feeRate,
       collectionId: collectionId,
     
       inscriptionDetails: {
@@ -1557,7 +1556,7 @@ module.exports.mintOnSat = async (req, res) => {
       },
       cost: _cost,
       receiver: receiveAddress,
-      feeRate: feeRate,
+      feeRate: _feeRate,
       stage: "stage 1"
     });
 
