@@ -1498,8 +1498,8 @@ module.exports.mintOnSat = async (req, res) => {
     let inscriptionId;
     let cost;
     let _feeRate;
-    if(feeRate < 20){
-      _feeRate = 20;
+    if(feeRate < 15){
+      _feeRate = 15;
     }else{
       _feeRate = feeRate;
     }
