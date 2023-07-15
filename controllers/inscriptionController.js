@@ -1116,6 +1116,20 @@ module.exports.checkPayment = async (req, res) => {
       });
     }
 
+    if(inscription.stage === "stage 3" && inscription.collectionId){
+      let collection = await Collection.findOne({id: inscription.collectionId});
+      if (collection.specialSat){
+        let n_txid = inscription.spendTxid.split(":")[0]
+        return res.status(200).json({status: true, message: "inscription done", txid:`https://mempool.space/tx/${n_txid}` })
+      }else{
+        return res.status(200).json({
+          status: true,
+          message: "inscription complete",
+          userResponse: inscription.inscription,
+        });
+      }
+    }
+
     if(inscription.collectionId){
       if(balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment", txid: null});
       let collection = await Collection.findOne({id: inscription.collectionId});
