@@ -1691,6 +1691,7 @@ module.exports.pause = async (req, res) => {
     if(!collection) return res.status(200).json({status: false, message: "collection not found"});
     if(collection.paused === true) return res.status(200).json({status: false, message: "collection already paused"});
     await Collection.findOneAndUpdate({id: collectionId}, {paused: true}, {new: true});
+    return res.status(200).json({status: true, message: "collection Paused"});
   }catch(e){
     return res.status(200).json({ status: false, message: e.message });
   }
@@ -1703,6 +1704,7 @@ module.exports.unpause = async (req, res) => {
     if(!collection) return res.status(200).json({status: false, message: "collection not found"});
     if(collection.paused === false) return res.status(200).json({status: false, message: "collection already paused"});
     await Collection.findOneAndUpdate({id: collectionId}, {paused: false}, {new: true});
+    return res.status(200).json({status: true, message: "collection unPaused"});
   }catch(e){
     return res.status(200).json({ status: false, message: e.message });
   }
