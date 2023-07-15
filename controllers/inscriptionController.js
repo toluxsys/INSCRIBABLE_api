@@ -1125,7 +1125,7 @@ module.exports.checkPayment = async (req, res) => {
         if(inscription.collectionPayment === "waiting"){
           if(collection.specialSat){
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
-            await Address.findOneAndUpdate({mintCount: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
+            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
             inscription.collectionPayment = "received";
             await inscription.save();
             return res.status(200).json({
@@ -1157,7 +1157,7 @@ module.exports.checkPayment = async (req, res) => {
         if(inscription.collectionPayment === "waiting"){
           if(collection.specialSat){
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
-            await Address.findOneAndUpdate({mintCount: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
+            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
             inscription.collectionPayment = "paid";
             inscription.spendTxid = balance.txid[0];
             await inscription.save();
