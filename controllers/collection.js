@@ -1497,6 +1497,12 @@ module.exports.mintOnSat = async (req, res) => {
     const mintStage = collection.mintStage;
     let inscriptionId;
     let cost;
+    let _feeRate;
+    if(feeRate < 20){
+      _feeRate = 20;
+    }else{
+      _feeRate = feeRate;
+    }
     if(collection.mintCount === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "Collection has been minted out"})
     if(collection.startMint === false) return res.status(200).json({status: false, message: "Mint has not started"});
     if(collection.paused === true) return res.status(200).json({status: false, message: "Mint has been paused"});
@@ -1513,7 +1519,7 @@ module.exports.mintOnSat = async (req, res) => {
     const price = mintDetails.price;
 
     cost = await inscriptionPrice(
-      feeRate,
+      _feeRate,
       collection.collectionDetails.fileSize,
       price,
       collectionId
@@ -1543,7 +1549,7 @@ module.exports.mintOnSat = async (req, res) => {
       id: inscriptionId,
       flag: networkName,
       inscribed: false,
-      feeRate: feeRate,
+      feeRate: _feeRate,
       collectionId: collectionId,
     
       inscriptionDetails: {
