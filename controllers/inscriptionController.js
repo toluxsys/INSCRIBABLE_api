@@ -1486,7 +1486,7 @@ module.exports.getStage = async (req, res) => {
               userResponse: {
                 stage: 3,
                 endpoint: "",
-                route: "viewInscriptions",
+                route: "checkPayment",
                 address: inscription.receiver,
                 collectionId: inscription.collectionId,
               }
