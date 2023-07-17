@@ -500,7 +500,7 @@ module.exports.addMintAddress = async (req, res) => {
       }
     })
     let s_mintDetails = await MintDetails.findOne({_id: id});
-    if (s_mintDetails.addresses.length > 0){
+    if (s_mintDetails.addresses.length = 0){
       s_mintDetails.addresses = addresses;
       await s_mintDetails.save();
     }else{
@@ -1643,7 +1643,7 @@ module.exports.mintOnSat = async (req, res) => {
         total: cost.total + 10000,
     }
     
-    const url = process.env.ORD_MAINNET_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
     const r_data = {
       collectionName: "oldSatsWallet",
       addrCount: 1,
