@@ -10,6 +10,7 @@ const address = new mongoose.Schema(
     },
     mintStage: { type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"},
     mintCount: {type: Number},
+    pendingOrders: [{ type: mongoose.Schema.Types.ObjectId, ref: "Inscription"}]
   },
   { timestamps: true }
 );

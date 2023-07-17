@@ -184,7 +184,29 @@ const verifyMint = async (collectionId, address, amount) => {
             message: "valid mint"
           }
         }else{ 
-          c_address = s_address;   
+          if(s_address.pendingOrders.length > mintStage.mintLimit){
+            let pendingOrders = [];
+            let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
+            let _pendingOrders = await Inscription.find({_id: {$in: mappedObjectId}});
+            _pendingOrders.forEach((item)=>{
+              pendingOrders.push({
+                orderId: item.id,
+                paymentStatus: item.collectionPayment,
+                inscriptionStatus: item.inscribed,
+              })
+            })
+            return data = {
+              valid: true,
+              price: mintStage.price,
+              mintCount: 0,
+              message: "complete pending order(s)",
+              userResponse: {
+                pendingOrders: pendingOrders
+              },
+            }
+          }else{
+            c_address = s_address;  
+          }
         }
         if (c_address.mintCount >= mintStage.mintLimit){
           return data = {
@@ -228,7 +250,29 @@ const verifyMint = async (collectionId, address, amount) => {
             message: "mint limit reached"
           }
         }else{ 
-          c_address = s_address;   
+          if(s_address.pendingOrders.length > mintStage.mintLimit){
+            let pendingOrders = [];
+            let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
+            let _pendingOrders = await Inscription.find({_id: {$in: mappedObjectId}});
+            _pendingOrders.forEach((item)=>{
+              pendingOrders.push({
+                orderId: item.id,
+                paymentStatus: item.collectionPayment,
+                inscriptionStatus: item.inscribed,
+              })
+            })
+            return data = {
+              valid: true,
+              price: mintStage.price,
+              mintCount: 0,
+              message: "complete pending order(s)",
+              userResponse: {
+                pendingOrders: pendingOrders
+              },
+            }
+          }else{
+            c_address = s_address;  
+          }   
         }
         if (c_address.mintCount >= mintStage.mintLimit){
           return data = {
@@ -1189,6 +1233,64 @@ module.exports.getImages = async(req, res) => {
   }
 }
 
+module.exports.calSat = async (req, res) => {
+  try{
+    const { collectionId, receiveAddress, feeRate} = req.body;
+    const collection = await Collection.findOne({ id: collectionId});
+    const mintStage = collection.mintStage;
+    let cost;
+    let _feeRate;
+    if(feeRate < 15){
+      _feeRate = 15;
+    }else{
+      _feeRate = feeRate;
+    }
+    if(collection.mintCount === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "Collection has been minted out"})
+    if(collection.startMint === false) return res.status(200).json({status: false, message: "Mint has not started"});
+    if(collection.paused === true) return res.status(200).json({status: false, message: "Mint has been paused"});
+    if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
+    let verified = await verifyMint(collectionId, receiveAddress, 1);
+    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
+
+    if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
+    if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
+    let mintDetails = await MintDetails.findOne({_id: mintStage});
+    const price = mintDetails.price;
+
+    cost = await inscriptionPrice(
+      _feeRate,
+      collection.collectionDetails.fileSize,
+      price,
+      collectionId
+    );
+
+    let _cost = {
+        serviceCharge: cost.serviceCharge,
+        inscriptionCost: cost.inscriptionCost + 10000,
+        sizeFee: cost.sizeFee,
+        postageFee: cost.postageFee,
+        total: cost.total + 10000,
+    }
+
+    let userResponse = {
+      cost: {
+        serviceCharge: _cost.serviceCharge,
+        inscriptionCost: _cost.inscriptionCost,
+        sizeFee: _cost.sizeFee ,
+        postageFee: _cost.postageFee,
+        total: _cost.total,
+      },
+      paymentAddress: "",
+      inscriptionId: "",
+      createdAt: "",
+    };
+    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
+  }catch(err){
+    return res.status(200).json({ status: false, message: e.message });
+  } 
+}
+
 module.exports.inscribe = async (req, res) => {
   try{
     req.setTimeout(450000);
@@ -1509,6 +1611,7 @@ module.exports.mintOnSat = async (req, res) => {
     if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
     let verified = await verifyMint(collectionId, receiveAddress, 1);
+    if (verified.message === "complete pending order(s)")return res.status(200).json({status: false, message: "complete pending order(s)", userResponse: { pendingOrders: verified.userResponse.pendingOrders}})
     if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
     
     inscriptionId = `s${uuidv4()}`;
@@ -1560,7 +1663,10 @@ module.exports.mintOnSat = async (req, res) => {
       stage: "stage 1"
     });
 
-    await inscription.save();
+    let _savedId = [];
+    let savedId = await inscription.save();
+    _savedId.push(savedId);
+    await Address.findOneAndUpdate({mintStage: collection.mintStage, address: receiveAddress}, {$push: {pendingOrders: {$each: _savedId, $position: -1}}}, {new: true})
     userResponse = {
       cost: {
         serviceCharge: _cost.serviceCharge,
@@ -1577,6 +1683,28 @@ module.exports.mintOnSat = async (req, res) => {
   } catch (e) {
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
+  }
+}
+
+module.exports.getPendingOrders = async (req,res)=> {
+  try{
+    const {address, collectionId} = req.body;
+    let collection = await Collection.findOne({id: collectionId});
+    let _address = await Address.findOne({mintStage: collection.mintStage, address: address});
+    let pendingOrders = [];
+    let mappedObjectId = _address.pendingOrders.map(val => val.toString())
+    let _pendingOrders = await Inscription.find({_id: {$in: mappedObjectId}});
+    _pendingOrders.forEach((item)=>{
+      pendingOrders.push({
+        orderId: item.id,
+        paymentStatus: item.collectionPayment,
+        inscriptionStatus: item.inscribed,
+      })
+    })
+    return res.status(200).json({ status:true, message: "ok", userResponse: {pendingOrders: pendingOrders} });
+  }catch(e){
+    console.log(e.message);
     return res.status(200).json({ status: false, message: e.message });
   }
 }
@@ -1708,6 +1836,8 @@ module.exports.unpause = async (req, res) => {
     return res.status(200).json({ status: false, message: e.message });
   }
 };
+
+
 
 //create a new model for address that has made payment and update the new model at check payment with 
 //change destination, satType, feeRate,
