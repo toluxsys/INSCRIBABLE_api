@@ -184,10 +184,10 @@ const verifyMint = async (collectionId, address, amount) => {
             message: "valid mint"
           }
         }else{ 
-          if(s_address.pendingOrders.length > mintStage.mintLimit){
+          if(s_address.pendingOrders.length >= mintStage.mintLimit){
             let pendingOrders = [];
             let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
-            let _pendingOrders = await Inscription.find({_id: {$in: mappedObjectId}});
+            let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
             _pendingOrders.forEach((item)=>{
               pendingOrders.push({
                 orderId: item.id,
@@ -246,14 +246,14 @@ const verifyMint = async (collectionId, address, amount) => {
           return data = {
             valid: true,
             price: mintStage.price,
-            mintCount: c_address.mintCount,
+            mintCount: 0,
             message: "mint limit reached"
           }
         }else{ 
-          if(s_address.pendingOrders.length > mintStage.mintLimit){
+          if(s_address.pendingOrders.length >= mintStage.mintLimit){
             let pendingOrders = [];
             let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
-            let _pendingOrders = await Inscription.find({_id: {$in: mappedObjectId}});
+            let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
             _pendingOrders.forEach((item)=>{
               pendingOrders.push({
                 orderId: item.id,
@@ -500,9 +500,15 @@ module.exports.addMintAddress = async (req, res) => {
       }
     })
     let s_mintDetails = await MintDetails.findOne({_id: id});
-    if (s_mintDetails.addresses.length > 0){ return res.status(200).json({status:false, message: `addresses already added for ${name}`})};
-    s_mintDetails.addresses = addresses;
-    await s_mintDetails.save();
+    if (s_mintDetails.addresses.length > 0){
+      s_mintDetails.addresses = addresses;
+      await s_mintDetails.save();
+    }else{
+      let _addresses = s_mintDetails.addresses;
+      let newAddress = _addresses.concat(addresses);
+      s_mintDetails.addresses = newAddress;
+      await s_mintDetails.save();
+    }
     return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
   }catch(e){
     console.log(e.message);
@@ -1235,7 +1241,7 @@ module.exports.getImages = async(req, res) => {
 
 module.exports.calSat = async (req, res) => {
   try{
-    const { collectionId, receiveAddress, feeRate} = req.body;
+    const { collectionId, receiveAddress, feeRate, networkName} = req.body;
     const collection = await Collection.findOne({ id: collectionId});
     const mintStage = collection.mintStage;
     let cost;
@@ -1286,7 +1292,8 @@ module.exports.calSat = async (req, res) => {
       createdAt: "",
     };
     return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
-  }catch(err){
+  }catch(e){
+    console.log(e)
     return res.status(200).json({ status: false, message: e.message });
   } 
 }
@@ -1664,8 +1671,8 @@ module.exports.mintOnSat = async (req, res) => {
     });
 
     let _savedId = [];
-    let savedId = await inscription.save();
-    _savedId.push(savedId);
+    await inscription.save();
+    _savedId.push(inscriptionId);
     await Address.findOneAndUpdate({mintStage: collection.mintStage, address: receiveAddress}, {$push: {pendingOrders: {$each: _savedId, $position: -1}}}, {new: true})
     userResponse = {
       cost: {
@@ -1694,7 +1701,7 @@ module.exports.getPendingOrders = async (req,res)=> {
     let _address = await Address.findOne({mintStage: collection.mintStage, address: address});
     let pendingOrders = [];
     let mappedObjectId = _address.pendingOrders.map(val => val.toString())
-    let _pendingOrders = await Inscription.find({_id: {$in: mappedObjectId}});
+    let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
     _pendingOrders.forEach((item)=>{
       pendingOrders.push({
         orderId: item.id,

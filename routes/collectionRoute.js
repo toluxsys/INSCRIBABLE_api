@@ -41,6 +41,7 @@ router.post("/inscribedImages", controller.getInscribedImages);
 router.post("/getCollection", controller.getCollection);
 router.post("/updateMintStage", controller.updateMintStage);
 router.post("/calc", controller.calc);
+router.post("/sat/calc", controller.calSat);
 router.post("/addFees", controller.addCollectionServiceFee);
 router.post("/updateFees", controller.updateServiceFee);
 router.post("/collectionFee", controller.addCollectionServiceFee);
@@ -53,6 +54,7 @@ router.post("/sat/mintOnSat", controller.mintOnSat);
 router.post("/sat/inscribeCount", controller.inscribeCount);
 router.post("/sat/getAddress", controller.getAddresses);
 router.post("/sat/updateDetails", controller.updateInscriptionDetails);
+router.post("/sat/getPendingOrder", controller.getPendingOrders);
 router.get("/getCollections", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 
