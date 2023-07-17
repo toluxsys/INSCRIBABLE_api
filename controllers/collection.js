@@ -1643,7 +1643,7 @@ module.exports.mintOnSat = async (req, res) => {
         total: cost.total + 10000,
     }
     
-    const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
+    const url = process.env.ORD_MAINNET_API_URL + `/ord/create/getMultipleReceiveAddr`;
     const r_data = {
       collectionName: "oldSatsWallet",
       addrCount: 1,
