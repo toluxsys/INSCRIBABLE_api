@@ -1698,10 +1698,17 @@ module.exports.getPendingOrders = async (req,res)=> {
   try{
     const {address, collectionId} = req.body;
     let collection = await Collection.findOne({id: collectionId});
-    let _address = await Address.findOne({mintStage: collection.mintStage, address: address});
+    let mintDetails = collection.mintDetails;
+    let _mappedObjectId = mintDetails.map(val => val.toString());
+    let _address = await Address.find({mintStage:{$in: _mappedObjectId}, address: address});
+    if(_address.length === 0)return res.status(200).json({status: false, message: "address not found for mint stage"})
+    let newPendingOrder = [];
+    _address.forEach((item) => {
+      newPendingOrder = newPendingOrder.concat(item.pendingOrders);
+    })
     let pendingOrders = [];
-    let mappedObjectId = _address.pendingOrders.map(val => val.toString())
-    let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
+    let ids = newPendingOrder.map(val => val.toString())
+    let _pendingOrders = await Inscription.find({id: {$in: ids}});
     _pendingOrders.forEach((item)=>{
       pendingOrders.push({
         orderId: item.id,
