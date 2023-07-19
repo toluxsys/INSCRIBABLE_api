@@ -1604,6 +1604,7 @@ module.exports.mintOnSat = async (req, res) => {
     const { collectionId, receiveAddress, feeRate, networkName } = req.body;
     const collection = await Collection.findOne({ id: collectionId});
     const mintStage = collection.mintStage;
+    let pendingOrders = false;
     let inscriptionId;
     let cost;
     let _feeRate;
@@ -1618,7 +1619,7 @@ module.exports.mintOnSat = async (req, res) => {
     if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
     let verified = await verifyMint(collectionId, receiveAddress, 1);
-    if (verified.message === "complete pending order(s)")return res.status(200).json({status: false, message: "complete pending order(s)", userResponse: { pendingOrders: verified.userResponse.pendingOrders}})
+    if (verified.message === "complete pending order(s)")return res.status(200).json({status: true, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
     if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
     
     inscriptionId = `s${uuidv4()}`;
@@ -1686,7 +1687,7 @@ module.exports.mintOnSat = async (req, res) => {
       inscriptionId: inscriptionId,
       createdAt: inscription.createdAt,
     };
-    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
+    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse, pendingOrders: pendingOrders });
   } catch (e) {
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
