@@ -1522,6 +1522,7 @@ module.exports.getCollection = async (req, res) => {
     await updateMintStage1(collectionId);
     const collection = await Collection.findOne({id: collectionId});
     const mintStage = collection.mintStage;
+    let price;
     let _mintStage;
     let mintDetails = collection.mintDetails;
     let mappedObjectId = mintDetails.map(val => val.toString())
@@ -1530,6 +1531,7 @@ module.exports.getCollection = async (req, res) => {
     s_mintDetails.forEach((item, index) => {
       if(item._id.toString() === mintStage.toString()){
         _mintStage = item.name;
+        price = item.price/1e8;
         details.push({
           stage: item.name,
           price: item.price/1e8,
@@ -1537,6 +1539,7 @@ module.exports.getCollection = async (req, res) => {
           duration: item.duration,
         })
       }else{
+        price = item.price/1e8;
         details.push({
           stage: item.name,
           price: item.price/1e8,
@@ -1578,7 +1581,7 @@ module.exports.getCollection = async (req, res) => {
         collectionName: collection.name,
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
-        price: mintDetails.price /1e8 || collection.price/1e8,
+        price: price || collection.price/1e8,
         category: collection.category,
         collectionCount: collectionCount,
         mintedCount: mintedCount,
