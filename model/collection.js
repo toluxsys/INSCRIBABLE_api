@@ -70,6 +70,10 @@ const collection = new mongoose.Schema(
     startAt: {
       type: Date,
     },
+    ended: {
+      type: Boolean,
+      default: false
+    },
     mintStage: { type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"},
     inscriptions: { type: Array },
     selected: [{ type: mongoose.Schema.Types.ObjectId, ref: "SelectedItem" }],

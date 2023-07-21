@@ -2,6 +2,7 @@ const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
 const interval = 15;
 const moment = require("moment");
+const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
@@ -36,6 +37,7 @@ const {
 } = require("../helpers/sendBitcoin");
 const MintDetails = require("../model/mintDetails");
 const { start } = require("repl");
+const { get } = require("express/lib/response");
 const ObjectId = require('mongoose').Types.ObjectId; 
 let satTypes = ['rare', 'common', 'block9', 'block84', 'pizza','pizza1','uncommon', '2009', '2010', '2011'];
 
@@ -164,8 +166,19 @@ const addMintDetails = async (collectionId, items) => {
 const verifyMint = async (collectionId, address, amount) => {
   try{
     const collection = await Collection.findOne({id: collectionId});
-    const mintStage = await MintDetails.findOne({_id: collection.mintStage}); 
-    let allowedAddress = mintStage.addresses;
+    const mintStage = await MintDetails.findOne({_id: collection.mintStage});
+    if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt`)){
+      return data = {
+        valid: false,
+        price: "",
+        mintCount: 0,
+        message: "no valid address for mint stage",
+        userResponse: {
+          pendingOrders: []
+        },
+      }
+    };
+    let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt` , { encoding: 'utf8'}).split("\n");
     let c_address;
     if(mintStage.name === "public"){ 
       let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
@@ -377,6 +390,7 @@ module.exports.addCollection = async (req, res) => {
       fileSize,
       specialSat,
       totalSupply,
+      startAt,
     } = req.body;
 
     const banner = req.files.banner;
@@ -435,6 +449,7 @@ module.exports.addCollection = async (req, res) => {
     };
 
     const data = await compressAndSaveBulk(collectionId, false);
+    let startTime = new Date(startAt).getTime();
     const collection = new Collection({
       id: collectionId,
       status: `pending`,
@@ -448,6 +463,7 @@ module.exports.addCollection = async (req, res) => {
       description: description,
       category: category,
       featuredCid: data.cid,
+      startAt: startTime,
       banner: process.env.IPFS_IMAGE_URL + data.cid + `/banner${b_ext}`,
       featuredImage:
         process.env.IPFS_IMAGE_URL + data.cid + `/featuredImage${f_ext}`,
@@ -489,57 +505,21 @@ module.exports.getMintDetails = async (req,res) => {
 
 module.exports.addMintAddress = async (req, res) => {
   try{
-    const {collectionId, name, addresses} = req.body;
+    const {collectionId, name} = req.body;
+    const addressFile = req.files.address;
     const mintDetails = await MintDetails.find({collectionId: collectionId});
     let mappedObjectId = mintDetails.map(val => val)
     let n_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
     let id;
+
+    let details = [];
     n_mintDetails.forEach((detail) => {
-      if(detail.name === name) {
-        id = detail._id;
-      }
+      details.push(detail.name);
     })
-    let s_mintDetails = await MintDetails.findOne({_id: id});
-    if (s_mintDetails.addresses.length = 0){
-      s_mintDetails.addresses = addresses;
-      await s_mintDetails.save();
-    }else{
-      let _addresses = s_mintDetails.addresses;
-      let newAddress = _addresses.concat(addresses);
-      s_mintDetails.addresses = newAddress;
-      await s_mintDetails.save();
-    }
-    return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
-  }catch(e){
-    console.log(e.message);
-    return res.status(500).json({ status: false, message: e.message });
-  }
-}
 
-module.exports.addCollectionItems = async (req, res) => {
-  try {
-    req.setTimeout(450000);
-    const collectionId = req.body.collectionId;
-    const collectionItems = req.files.items;
-    const optimize = req.body.optimize;
-    const itemCid = req.body.itemCid;
-    const instance = await Collection.find({ id: collectionId });
+    if(!details.includes(name)) return res.status(200).json({status: false, message: "Invalid mint stage name"});
 
-    if (instance.status === "approved") {
-      return res
-        .status(200)
-        .json({ status: false, message: `collection items already added` });
-    }
-
-    let optimized;
-
-    if (optimize === `true`) {
-      optimized = true;
-    } else {
-      optimized = false;
-    }
-
-    if (!existsSync(process.cwd() + `/src/bulk/${collectionId}`)) {
+    if (!existsSync(process.cwd() + `/src/address/${collectionId}`)) {
       mkdirSync(
         process.cwd() + `./src/bulk/${collectionId}`,
         { recursive: true },
@@ -548,32 +528,78 @@ module.exports.addCollectionItems = async (req, res) => {
         }
       );
     }
+  
+    let fileName = name + path.extname(addressFile.name);
 
-    if (!collectionItems){
-        if (!itemCid) res.status(200).json({status: false, message: "choose item(s) to upload or input collection item cid"});
-        let collection =await Collection.findOne({ id: collectionId });
-        collection.itemCid = itemCid;
-        await collection.save();
+    const savePath = path.join(
+      process.cwd(),
+      "src",
+      "address",
+      `${collectionId}`,
+      fileName
+    );
+    await addressFile.mv(savePath);
+    return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
+  }catch(e){
+    console.log(e);
+    return res.status(500).json({ status: false, message: e.message });
+  }
+}
+
+module.exports.addCollectionItems = async (req, res) => {
+  try {
+    req.setTimeout(450000);
+    const collectionId = req.body.collectionId;
+    let collectionItems;
+    let optimize;
+    const itemCid = req.body.itemCid;
+    let optimized;
+    const collection = await Collection.findOne({ id: collectionId });
+    
+    if(collection.status === "approved") return res.status(200).json({ status: false, message: `collection items already added` });
+    
+    if(itemCid){
+      collection.itemCid = itemCid;
+    }else{
+      collectionItems = req.files.items;
+      optimize = req.body.optimize;
+
+      if(!collectionItems) return res.status(200).json({status: false, message: "choose item(s) to upload"});
+      if (collectionItems.length > 100) return res.status(200).json({status:false, message: "collection items above 100, upload images to ipfs and pass CID"});
+
+      if (optimize === `true`) {
+        optimized = true;
+      } else {
+        optimized = false;
+      }
+
+      if (!existsSync(process.cwd() + `/src/bulk/${collectionId}`)) {
+        mkdirSync(
+          process.cwd() + `./src/bulk/${collectionId}`,
+          { recursive: true },
+          (err) => {
+            console.log(err);
+          }
+        );
+      }
+
+      collectionItems.forEach(async (file, index) => {
+        ext = path.extname(file.name);
+        const fileName = `${index + 1}` + path.extname(file.name);
+        const savePath = path.join(
+          process.cwd(),
+          "src",
+          "bulk",
+          `${collectionId}`,
+          fileName
+        );
+        await file.mv(savePath);
+      });
+  
+      const data = await compressAndSaveBulk(collectionId, optimized);
+      collection.itemCid = data.cid;
     }
 
-    if (collectionItems.length > 100) return res.status(200).json({status:false, message: "collection items above 100, upload images to ipfs and pass CID"});
-
-    collectionItems.forEach(async (file, index) => {
-      ext = path.extname(file.name);
-      const fileName = `${index + 1}` + path.extname(file.name);
-      const savePath = path.join(
-        process.cwd(),
-        "src",
-        "bulk",
-        `${collectionId}`,
-        fileName
-      );
-      await file.mv(savePath);
-    });
-
-    const data = await compressAndSaveBulk(collectionId, optimized);
-    let collection = await Collection.findOne({ id: collectionId });
-    collection.itemCid = data.cid;
     await collection.save();
 
     return res.status(200).json({
@@ -657,12 +683,17 @@ module.exports.seleteItem = async (req, res) => {
     let satsId;
     let walletKey;
     let ORD_API_URL;
-    if(collection.minted.length === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "collection has been minted"});
+    if(collection.ended === true) return res.status(200).json({status: false, message: "collection has ended"});
+    if(collection.minted.length === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "collection has been minted out"});
     if(collection.startMint === false) return res.status(200).json({status: false, message: "Mint has not started"});
     if(collection.paused === true) return res.status(200).json({status: false, message: "Mint has been paused"});
-    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
     if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
     if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
+    let verified = await verifyMint(collectionId, receiveAddress, imageNames.length);
+    if(verified.message === "no valid address for mint stage") return res.status(200).json({status: false, message: "no valid address for mint stage"});
+    if (verified.message === "complete pending order(s)")return res.status(200).json({status: true, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
+    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
     const price = mintDetails.price;
 
@@ -670,9 +701,6 @@ module.exports.seleteItem = async (req, res) => {
     ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === "testnet")
     ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-    let verified = await verifyMint(collectionId, receiveAddress, imageNames.length);
-    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
-    
 
     if (imageNames.length > 1) {
       inscriptionId = `b${uuidv4()}`;
@@ -844,6 +872,10 @@ module.exports.seleteItem = async (req, res) => {
 
       await inscription.save();
     }
+
+    let _savedId = [];
+    _savedId.push(inscriptionId);
+    await Address.findOneAndUpdate({mintStage: collection.mintStage, address: receiveAddress}, {$push: {pendingOrders: {$each: _savedId, $position: -1}}}, {new: true})
 
     userResponse = {
       cost: {
@@ -1325,7 +1357,7 @@ module.exports.inscribe = async (req, res) => {
     if (type === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-      balance = await getWalletBalance(instance.inscriptionDetails.payAddresscriptionId, networkName).totalAmountAvailable;
+      balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
       imageNames = instance.fileNames;
       receiveAddress = instance.receiver;
       let cost = instance.cost.inscriptionCost;
@@ -1344,7 +1376,7 @@ module.exports.inscribe = async (req, res) => {
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-      balance = await getWalletBalance(instance.inscriptionDetails.payAddresscriptionId, networkName).totalAmountAvailable;
+      balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
       imageNames = instance.fileNames;
       receiveAddress = instance.receiver;
       let cost = instance.cost.cardinal;
@@ -1538,12 +1570,7 @@ module.exports.getCollection = async (req, res) => {
     }else if(collection.specialSat){
       type = "sat";
     }
-    let startedAt;
-    if(!collection.startAt){
-      startedAt = collection.createdAt;
-    }else{
-      startedAt = collection.startAt;
-    }
+    let startedAt = collection.startAt;
     
     let collectionData = {
         collectionId: collection.id,
@@ -1809,7 +1836,7 @@ module.exports.updateInscriptionDetails = async (req, res) => {
 module.exports.startMint = async (req, res) => {
   try{
     const {collectionId} = req.body;
-    const collection = await Collection.findOneAndUpdate({id: collectionId}, {startMint: true, startAt: new Date()},{new: true});
+    await Collection.findOneAndUpdate({id: collectionId}, {startMint: true},{new: true});
     return res.status(200).json({status: true, message: "ok"});
   }catch(e){
     return res.status(200).json({ status: false, message: e.message });
@@ -1853,7 +1880,7 @@ module.exports.unpause = async (req, res) => {
 };
 
 
-
+//getLinks("QmUZwDUdMbvyvr6FcD16qF3FyhS88MTiBMut1cdcY5Ximv").then((res) => {console.log(res)}).catch((e) => console.log(e.message));
 //create a new model for address that has made payment and update the new model at check payment with 
 //change destination, satType, feeRate,
 

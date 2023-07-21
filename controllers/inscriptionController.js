@@ -1129,6 +1129,7 @@ module.exports.checkPayment = async (req, res) => {
     }
 
     if(inscription.collectionId){
+      let mintCount;
       if(balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment", txid: null});
       let collection = await Collection.findOne({id: inscription.collectionId});
       if(balance.status[0].confirmed === false){
@@ -1139,7 +1140,8 @@ module.exports.checkPayment = async (req, res) => {
             await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
             await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
             inscription.collectionPayment = "received";
-            await inscription.save();
+            let _savedInscription = await inscription.save();
+            mintCount = _savedInscription.mintCount;
             return res.status(200).json({
               status: false,
               message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
@@ -1149,7 +1151,8 @@ module.exports.checkPayment = async (req, res) => {
             await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
             await SelectedItems.deleteOne({_id: inscription.selected});
             inscription.collectionPayment = "received";
-            await inscription.save();
+            let _savedCollection = await inscription.save();
+            mintCount = _savedCollection.minted.length;
             return res.status(200).json({
               status: false,
               message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
@@ -1172,7 +1175,8 @@ module.exports.checkPayment = async (req, res) => {
             await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } },{$pull: {pendingOrders: new ObjectId(inscription._id)}},{new: true});
             inscription.collectionPayment = "paid";
             inscription.spendTxid = balance.txid[0];
-            await inscription.save();
+            let _savedInscription = await inscription.save();
+            mintCount = _savedInscription.mintCount;
             return res.status(200).json({
               status: true,
               message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
@@ -1182,7 +1186,8 @@ module.exports.checkPayment = async (req, res) => {
             await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
             await SelectedItems.deleteOne({_id: inscription.selected});
             inscription.collectionPayment = "received";
-            await inscription.save();
+            let _savedInscription = await inscription.save();
+            mintCount = _savedInscription.mintCount;
             return res.status(200).json({
               status: true,
               message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
@@ -1207,6 +1212,10 @@ module.exports.checkPayment = async (req, res) => {
             });
           }
         }
+      }
+
+      if(collection.collectionDetails.totalSupply === mintCount){
+        await Collection.findOneAndUpdate({id: inscription.collectionId}, {ended: true}, {new: true});
       }
     }
 
