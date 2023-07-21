@@ -313,14 +313,15 @@ const verifyMint = async (collectionId, address, amount) => {
           mintCount: count,
           message: "valid mint"
         }
-      }    
-    }
-    return data = {
-      valid: false,
-      price: mintStage.price,
-      mintCount: mintStage.mintLimit,
-      message: `address not valid for mint stage ${mintStage.name}`
-    }
+      }else{
+        return data = {
+          valid: false,
+          price: mintStage.price,
+          mintCount: mintStage.mintLimit,
+          message: `address not valid for mint stage ${mintStage.name}`
+        }
+      }   
+    } 
   }catch(e){
     console.log(e)
   }
