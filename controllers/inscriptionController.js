@@ -1418,6 +1418,7 @@ module.exports.getStage = async (req, res) => {
         }else{
           return res.status(200).json({
             status: true,
+            type: "collection",
             message: "ok",
             userResponse: {
               stage: 1,
@@ -1461,6 +1462,7 @@ module.exports.getStage = async (req, res) => {
             return res.status(200).json({
               status: true,
               message: "ok",
+              type: "collection",
               userResponse: {
                 stage: 2,
                 endpoint: "collection/checkUtxo",
@@ -1503,6 +1505,7 @@ module.exports.getStage = async (req, res) => {
           }else{
             return res.status(200).json({
               status: true,
+              type: "collection",
               message: "ok",
               userResponse: {
                 stage: 3,
