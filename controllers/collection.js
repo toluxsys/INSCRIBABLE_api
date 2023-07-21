@@ -1584,7 +1584,7 @@ module.exports.getCollection = async (req, res) => {
         description: collection.description,
         price: price || collection.price/1e8,
         category: collection.category,
-        collectionCount: collectionCount,
+        collectionCount: collection.collectionDetails.totalSupply,
         mintedCount: mintedCount,
         totalSupply: collection.collectionDetails.totalSupply,
         bannerUrl: collection.banner,
