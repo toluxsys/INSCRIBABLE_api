@@ -247,7 +247,7 @@ const verifyMint = async (collectionId, address, amount) => {
         }
       };
       let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt` , { encoding: 'utf8'}).split("\n");
-      if(!allowedAddress.includes(address)){
+      if(allowedAddress.includes(address)){
         let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
         if(!s_address) {
           let n_address = new Address({
