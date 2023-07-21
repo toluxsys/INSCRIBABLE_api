@@ -167,18 +167,6 @@ const verifyMint = async (collectionId, address, amount) => {
   try{
     const collection = await Collection.findOne({id: collectionId});
     const mintStage = await MintDetails.findOne({_id: collection.mintStage});
-    if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt`)){
-      return data = {
-        valid: false,
-        price: "",
-        mintCount: 0,
-        message: "no valid address for mint stage",
-        userResponse: {
-          pendingOrders: []
-        },
-      }
-    };
-    let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt` , { encoding: 'utf8'}).split("\n");
     let c_address;
     if(mintStage.name === "public"){ 
       let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
@@ -246,7 +234,20 @@ const verifyMint = async (collectionId, address, amount) => {
           mintCount: count,
           message: "valid mint"
         }
-    }else if(allowedAddress.includes(address)){
+    }else{
+      if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt`)){
+        return data = {
+          valid: false,
+          price: "",
+          mintCount: 0,
+          message: "no valid address for mint stage",
+          userResponse: {
+            pendingOrders: []
+          },
+        }
+      };
+      let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt` , { encoding: 'utf8'}).split("\n");
+      if(!allowedAddress.includes(address)){
         let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
         if(!s_address) {
           let n_address = new Address({
@@ -312,13 +313,13 @@ const verifyMint = async (collectionId, address, amount) => {
           mintCount: count,
           message: "valid mint"
         }
-    } else { 
-      return data = {
-        valid: false,
-        price: mintStage.price,
-        mintCount: mintStage.mintLimit,
-        message: `address not valid for mint stage ${mintStage.name}`
-      }
+      }    
+    }
+    return data = {
+      valid: false,
+      price: mintStage.price,
+      mintCount: mintStage.mintLimit,
+      message: `address not valid for mint stage ${mintStage.name}`
     }
   }catch(e){
     console.log(e)
