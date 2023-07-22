@@ -1198,7 +1198,7 @@ module.exports.getImages = async(req, res) => {
     let s_selected = [];
     let selectedImages = [];
 
-    const imageNames = await getLinks(collection.itemCid);
+    let imageNames = await getLinks(collection.itemCid);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
 
     selectedItems.forEach((selected) => {
@@ -1491,12 +1491,15 @@ module.exports.getCollections = async (req, res) => {
     _collections.forEach((element, index) => {
       //filter the collection by collectionId and create an object that the collectionDetails including the type
       let collection = collections.filter((collection) => collection.id === element.collectionId);
+      let _mintStage = collection[0].mintStage;
+      let mintStage = MintDetails.findOne({_id: _mintStage});
+      let price = mintStage.price/1e8;
       collectionDetails.push({
         collectionId: collection[0].id,
         collectionName: collection[0].name,
         creatorName: collection[0].collectionDetails.creatorName,
         description: collection[0].description,
-        price: collection[0].price / 1e8,
+        price: price,
         category: collection[0].category,
         mintedCount: collection[0].inscriptions.length,
         bannerUrl: collection[0].banner,
@@ -1557,7 +1560,7 @@ module.exports.getCollection = async (req, res) => {
       collectionItems = await getLinks(collection.itemCid);
     };
     let mintedItems = collection.minted;
-    let collectionCount = collectionItems.length;
+    //let collectionCount = collectionItems.length;
     let mintedCount = mintedItems.length;
 
     if(collection.specialSat){
