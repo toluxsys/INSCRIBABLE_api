@@ -1509,7 +1509,8 @@ module.exports.getCollections = async (req, res) => {
         discord: collection[0].collectionDetails.discord,
         createdAt: collection[0].createdAt,
         updatedAt: collection[0].updatedAt,
-        type: element.type
+        type: element.type,
+        ended: collection[0].ended,
       });
     });
 
@@ -1598,6 +1599,7 @@ module.exports.getCollection = async (req, res) => {
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
         type: type,
+        ended: collection.ended,
         mintStarted: collection.startMint,
         mintStage: _mintStage,
         startedAt: startedAt,
