@@ -6,6 +6,7 @@ const {Blob} = require("buffer")
 const { cwd } = require("process");
 const dotenv = require("dotenv").config();
 const aws = require("aws-sdk");
+const { collection } = require("../model/inscription");
 require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 aws.config.update({
@@ -77,10 +78,48 @@ const downloadFromS3 = async (fileName, inscriptionId) => {
   }
 
  const file = fs.createWriteStream(process.cwd()+`/src/bulk/${inscriptionId}/${fileName}`);
- await Promise.all(s3bucket.getObject(downloadParams).createReadStream().pipe(file).promise());
+ await new Promise((resolve, reject) => {
+    s3bucket.getObject(downloadParams).createReadStream()
+    .pipe(file)
+    .on('finish', resolve)
+    .on('error', reject)
+  });
   return true;
 }catch(error){
-  console.error('Error occurred during file downloads:', error);
+  console.error('Error occurred during file downloads:', error.message);
+    return false;
+ }
+};
+
+const downloadAddressFile = async (fileName, collectionId) => {
+  try{let s3bucket = new aws.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_KEY,
+    Bucket: process.env.S3_BUCKET_NAME,
+    region: process.env.S3_BUCKET_REGION,
+  });
+
+  const downloadParams = {
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: fileName,
+  };
+
+  if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}`)){
+    fs.mkdirSync(process.cwd()+`/src/address/${collectionId}`, { recursive: true }, (err) => {
+      console.log(err);
+    });
+  }
+
+ const file = fs.createWriteStream(process.cwd()+`/src/address/${collectionId}/${fileName}`);
+ await new Promise((resolve, reject) => {
+    s3bucket.getObject(downloadParams).createReadStream()
+    .pipe(file)
+    .on('finish', resolve)
+    .on('error', reject)
+  });
+  return true;
+}catch(error){
+  console.error('Error occurred during file downloads:', error.message);
     return false;
  }
 };
@@ -549,6 +588,9 @@ module.exports = {
   compressBulk,
   compressAndSaveS3,
   compressAndSaveBulkS3,
+  uploadToS3,
   saveFile,
   saveFileS3,
+  downloadFromS3,
+  downloadAddressFile
 };

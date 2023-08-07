@@ -5,6 +5,9 @@ const collection = new mongoose.Schema(
     id: {
       type: String,
     },
+    alias: {
+      type: String,
+    },
     flag: {
       type: String,
     },

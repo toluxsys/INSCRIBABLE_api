@@ -21,7 +21,7 @@ const {
   utxoDetails,
   verifyAddress,
 } = require("../helpers/walletHelper");
-const { compressAndSaveBulk } = require("../helpers/imageHelper");
+const { compressAndSaveBulk, uploadToS3, downloadAddressFile } = require("../helpers/imageHelper");
 const {
   sendBitcoin,
   createLegacyAddress,
@@ -168,6 +168,7 @@ const verifyMint = async (collectionId, address, amount) => {
     const collection = await Collection.findOne({id: collectionId});
     const mintStage = await MintDetails.findOne({_id: collection.mintStage});
     let c_address;
+    let stage_name = `addr-`+collectionId+`-`+mintStage.name+`.txt`;
     if(mintStage.name === "public"){ 
       let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
         if(!s_address) {
@@ -235,18 +236,21 @@ const verifyMint = async (collectionId, address, amount) => {
           message: "valid mint"
         }
     }else{
-      if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt`)){
-        return data = {
-          valid: false,
-          price: "",
-          mintCount: 0,
-          message: "no valid address for mint stage",
-          userResponse: {
-            pendingOrders: []
-          },
+      if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`)){
+        let d_address = await downloadAddressFile(stage_name, collectionId);
+        if(!d_address) {
+          return data = {
+            valid: false,
+            price: "",
+            mintCount: 0,
+            message: "addresses for stage not found",
+            userResponse: {
+              pendingOrders: []
+            },
+          }
         }
       };
-      let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${mintStage.name}.txt` , { encoding: 'utf8'}).split("\n");
+      let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'}).split("\n");
       if(allowedAddress.includes(address)){
         let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
         if(!s_address) {
@@ -261,7 +265,7 @@ const verifyMint = async (collectionId, address, amount) => {
             valid: true,
             price: mintStage.price,
             mintCount: 0,
-            message: "mint limit reached"
+            message: "valid mint"
           }
         }else{ 
           if(s_address.pendingOrders.length >= mintStage.mintLimit){
@@ -402,6 +406,7 @@ module.exports.addCollection = async (req, res) => {
     files.push(banner);
     files.push(featuredImage);
     const count = await Collection.find({}, { _id: 0 });
+    const alias = `${collectionName.replace(/\s/g, "")}_${count.length}`;
 
     const collactionAddressDetails = await createCollectionLegacyAddress(networkName, count.length);
     let collectionAddress = collactionAddressDetails.p2pkh_addr;
@@ -456,6 +461,7 @@ module.exports.addCollection = async (req, res) => {
       id: collectionId,
       status: `pending`,
       name: collectionName,
+      alias: alias,
       flag: networkName,
       price: price,
       userSelect: userSelect,
@@ -523,16 +529,18 @@ module.exports.addMintAddress = async (req, res) => {
 
     if (!existsSync(process.cwd() + `/src/address/${collectionId}`)) {
       mkdirSync(
-        process.cwd() + `./src/bulk/${collectionId}`,
+        process.cwd() + `./src/address/${collectionId}`,
         { recursive: true },
         (err) => {
           console.log(err);
         }
       );
     }
-  
-    let fileName = name + path.extname(addressFile.name);
+    
+    let _name = `addr-`+collectionId+`-`+name;
+    let fileName = _name + path.extname(addressFile.name);
 
+    
     const savePath = path.join(
       process.cwd(),
       "src",
@@ -541,6 +549,10 @@ module.exports.addMintAddress = async (req, res) => {
       fileName
     );
     await addressFile.mv(savePath);
+
+    let _data = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${fileName}`);
+    let uploaded = await uploadToS3(fileName, _data);
+
     return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
   }catch(e){
     console.log(e);
@@ -1477,8 +1489,10 @@ module.exports.getCollections = async (req, res) => {
     let collections = await Collection.find({ flag: networkName, status: "approved"});
     let collectionDetails = [];
     let _collections = [];
+    let mappedObjectId = [];
       
     collections.map((collection) => {
+      mappedObjectId.push(collection.mintStage)
         if(collection.userSelect === "false" && !collection.specialSat) {
           _collections.push({collectionId: collection.id, type: "single"})
         }else if(collection.userSelect === "true" && !collection.specialSat){
@@ -1488,15 +1502,21 @@ module.exports.getCollections = async (req, res) => {
         }
       });
 
+      let mintDetail = await MintDetails.find({_id: {$in: mappedObjectId}});
+
     _collections.forEach((element, index) => {
       //filter the collection by collectionId and create an object that the collectionDetails including the type
       let collection = collections.filter((collection) => collection.id === element.collectionId);
-      let _mintStage = collection[0].mintStage;
-      let mintStage = MintDetails.findOne({_id: _mintStage});
-      let price = mintStage.price/1e8;
+      let price;
+      mintDetail.forEach((mintStage) => {
+        if(mintStage.collectionId === collection[0].id){
+          price = mintStage.price/1e8;
+        }
+      });
       collectionDetails.push({
         collectionId: collection[0].id,
         collectionName: collection[0].name,
+        alias: collection[0].alias,
         creatorName: collection[0].collectionDetails.creatorName,
         description: collection[0].description,
         price: price,
@@ -1523,16 +1543,28 @@ module.exports.getCollections = async (req, res) => {
 
 module.exports.getCollection = async (req, res) => {
   try{
-    const {collectionId} = req.body;
-    await updateMintStage1(collectionId);
-    const collection = await Collection.findOne({id: collectionId});
-    const mintStage = collection.mintStage;
+    const {collectionId, alias} = req.body;
+    let collection;
+    let mintStage;
     let price;
     let _mintStage;
-    let mintDetails = collection.mintDetails;
+    let mintDetails;
+    let details = [];
+    if(!collectionId && !alias) return res.status(200).json({status: false, message: "collectionId or alias is required"});
+    if(alias){
+      collection = await Collection.findOne({alias: alias});
+      await updateMintStage1(collection.id);
+      mintStage = collection.mintStage;
+      mintDetails = collection.mintDetails;
+    }else if(collectionId){
+      await updateMintStage1(collectionId);
+      collection = await Collection.findOne({id: collectionId});
+      mintStage = collection.mintStage;
+      mintDetails = collection.mintDetails;
+    }
+    
     let mappedObjectId = mintDetails.map(val => val.toString())
     let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
-    let details = [];
     s_mintDetails.forEach((item, index) => {
       if(item._id.toString() === mintStage.toString()){
         _mintStage = item.name;
@@ -1760,6 +1792,17 @@ module.exports.getPendingOrders = async (req,res)=> {
     return res.status(200).json({ status: false, message: e.message });
   }
 }
+
+module.exports.checkWhitelist = async (req, res) => {
+  try{
+    const {collectionId, address} = req.body;
+    const details = await verifyMint(collectionId, address, 0);
+    return res.status(200).json({status: true, message: "ok", userResponse: details});
+  }catch(err){
+    console.log(err.message);
+    return res.status(200).json({status: false, message: err.message});
+  }
+};
 
 module.exports.inscribeCount = async (req, res) => {
   try{
