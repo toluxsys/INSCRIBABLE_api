@@ -1478,7 +1478,7 @@ module.exports.getCollections = async (req, res) => {
     let collectionDetails = [];
     let _collections = [];
       
-    collections.map((collection, index) => {
+    collections.map((collection) => {
         if(collection.userSelect === "false" && !collection.specialSat) {
           _collections.push({collectionId: collection.id, type: "single"})
         }else if(collection.userSelect === "true" && !collection.specialSat){
