@@ -57,6 +57,7 @@ router.post("/sat/updateDetails", controller.updateInscriptionDetails);
 router.post("/sat/getPendingOrder", controller.getPendingOrders);
 router.get("/getCollections", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
+router.post("/checkWhitelist", controller.checkWhitelist);
 
 
 module.exports = router;
