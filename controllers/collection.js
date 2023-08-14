@@ -456,7 +456,7 @@ module.exports.addCollection = async (req, res) => {
     };
 
     const data = await compressAndSaveBulk(collectionId, false);
-    let startTime = new Date(startAt).getTime();
+    //let startTime = new Date(startAt).getTime();
     const collection = new Collection({
       id: collectionId,
       status: `pending`,
@@ -471,7 +471,7 @@ module.exports.addCollection = async (req, res) => {
       description: description,
       category: category,
       featuredCid: data.cid,
-      startAt: startTime,
+      startAt: startAt,
       banner: process.env.IPFS_IMAGE_URL + data.cid + `/banner${b_ext}`,
       featuredImage:
         process.env.IPFS_IMAGE_URL + data.cid + `/featuredImage${f_ext}`,
@@ -1796,6 +1796,8 @@ module.exports.getPendingOrders = async (req,res)=> {
 module.exports.checkWhitelist = async (req, res) => {
   try{
     const {collectionId, address} = req.body;
+    const collection = await Collection.find({id: collectionId});
+    if(collection.ended) return res.status(200).json({status: false, message: "collection mint ended"});
     const details = await verifyMint(collectionId, address, 0);
     return res.status(200).json({status: true, message: "ok", userResponse: details});
   }catch(err){
