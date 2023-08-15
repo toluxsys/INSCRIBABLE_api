@@ -1796,10 +1796,13 @@ module.exports.getPendingOrders = async (req,res)=> {
 module.exports.checkWhitelist = async (req, res) => {
   try{
     const {collectionId, address} = req.body;
-    const collection = await Collection.find({id: collectionId});
-    if(collection.ended == true) return res.status(200).json({status: false, message: "collection mint ended"});
-    const details = await verifyMint(collectionId, address, 0);
-    return res.status(200).json({status: true, message: "ok", userResponse: details});
+    const collection = await Collection.findOne({id: collectionId});
+    if(collection.ended == true) {
+      return res.status(200).json({status: false, message: "collection mint ended"});
+    }else{
+      const details = await verifyMint(collectionId, address, 0);
+      return res.status(200).json({status: true, message: "ok", userResponse: details});
+    }
   }catch(err){
     console.log(err.message);
     return res.status(200).json({status: false, message: err.message});
