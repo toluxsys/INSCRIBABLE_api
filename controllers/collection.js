@@ -167,6 +167,12 @@ const verifyMint = async (collectionId, address, amount) => {
   try{
     const collection = await Collection.findOne({id: collectionId});
     const mintStage = await MintDetails.findOne({_id: collection.mintStage});
+    if(!mintStage) return data = {
+      valid: false,
+        price: 0,
+        mintCount: 0,
+        message: "No mint stage set"
+    };
     let c_address;
     let stage_name = `addr-`+collectionId+`-`+mintStage.name+`.txt`;
     if(mintStage.name === "public"){ 
@@ -1801,6 +1807,7 @@ module.exports.checkWhitelist = async (req, res) => {
       return res.status(200).json({status: false, message: "collection mint ended"});
     }else{
       const details = await verifyMint(collectionId, address, 0);
+      if(details.message == "No mint stage set") return res.status(200).json({status: false, message: "No mint stage set"});
       return res.status(200).json({status: true, message: "ok", userResponse: details});
     }
   }catch(err){
