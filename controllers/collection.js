@@ -1797,7 +1797,12 @@ module.exports.checkWhitelist = async (req, res) => {
   try{
     const {collectionId, address} = req.body;
     const collection = await Collection.find({id: collectionId});
-    if(collection.ended == true) return res.status(200).json({status: false, message: "collection mint ended"});
+    if(collection.ended == true) return res.status(200).json({status: false, message: "collection mint ended", userResponse: {
+      valid: false,
+      price: mintStage.price,
+      mintCount: 0,
+      message: "mint ended"
+    }});
     const details = await verifyMint(collectionId, address, 0);
     return res.status(200).json({status: true, message: "ok", userResponse: details});
   }catch(err){
