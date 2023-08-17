@@ -55,6 +55,7 @@ router.post("/sat/inscribeCount", controller.inscribeCount);
 router.post("/sat/getAddress", controller.getAddresses);
 router.post("/sat/updateDetails", controller.updateInscriptionDetails);
 router.post("/sat/getPendingOrder", controller.getPendingOrders);
+router.post("/addMintDetails", controller.addMintDetails);
 router.get("/getCollections", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 router.post("/checkWhitelist", controller.checkWhitelist);

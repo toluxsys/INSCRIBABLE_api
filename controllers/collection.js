@@ -21,7 +21,7 @@ const {
   utxoDetails,
   verifyAddress,
 } = require("../helpers/walletHelper");
-const { compressAndSaveBulk, uploadToS3, downloadAddressFile } = require("../helpers/imageHelper");
+const { compressAndSaveBulk, uploadToS3, downloadAddressFile,downloadAllAddressFile } = require("../helpers/imageHelper");
 const {
   sendBitcoin,
   createLegacyAddress,
@@ -138,9 +138,9 @@ const checkTimeElapsed = (timestamp) => {
   }
 }
 
-const addMintDetails = async (collectionId, items) => {
+const addMintDetails = async (collectionId, details) => {
   try{
-    let details = await JSON.parse(items);
+    // let details = await JSON.parse(items);
     let collection = await Collection.findOne({id: collectionId});
     if(collection.mintDetails.length > 1) throw new Error("mint details already added");
     details.details.forEach(async (detail) => {
@@ -163,6 +163,56 @@ const addMintDetails = async (collectionId, items) => {
   }
 }
 
+const checkWallet = async (collectionId, address) => {
+  try{
+    const mintStages = await MintDetails.find({collectionId: collectionId});
+    let stagNames = [];
+    let params = [];
+    let addresses = [];
+    mintStages.forEach(async (stage) => {
+      if(stage.name == "public" || stage.name == "Public"){
+        
+      }else{
+        stagNames.push(`addr-`+collectionId+`-`+stage.name+`.txt`);
+        params.push({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: `addr-`+collectionId+`-`+stage.name+`.txt`,
+        });
+      } 
+    });
+   
+    await downloadAllAddressFile(params, collectionId);
+    fs.readdirSync(process.cwd()+`/src/address/${collectionId}`).forEach((file) => {
+      fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${file}`, { encoding: 'utf8'}).split("\r\n").forEach((address) => {
+        addresses.push(address);
+      });
+    });
+
+   //filter the addresses array to remove items that appear more than once
+    let _addresses = addresses.filter((item, index) => {
+      return addresses.indexOf(item) === index;
+    });
+
+    if(_addresses.includes(address)){
+      return data = {
+        valid: true,
+        price: 0,
+        mintCount: 0,
+        message: `valid mint`
+      }
+    }else{
+      return data = {
+        valid: false,
+        price: 0,
+        mintCount: 0,
+        message: `address not valid for mint`
+      }
+    }
+  }catch(e){
+    console.log(e.message);
+  }
+};
+
 const verifyMint = async (collectionId, address, amount) => {
   try{
     const collection = await Collection.findOne({id: collectionId});
@@ -175,7 +225,7 @@ const verifyMint = async (collectionId, address, amount) => {
     };
     let c_address;
     let stage_name = `addr-`+collectionId+`-`+mintStage.name+`.txt`;
-    if(mintStage.name === "public"){ 
+    if(mintStage.name === "public" || mintStage.name === "Public"){ 
       let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
         if(!s_address) {
           let n_address = new Address({
@@ -256,7 +306,12 @@ const verifyMint = async (collectionId, address, amount) => {
           }
         }
       };
-      let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'}).split("\n");
+      let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
+      .split("\n")
+      .filter((item, index) => {
+        return allowedAddress.indexOf(item) === index;
+      });
+
       if(allowedAddress.includes(address)){
         let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
         if(!s_address) {
@@ -405,6 +460,7 @@ module.exports.addCollection = async (req, res) => {
       startAt,
     } = req.body;
 
+    if(!mintDetails) return res.status(200).json({status: false, message: "mint details required"});
     const banner = req.files.banner;
     const featuredImage = req.files.featuredImage;
     const collectionId = `c${uuidv4()}`;
@@ -463,6 +519,8 @@ module.exports.addCollection = async (req, res) => {
 
     const data = await compressAndSaveBulk(collectionId, false);
     //let startTime = new Date(startAt).getTime();
+    await addMintDetails(collectionId, JSON.parse(mintDetails));
+    let mintStage = await updateMintStage(collectionId, JSON.parse(mintDetails).details[0].name);
     const collection = new Collection({
       id: collectionId,
       status: `pending`,
@@ -475,6 +533,7 @@ module.exports.addCollection = async (req, res) => {
       collectionDetails: collectionDetails,
       collectionAddress: collectionAddress,
       description: description,
+      mintStage: mintStage,
       category: category,
       featuredCid: data.cid,
       startAt: startAt,
@@ -483,7 +542,6 @@ module.exports.addCollection = async (req, res) => {
         process.env.IPFS_IMAGE_URL + data.cid + `/featuredImage${f_ext}`,
     });
     await collection.save();
-    await addMintDetails(collectionId, mintDetails)
     return res
       .status(200)
       .json({ status: true, message: `ok`, userResponse: collectionId });
@@ -492,6 +550,37 @@ module.exports.addCollection = async (req, res) => {
     return res.status(400).json({ status: false, message: e.message });
   }
 };
+
+/**
+ {"details": [{
+  "name": "OG",
+  "mintLimit": 2,
+  "price": 85000,
+  "duration": 2
+}, {
+  "name": "Whitelist",
+  "mintLimit": 2,
+  "price": 85000,
+  "duration": 2
+},{
+  "name": "Public",
+  "mintLimit": 2,
+  "price": 85000,
+  "duration": 2
+}]} */
+module.exports.addMintDetails = async (req, res) => {
+  try{
+    const {collectionId, mintDetails} = req.body;
+    let saved = await addMintDetails(collectionId, mintDetails);
+    let mintStage = await updateMintStage(collectionId, mintDetails.details[0].name);
+    await Collection.findOneAndUpdate({id: collectionId}, {mintStage: mintStage}, {new: true});
+    if(!saved) return res.status(200).json({status: false, message: "mint details not added"});
+    return res.status(200).json({status: true, message: "mint details added"});
+  }catch(e){
+    console.log(e.message)
+  return res.status(200).json({ status: false, message: e.message });
+  };
+}
 
 module.exports.getMintDetails = async (req,res) => {
   try{
@@ -1713,10 +1802,10 @@ module.exports.mintOnSat = async (req, res) => {
 
     let _cost = {
         serviceCharge: cost.serviceCharge,
-        inscriptionCost: cost.inscriptionCost + 10000,
+        inscriptionCost: cost.inscriptionCost,
         sizeFee: cost.sizeFee,
         postageFee: cost.postageFee,
-        total: cost.total + 10000,
+        total: cost.total,
     }
     
     const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -1803,10 +1892,11 @@ module.exports.checkWhitelist = async (req, res) => {
   try{
     const {collectionId, address} = req.body;
     const collection = await Collection.findOne({id: collectionId});
+    if(verifyAddress(address, collection.flag) === false) return res.status(200).json({status: false, message: "Invalid address"});
     if(collection.ended == true) {
       return res.status(200).json({status: false, message: "collection mint ended"});
     }else{
-      const details = await verifyMint(collectionId, address, 0);
+      const details = await checkWallet(collectionId, address);
       if(details.message == "No mint stage set") return res.status(200).json({status: false, message: "No mint stage set"});
       return res.status(200).json({status: true, message: "ok", userResponse: details});
     }

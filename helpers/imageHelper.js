@@ -124,6 +124,39 @@ const downloadAddressFile = async (fileName, collectionId) => {
  }
 };
 
+const downloadAllAddressFile = async (params, collectionId) => {
+  try{let s3bucket = new aws.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_KEY,
+    Bucket: process.env.S3_BUCKET_NAME,
+    region: process.env.S3_BUCKET_REGION,
+  });
+
+  if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}`)){
+    fs.mkdirSync(process.cwd()+`/src/address/${collectionId}`, { recursive: true }, (err) => {
+      console.log(err);
+    });
+  }
+
+  const downloadPromises = params.map((param) => {
+    const file = fs.createWriteStream(process.cwd()+`/src/address/${collectionId}/${param.Key}`);
+    return new Promise((resolve, reject) => {
+      s3bucket.getObject(param)
+        .createReadStream()
+        .pipe(file)
+        .on('finish', resolve)
+        .on('error', reject);
+    });
+  });
+  await Promise.all(downloadPromises);
+  return true;
+}catch(error){
+  console.log(error);
+  console.log('Error occurred during file downloads:', error.message);
+    return false;
+ }
+};
+
 const downloadBulkFromS3 = async (params, inscriptionId) => {
   try {
     const s3bucket = new aws.S3({
@@ -592,5 +625,6 @@ module.exports = {
   saveFile,
   saveFileS3,
   downloadFromS3,
-  downloadAddressFile
+  downloadAddressFile,
+  downloadAllAddressFile
 };
