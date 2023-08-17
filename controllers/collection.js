@@ -1662,8 +1662,8 @@ module.exports.getCollection = async (req, res) => {
     let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
     s_mintDetails.forEach((item, index) => {
       if(item._id.toString() === mintStage.toString()){
-        _mintStage = item.name;
         price = item.price/1e8;
+        _mintStage = item.name;
         details.push({
           stage: item.name,
           price: item.price/1e8,
@@ -1671,7 +1671,6 @@ module.exports.getCollection = async (req, res) => {
           duration: item.duration,
         })
       }else{
-        price = item.price/1e8;
         details.push({
           stage: item.name,
           price: item.price/1e8,
@@ -1713,7 +1712,7 @@ module.exports.getCollection = async (req, res) => {
         collectionName: collection.name,
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
-        price: price || collection.price/1e8,
+        price: price / 1e8,
         category: collection.category,
         collectionCount: collection.collectionDetails.totalSupply,
         mintedCount: mintedCount,
