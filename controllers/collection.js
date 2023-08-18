@@ -306,9 +306,8 @@ const verifyMint = async (collectionId, address, amount) => {
           }
         }
       };
-      let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
-      .split("\r\n")
-      .filter((item, index) => {
+      let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'}).split("\r\n")
+      allowedAddress.filter((item, index) => {
         return allowedAddress.indexOf(item) === index;
       });
 
