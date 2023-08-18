@@ -307,7 +307,7 @@ const verifyMint = async (collectionId, address, amount) => {
         }
       };
       let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
-      .split("\n")
+      .split("\r\n")
       .filter((item, index) => {
         return allowedAddress.indexOf(item) === index;
       });
@@ -1841,10 +1841,10 @@ module.exports.mintOnSat = async (req, res) => {
     userResponse = {
       cost: {
         serviceCharge: _cost.serviceCharge,
-        inscriptionCost: _cost.inscriptionCost,
+        inscriptionCost: _cost.inscriptionCost + 5000,
         sizeFee: _cost.sizeFee,
         postageFee: _cost.postageFee,
-        total: _cost.total,
+        total: _cost.total + 5000,
       },
       paymentAddress: paymentAddress,
       inscriptionId: inscriptionId,
