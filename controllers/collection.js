@@ -1656,7 +1656,7 @@ module.exports.getCollection = async (req, res) => {
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
     }
-    
+    let totalSupply = collection.collectionDetails.totalSupply;
     let mappedObjectId = mintDetails.map(val => val.toString())
     let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
     s_mintDetails.forEach((item, index) => {
@@ -1697,6 +1697,11 @@ module.exports.getCollection = async (req, res) => {
       }
     }
 
+    if(collection.ended === true) {
+      mintedCount = null;
+      totalSupply = null;
+    }
+
     if (collection.userSelect === "false" && !collection.specialSat) {
       type = "single";
     }else if(collection.userSelect === "true" && !collection.specialSat){
@@ -1715,7 +1720,7 @@ module.exports.getCollection = async (req, res) => {
         category: collection.category,
         collectionCount: collection.collectionDetails.totalSupply,
         mintedCount: mintedCount,
-        totalSupply: collection.collectionDetails.totalSupply,
+        totalSupply: totalSupply,
         bannerUrl: collection.banner,
         featuredUrl: collection.featuredImage,
         website: collection.collectionDetails.website,
