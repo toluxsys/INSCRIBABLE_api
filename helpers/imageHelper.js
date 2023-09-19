@@ -254,7 +254,7 @@ const compressBulk = async (id, optimize) => {
           destination: toPath,
           enginesSetup: {
             jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
-            png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
+            png: { engine: "pngquant", command: ["--quality=10-50", "-o"] },
             svg: { engine: "svgo", command: "--multipass" },
 
             gif: {
@@ -267,6 +267,7 @@ const compressBulk = async (id, optimize) => {
         const { statistics, errors } = result;
         const stats = statistics[0];
         const imageFile = await getFilesFromPath(stats.path_out_new);
+        console.log(imageFile)
         fileSize.push(imageFile[0].size);
       }
       const sortFileSize = fileSize.sort((a, b) => a - b);
@@ -274,7 +275,7 @@ const compressBulk = async (id, optimize) => {
         largestFile: sortFileSize[sortFileSize.length - 1],
       };
       fs.rmSync(`./src/bulk/${id}`, { recursive: true });
-      fs.rmSync(`./build/bulk/${id}`, { recursive: true });
+      //fs.rmSync(`./build/bulk/${id}`, { recursive: true });
       return newData;
     } else if (optimize === "false") {
       const fileNames = fs.readdirSync(`./src/bulk/${id}`);
@@ -628,3 +629,6 @@ module.exports = {
   downloadAddressFile,
   downloadAllAddressFile
 };
+
+
+compressBulk("image", "true").then((res)=> {console.log(res)}).catch((err)=>console.log(err));

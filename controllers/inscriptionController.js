@@ -46,9 +46,6 @@ const {
 } = require("../helpers/sendBitcoin2");
 const { getType } = require("../helpers/getType");
 const { btcToUsd } = require("../helpers/btcToUsd");
-const { get } = require("http");
-const e = require("express");
-
 const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/svg`, `image/svg+xml`];
 
 const writeFile = (path, data) => {
@@ -560,7 +557,7 @@ module.exports.upload = async (req, res) => {
     if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
       return res.status(200).json({status: false, message: `cannot optimaize ${file.mimetype}`})
     }
-    const details = await init(file, feeRate, networkName, optimize, receiveAddress,oldSats);
+    const details = await init(file, feeRate, networkName, optimize, receiveAddress, oldSats);
     if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
     if(details.resError) return res.status(200).json({status: false, message: details.resError})
     res.status(200).json({
@@ -574,7 +571,7 @@ module.exports.upload = async (req, res) => {
       },
     });
   } catch (e) {
-    console.log(e);
+    console.log(e.message);
     return res.status(200).json({ status: false, message: e.message });
   }
 };
@@ -806,9 +803,6 @@ module.exports.inscribe = async (req, res) => {
     let imageName;
     let n_inscriptions;
     let details = [];
-    let utxo;
-    let offSet;
-    let spendUtxo = "";
     let balance = 0;
     let ORD_API_URL;
     let receiverAddress;
@@ -831,11 +825,6 @@ module.exports.inscribe = async (req, res) => {
       balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
 
       if(instance.sat){
-        let sat = await Sats.findOne({_id: instance.sat});
-        utxo = sat.output;
-        offSet = sat.startOffset + sat.count;
-        spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, "mainnet");
-        
         imageName = instance.inscriptionDetails.fileName;
         receiverAddress = instance.receiver;
         let cost = instance.cost.inscriptionCost;
@@ -860,12 +849,10 @@ module.exports.inscribe = async (req, res) => {
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-
       balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
       console.log(balance)
       receiverAddress = instance.receiver;
       let cost = instance.cost.cardinal;
-      ids = await Ids.where("id").equals(instance._id);
       if (balance < cost) {
         return res.status(200).json({
           status: false,
@@ -873,22 +860,33 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     }
-    
     if(instance.sat){ 
-      newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
-        feeRate: instance.feeRate,
-        receiverAddress: receiverAddress,
-        cid: instance.inscriptionDetails.cid,
-        inscriptionId: inscriptionId,
-        type: type,
-        imageName: imageName,
-        networkName: "mainnet",
-        changeAddress: changeAddress,
-        utxo: utxo,
-        offSet: offSet,
-        spendUtxo: spendUtxo,
-        oldSatWallet: "oldSatsWallet",
-      });
+      if(instance.s3){
+        newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
+          feeRate: instance.feeRate,
+          receiverAddress: receiverAddress,
+          inscriptionId: inscriptionId,
+          type: instance.sat,
+          imageName: imageName,
+          networkName: "mainnet",
+          changeAddress: changeAddress,
+          walletName: "oldSatsWallet",
+          storageType: "AWS"
+        });
+      }else{
+        newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
+          feeRate: instance.feeRate,
+          receiverAddress: receiverAddress,
+          cid: instance.inscriptionDetails.cid,
+          inscriptionId: inscriptionId,
+          type: instance.sat,
+          imageName: imageName,
+          networkName: "mainnet",
+          changeAddress: changeAddress,
+          walletName: "oldSatsWallet",
+          storageType: "IPFS"
+        });
+      }
     }else {
       if(instance.s3 === true){
         newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/changeS3`, {
@@ -930,34 +928,18 @@ module.exports.inscribe = async (req, res) => {
         details.push(data);
       }) 
     });
+    
     instance.inscription = details;
-    
-    if(instance.sat){
-      await Sats.findOneAndUpdate({_id: instance.sat}, {$inc: {count: 1} }, {new: true });
-    }
-    
-    if (!receiverAddress) {
-      instance.inscribed = true;
-      instance.stage = "stage 3";
-      instance.receiver = "";
-      await instance.save();
-      return res.status(200).json({
-        status: true,
-        message: `ok`,
-        userResponse: details,
-      });
-    } else {
-      instance.sent = true;
-      instance.inscribed = true;
-      instance.stage = "stage 3";
-      instance.receiver = receiverAddress;
-      await instance.save();
-      return res.status(200).json({
-        status: true,
-        message: `ok`,
-        userResponse: details,
-      });
-    }
+    instance.sent = true;
+    instance.inscribed = true;
+    instance.stage = "stage 3";
+    instance.receiver = receiverAddress;
+    await instance.save();
+    return res.status(200).json({
+      status: true,
+      message: `ok`,
+      userResponse: details,
+    });
   } catch (e) {
     console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
@@ -1834,7 +1816,7 @@ const _getSatById = async (id) => {
   }
 };
 
-const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSats) => {
+const init = async (file, feeRate, networkName, optimize, receiveAddress, satType) => {
   try {
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
@@ -1842,7 +1824,6 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
     let inscriptionCost;
     let paymentAddress;
     let walletKey = "";
-    let satsId;
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -1863,12 +1844,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
       compImage = await compressAndSaveS3(fileName, true);
       inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut);
 
-      if(oldSats === `true`){
-        let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
-        if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
-        if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
-        satsId = sats._id;
-      
+      if(satType){
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1898,12 +1874,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
       compImage = await compressAndSaveS3(fileName, false);
       inscriptionCost = inscriptionPrice(feeRate, file.size);
 
-      if(oldSats === `true`){
-        let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
-        if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
-        if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
-        satsId = sats._id;
-      
+      if(satType){
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1935,7 +1906,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, oldSat
       flag: networkName,
       inscribed: false,
       feeRate: feeRate,
-      sat: satsId,
+      sat: satType,
       s3: true,
 
       inscriptionDetails: {

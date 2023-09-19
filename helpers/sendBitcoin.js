@@ -166,7 +166,7 @@ const sendBitcoin = async (payAddressId, recieverDetails, network) => {
     const transactionSize =
       inputCount * 180 + outputCount * 34 + 10 - inputCount;
 
-    fee = (transactionSize * recommendedFee.fastestFee)/2;
+    fee = (transactionSize * recommendedFee.fastestFee)/4;
 
     if (totalAmountAvailable - amount - fee === 0) {
       throw new Error("Balance is too low for this transaction");
