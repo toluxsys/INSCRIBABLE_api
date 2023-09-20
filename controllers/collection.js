@@ -1674,7 +1674,7 @@ module.exports.getCollection = async (req, res) => {
     let collectionItems;
     let type;
     if(collection.specialSat) {
-      collectionItems = [];  
+      collectionItems = await getLinks(collection.itemCid);  
     }else{
       collectionItems = await getLinks(collection.itemCid);
     };
