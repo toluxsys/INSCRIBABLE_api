@@ -794,7 +794,6 @@ module.exports.seleteItem = async (req, res) => {
     let paymentAddress;
     let cost;
     let sortedImages = [];
-    let satsId;
     let walletKey;
     let ORD_API_URL;
     if(collection.ended === true) return res.status(200).json({status: false, message: "collection has ended"});
@@ -916,11 +915,7 @@ module.exports.seleteItem = async (req, res) => {
         collectionId
       );
         //get offset and utxo from db
-        if (oldSats === "true"){
-          let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
-          if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
-          if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
-          satsId = sats._id;
+        if (oldSats){
           const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
           const r_data = {
             collectionName: "oldSatsWallet",
@@ -967,7 +962,7 @@ module.exports.seleteItem = async (req, res) => {
         feeRate: feeRate,
         collectionId: collectionId,
         selected: savedSelected._id,
-        sat: satsId,
+        sat: oldSats,
 
         inscriptionDetails: {
           payAddress: paymentAddress,
@@ -1502,7 +1497,7 @@ module.exports.inscribe = async (req, res) => {
         collectionId: collectionId,
         cid: collection.itemCid,
         imageNames: imageNames,
-        type: collection.specialSat,
+        type: instance.specialSat,
         networkName: "mainnet",
         changeAddress: changeAddress,
         inscriptionId: inscriptionId,
