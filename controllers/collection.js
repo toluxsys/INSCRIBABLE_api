@@ -1499,11 +1499,13 @@ module.exports.inscribe = async (req, res) => {
       newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
         feeRate: instance.feeRate,
         receiverAddress: receiveAddress,
+        collectionId: collectionId,
         cid: collection.itemCid,
-        imageName: imageNames,
+        imageNames: imageNames,
         type: collection.specialSat,
         networkName: "mainnet",
         changeAddress: changeAddress,
+        inscriptionId: inscriptionId,
         walletName: "oldSatsWallet",
         storageType: "IPFS",
         paymentAddress: instance.inscriptionDetails.payAddress

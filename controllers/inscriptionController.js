@@ -865,13 +865,13 @@ module.exports.inscribe = async (req, res) => {
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
           feeRate: instance.feeRate,
           receiverAddress: receiverAddress,
-          inscriptionId: inscriptionId,
           type: instance.sat,
           imageName: imageName,
           networkName: "mainnet",
           changeAddress: changeAddress,
           walletName: "oldSatsWallet",
-          storageType: "AWS"
+          storageType: "AWS",
+          paymentAddress: instance.inscriptionDetails.payAddress,
         });
       }else{
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
@@ -884,7 +884,8 @@ module.exports.inscribe = async (req, res) => {
           networkName: "mainnet",
           changeAddress: changeAddress,
           walletName: "oldSatsWallet",
-          storageType: "IPFS"
+          storageType: "IPFS",
+          paymentAddress: instance.inscriptionDetails.payAddress
         });
       }
     }else {

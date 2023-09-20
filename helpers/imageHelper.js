@@ -631,4 +631,4 @@ module.exports = {
 };
 
 
-compressBulk("image", "true").then((res)=> {console.log(res)}).catch((err)=>console.log(err));
+//compressBulk("image", "true").then((res)=> {console.log(res)}).catch((err)=>console.log(err));
