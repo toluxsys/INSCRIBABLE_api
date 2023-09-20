@@ -15,6 +15,7 @@ const SelectedItems = require("../model/selectedItems");
 const ServiceFee = require("../model/serviceFee");
 const Sats = require("../model/sats");
 const { getType } = require("../helpers/getType");
+const {addressImage} = require("../helpers/addressImage")
 const {
   createHDWallet,
   addWalletToOrd,
@@ -38,6 +39,7 @@ const {
 const MintDetails = require("../model/mintDetails");
 const { start } = require("repl");
 const { get } = require("express/lib/response");
+const mintDetails = require("../model/mintDetails");
 const ObjectId = require('mongoose').Types.ObjectId; 
 let satTypes = ['rare', 'common', 'block9', 'block84', 'pizza','pizza1','uncommon', '2009', '2010', '2011'];
 
@@ -73,7 +75,7 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId) => {
   const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 4) * feeRate);
   const cost = sats + 1500 + 550;
-  const sizeFee = Math.ceil(cost / 2);
+  const sizeFee = Math.ceil(cost / 5);
   const total = serviceCharge + cost + parseInt(sizeFee) + price;
   return {
     serviceCharge,
@@ -141,24 +143,23 @@ const checkTimeElapsed = (timestamp) => {
 const addMintDetails = async (collectionId, details) => {
   try{
     // let details = await JSON.parse(items);
-    let collection = await Collection.findOne({id: collectionId});
-    if(collection.mintDetails.length > 1) throw new Error("mint details already added");
+    let allDetails = []
     details.details.forEach(async (detail) => {
       //convert duration from hours to seconds
       let duration = detail.duration * 60 * 60;
-      const mintDetails = new MintDetails({
-        collectionId: collectionId,
-        name: detail.name,
-        mintLimit: detail.mintLimit,
-        price: detail.price,
-        duration: duration,
-      })
-      let savedDetails = await mintDetails.save();
-      await Collection.findOneAndUpdate({id: collectionId}, {$push: {mintDetails: savedDetails._id}}, {new: true});
+      allDetails.push({
+          collectionId: collectionId,
+          name: detail.name,
+          mintLimit: detail.mintLimit,
+          price: detail.price,
+          duration: duration,
+        })
     });
-    return true;
+    let savedDetails = await MintDetails.insertMany(allDetails);
+    let ids = savedDetails.map(item => item._id)
+    return ids;
   }catch(e){
-    console.log(e);
+    console.log(e.message);
     return false;
   }
 }
@@ -306,10 +307,23 @@ const verifyMint = async (collectionId, address, amount) => {
           }
         }
       };
+<<<<<<< HEAD
       let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'}).split("\r\n")
       allowedAddress.filter((item, index) => {
+=======
+      let regex = /[^,\r\n]+/g;
+      let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
+      let allowedAddress = _allowedAddress.match(regex)
+      .split(",")
+      .filter((item, index) => {
+>>>>>>> 1f573ac002a10134a19f496279e56f9291f11011
         return allowedAddress.indexOf(item) === index;
       });
+
+      // if(allowedAddress[0].split("").includes(":")){
+      //   let images = addressImage(allowedAddress, address)
+        
+      // }
 
       if(allowedAddress.includes(address)){
         let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
@@ -395,8 +409,6 @@ const updateMintStage = async (collectionId, stage) => {
   try{
     const collection = await Collection.findOne({id: collectionId});
     const mintDetails = collection.mintDetails;
-    //let savedCollection;
-
     let mappedObjectId = mintDetails.map(val => val.toString())
     let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
     let stageId; 
@@ -412,7 +424,6 @@ const updateMintStage = async (collectionId, stage) => {
     throw new Error(e.message);
   }
 }
-
 
 module.exports.updateMintStage = async (req, res) => {
   try{
@@ -518,8 +529,7 @@ module.exports.addCollection = async (req, res) => {
 
     const data = await compressAndSaveBulk(collectionId, false);
     //let startTime = new Date(startAt).getTime();
-    await addMintDetails(collectionId, JSON.parse(mintDetails));
-    let mintStage = await updateMintStage(collectionId, JSON.parse(mintDetails).details[0].name);
+    let ids = await addMintDetails(collectionId, JSON.parse(mintDetails));
     const collection = new Collection({
       id: collectionId,
       status: `pending`,
@@ -532,7 +542,8 @@ module.exports.addCollection = async (req, res) => {
       collectionDetails: collectionDetails,
       collectionAddress: collectionAddress,
       description: description,
-      mintStage: mintStage,
+      mintStage: ids[ids.length-1],
+      mintDetails:ids,
       category: category,
       featuredCid: data.cid,
       startAt: startAt,
@@ -545,7 +556,7 @@ module.exports.addCollection = async (req, res) => {
       .status(200)
       .json({ status: true, message: `ok`, userResponse: collectionId });
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
     return res.status(400).json({ status: false, message: e.message });
   }
 };
@@ -1451,7 +1462,6 @@ module.exports.inscribe = async (req, res) => {
     let details = [];
     let ORD_API_URL;
     let receiveAddress;
-    let spendUtxo;
     let balance = 0;
 
     const collection = await Collection.findOne({id: collectionId});
@@ -1475,12 +1485,6 @@ module.exports.inscribe = async (req, res) => {
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
         });
       }
-      if(instance.sat){
-        let sat = await Sats.findOne({_id: instance.sat});
-        utxo = sat.output;
-        offSet = sat.startOffset + sat.count;
-        spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, "mainnet");
-      }
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
@@ -1496,20 +1500,20 @@ module.exports.inscribe = async (req, res) => {
       }
     }
 
-    if(instance.sat){ 
+    if(collection.specialSat){ 
       newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
         feeRate: instance.feeRate,
         receiverAddress: receiveAddress,
+        collectionId: collectionId,
         cid: collection.itemCid,
-        inscriptionId: inscriptionId,
-        imageName: imageNames,
+        imageNames: imageNames,
+        type: collection.specialSat,
         networkName: "mainnet",
         changeAddress: changeAddress,
-        collectionId: collectionId,
-        utxo: utxo,
-        offSet: offSet,
-        spendUtxo: spendUtxo,
-        oldSatWallet: "oldSatsWallet",
+        inscriptionId: inscriptionId,
+        walletName: "oldSatsWallet",
+        storageType: "IPFS",
+        paymentAddress: instance.inscriptionDetails.payAddress
       });
     }else{
       newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/change`, {
@@ -1534,10 +1538,9 @@ module.exports.inscribe = async (req, res) => {
     n_inscriptions.forEach((item) => {
       let inscriptions = item.inscriptions;
       inscriptions.map((e) => {
-        const data = {
+        details.push({
           inscription: e,
-        };
-        details.push(data);
+        });
       }) 
     });
 
