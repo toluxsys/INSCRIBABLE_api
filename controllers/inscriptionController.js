@@ -78,7 +78,6 @@ module.exports.inscribeText = async (req, res) => {
     const fileName = new Date().getTime().toString() + `.txt`;
     let walletKey = "";
     let paymentAddress;
-    let satsId;
     s3 = false;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
@@ -93,14 +92,9 @@ module.exports.inscribeText = async (req, res) => {
     let fileDetail;
     let inscriptionCost;
 
-    if(oldSats === `true`){
+    if(oldSats){
       fileDetail = await saveFile(fileName);
       inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
-      let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
-      if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
-      if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
-      satsId = sats._id;
-    
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: "oldSatsWallet",
@@ -136,7 +130,7 @@ module.exports.inscribeText = async (req, res) => {
       feeRate: feeRate,
       receiver: receiveAddress,
       inscriptionType: "text",
-      sat: satsId,
+      sat: oldSats,
       s3: s3,
 
       inscriptionDetails: {
@@ -182,7 +176,6 @@ module.exports.brc20 = async (req, res) => {
     const fileName = new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
-    let satsId;
     let s3 = false;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
@@ -215,14 +208,9 @@ module.exports.brc20 = async (req, res) => {
     writeFile(s_path, s_data);
     let fileDetail;
     let inscriptionCost;
-    if(oldSats === `true`){
+    if(oldSats){
       fileDetail = await saveFile(fileName);
       inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
-      let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
-      if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
-      if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
-      satsId = sats._id;
-    
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: "oldSatsWallet",
@@ -258,7 +246,7 @@ module.exports.brc20 = async (req, res) => {
       feeRate: feeRate,
       receiver: receiveAddress,
       inscriptionType: "brc20",
-      sat: satsId,
+      sat: oldSats,
       s3: s3,
 
       inscriptionDetails: {
@@ -304,7 +292,6 @@ module.exports.satNames = async (req, res) => {
     const fileName = new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
-    let satsId;
     let s3 = false;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
@@ -332,14 +319,9 @@ module.exports.satNames = async (req, res) => {
     let fileDetail;
     let inscriptionCost;
 
-    if(oldSats === `true`){
+    if(oldSats){
       fileDetail = await saveFile(fileName);
       inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
-      let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
-      if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
-      if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
-      satsId = sats._id;
-    
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: "oldSatsWallet",
@@ -375,7 +357,7 @@ module.exports.satNames = async (req, res) => {
       feeRate: feeRate,
       receiver: receiveAddress,
       inscriptionType: "sns",
-      sat: satsId,
+      sat: oldSats,
       s3: s3,
 
       inscriptionDetails: {
@@ -433,7 +415,6 @@ module.exports.brc1155 = async (req, res) => {
     let ORD_API_URL;
     let walletKey = "";
     let paymentAddress;
-    let satsId;
     let s3 = false;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
@@ -468,11 +449,6 @@ module.exports.brc1155 = async (req, res) => {
       if(oldSats === `true`){
         fileDetail = await saveFile(fileName);
         inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
-        let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
-        if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
-        if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
-        satsId = sats._id;
-      
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -508,7 +484,7 @@ module.exports.brc1155 = async (req, res) => {
         feeRate: feeRate,
         receiver: receiveAddress,
         inscriptionType: "brc1155",
-        sat: satsId,
+        sat: oldSats,
         s3: s3,
 
         inscriptionDetails: {
