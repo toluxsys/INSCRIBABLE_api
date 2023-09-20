@@ -307,16 +307,11 @@ const verifyMint = async (collectionId, address, amount) => {
           }
         }
       };
-<<<<<<< HEAD
-      let allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'}).split("\r\n")
-      allowedAddress.filter((item, index) => {
-=======
       let regex = /[^,\r\n]+/g;
       let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
       let allowedAddress = _allowedAddress.match(regex)
       .split(",")
       .filter((item, index) => {
->>>>>>> 1f573ac002a10134a19f496279e56f9291f11011
         return allowedAddress.indexOf(item) === index;
       });
 

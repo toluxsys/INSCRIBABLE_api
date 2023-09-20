@@ -173,6 +173,3 @@ module.exports = {
 //     .then((res) => console.log(res))
 //     .catch((e) => console.log(e))
 // );
-
-
-console.log(new Mnemonic(Mnemonic.Words.ENGLISH).toString())
