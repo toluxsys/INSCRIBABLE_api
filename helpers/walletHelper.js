@@ -13,7 +13,7 @@ const getNetwork = (networkName) => {
   } else if (networkName === "testnet") {
     network = Networks.testnet;
   } else {
-    throw new Error(`invalid network: ${networkName}, was parsed`);
+    throw new Error(`invalid network: ${networkName}, was provided`);
   }
   return network;
 };
@@ -173,3 +173,6 @@ module.exports = {
 //     .then((res) => console.log(res))
 //     .catch((e) => console.log(e))
 // );
+
+
+console.log(new Mnemonic(Mnemonic.Words.ENGLISH).toString())
