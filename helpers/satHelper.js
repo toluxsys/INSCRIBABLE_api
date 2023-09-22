@@ -13,7 +13,7 @@ const init = async (network) => {
     });
   
     return { addresses, fees, transactions };
-  };
+};
   
 const initMongoDb = async () => {
     const uri = process.env.SATS_DB_URI;
@@ -53,9 +53,12 @@ const getSats = async () => {
             } 
         }
 
+        sats.push({satType:"ordinary", available:100000, utxoCount:1 })
+
         available.forEach((value, key) => {
             sats.push({satType:key, available:value, utxoCount:satCount.get(key) })
         })
+        
         await client.close();
 
         return sats

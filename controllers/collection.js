@@ -109,7 +109,7 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType)
   if(sizeFee < 1024){
     sizeFee = 1024
   }
-  if(satType !== "none"){
+  if(satType !== "ordinary"){
      satCost = await getSatCost(satType)
   }
   const total = serviceCharge + cost + sizeFee + price + satCost;
@@ -901,15 +901,16 @@ module.exports.selectItem = async (req, res) => {
       });
     }
 
-    if (imageNames.length > 1) {
-      sortedImages = fileSize.sort((a, b) => a - b);
+    sortedImages = fileSize.sort((a, b) => a - b);
       cost = await inscriptionPrice(
         feeRate,
         sortedImages[sortedImages.length - 1],
         price,
         collectionId,
-        "none"
-      );
+        oldSats
+    );
+
+    if (imageNames.length > 1) {
       const total = cost.total * imageNames.length;
       const cardinals = cost.inscriptionCost * imageNames.length;
 
@@ -955,17 +956,7 @@ module.exports.selectItem = async (req, res) => {
 
       await inscription.save();
     } else {
-      sortedImages = fileSize.sort((a, b) => a - b);
-        
-        if (oldSats){
-          cost = await inscriptionPrice(
-            feeRate,
-            sortedImages[sortedImages.length - 1],
-            price,
-            collectionId,
-            oldSats,
-          );
-
+        if (!oldSats === "ordinary"){
           const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
           const r_data = {
             collectionName: "oldSatsWallet",
@@ -985,15 +976,6 @@ module.exports.selectItem = async (req, res) => {
           await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
 
         } else {
-
-          cost = await inscriptionPrice(
-            feeRate,
-            sortedImages[sortedImages.length - 1],
-            price,
-            collectionId,
-            "none"
-          );
-
           walletKey = await addWalletToOrd(inscriptionId, networkName);
           const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
           const r_data = {
@@ -1012,7 +994,6 @@ module.exports.selectItem = async (req, res) => {
           })
           savedSelected = await selectedItems.save();
           await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
-
         }      
       inscription = new Inscription({
         id: inscriptionId,
@@ -1050,6 +1031,7 @@ module.exports.selectItem = async (req, res) => {
         serviceCharge: cost.serviceCharge * imageNames.length,
         inscriptionCost: cost.inscriptionCost * imageNames.length,
         sizeFee: cost.sizeFee * imageNames.length,
+        satCost: cost.satCost,
         postageFee: cost.postageFee,
         total: cost.total * imageNames.length,
       },
@@ -1069,7 +1051,7 @@ module.exports.selectItem = async (req, res) => {
 
 module.exports.calc = async (req, res) => {
   try {
-    const { collectionId, feeRate, imageNames } = req.body;
+    const { collectionId, feeRate, imageNames, oldSats } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
     const items = await getLinks(cid, collection.collectionDetails.totalSupply);
@@ -1121,24 +1103,15 @@ module.exports.calc = async (req, res) => {
       });
     }
 
-    if (imageNames.length > 1) {
-      sortedImages = fileSize.sort((a, b) => a - b);
-      cost = await inscriptionPrice(
-        feeRate,
-        sortedImages[sortedImages.length - 1],
-        price,
-        collectionId
-      );
-    } else {
-      sortedImages = fileSize.sort((a, b) => a - b);
-      cost = await inscriptionPrice(
-        feeRate,
-        sortedImages[sortedImages.length - 1],
-        price,
-        collectionId
-      );
-    }
-
+    sortedImages = fileSize.sort((a, b) => a - b);
+    cost = await inscriptionPrice(
+      feeRate,
+      sortedImages[sortedImages.length - 1],
+      price,
+      collectionId,
+      oldSats
+    );
+    
     userResponse = {
       cost: {
         serviceCharge: cost.serviceCharge * imageNames.length,
@@ -1550,7 +1523,7 @@ module.exports.inscribe = async (req, res) => {
       }
     }
 
-    if(collection.specialSat){ 
+    if(instance.specialSat !== "ordinary"){ 
       newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
         feeRate: instance.feeRate,
         receiverAddress: receiveAddress,
@@ -1596,9 +1569,6 @@ module.exports.inscribe = async (req, res) => {
 
     await Address.findOneAndUpdate({mintStage: collection.mintStage, address: instance.receiver}, {$inc: {mintCount: instance.fileNames.length}}, {new: true});
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: instance.selected}}}, { new: true }); 
-    if(instance.sat){
-      await Sats.findOneAndUpdate({_id: instance.sat}, {$inc: {count: 1} }, {new: true });
-    }
     if (!receiveAddress) {
       instance.inscription = details;
       instance.inscribed = true;

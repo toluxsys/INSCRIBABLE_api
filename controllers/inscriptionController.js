@@ -527,7 +527,7 @@ module.exports.upload = async (req, res) => {
     let feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     let optimize = req.body.optimize;
-    const receiveAddress = req.body.receiveAddress;
+    let receiveAddress = req.body.receiveAddress;
     let oldSats = req.body.oldSats;
 
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
@@ -538,12 +538,13 @@ module.exports.upload = async (req, res) => {
     const details = await init(file, feeRate, networkName, optimize, receiveAddress, oldSats);
     if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
     if(details.resError) return res.status(200).json({status: false, message: details.resError})
-    res.status(200).json({
+    
+    return res.status(200).json({
       status: true,
       message: "ok",
       userResponse: {
         compImage: details.compImage,
-        cost: details.inscriptionCost,
+        cost: await details.inscriptionCost,
         paymentAddress: details.paymentAddress,
         inscriptionId: details.inscriptionId,
       },
@@ -802,28 +803,16 @@ module.exports.inscribe = async (req, res) => {
 
       balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
 
-      if(instance.sat){
-        imageName = instance.inscriptionDetails.fileName;
-        receiverAddress = instance.receiver;
-        let cost = instance.cost.inscriptionCost;
-        if (balance < cost) {
-          return res.status(200).json({
+      imageName = instance.inscriptionDetails.fileName;
+      receiverAddress = instance.receiver;
+      let cost = instance.cost.inscriptionCost;
+      if (balance < cost) {
+        return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-         });
-        }
-      }else{
-        imageName = instance.inscriptionDetails.fileName;
-        console.log(imageName);
-        receiverAddress = instance.receiver;
-        let cost = instance.cost.inscriptionCost;
-        if (balance < cost) {
-          return res.status(200).json({
-            status: false,
-            message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-          });
-        }
+        });
       }
+      
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
@@ -838,8 +827,8 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     }
-    if(instance.sat){ 
-      if(instance.s3){
+    if(instance.sat && instance.sat !=="ordinary"){ 
+      if(instance.s3 === true){
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
           feeRate: instance.feeRate,
           receiverAddress: receiverAddress,
@@ -986,11 +975,11 @@ module.exports.inscriptionCalc = async (req, res) => {
     const file = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
-    const details = await getInscriptionCost(file, feeRate, optimize);
+    const oldSats = req.body.oldSats
+    const details = await getInscriptionCost(file, feeRate, optimize, oldSats);
     if(typeof(details) === `string`){
       return res.status(200).json({status: false, message: details});
     }
-
     return res.status(200).json({
       status: true,
       message: "ok",
@@ -1823,7 +1812,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     
     if (optimize === `true`) {
       compImage = await compressAndSaveS3(fileName, true);
-      if(satType){
+      if(!satType === "ordinary"){
         inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1837,7 +1826,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
-        inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, "none");
+        inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1854,7 +1843,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     } else if (optimize === `false`) {
       compImage = await compressAndSaveS3(fileName, false);
       
-      if(satType){
+      if(!satType === "ordinary"){
         inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1868,7 +1857,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
-        inscriptionCost = inscriptionPrice(feeRate, file.size, "none");
+        inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -2065,15 +2054,15 @@ const getSatCost = async (type) => {
 }
 
 const inscriptionPrice = async (feeRate, fileSize, satType) => {
-  const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
-  const sats = Math.ceil((fileSize / 4) * feeRate);
-  const cost = sats + 1500 + 550;
-  const sizeFee = parseInt(Math.ceil(cost / 10));
+  let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
+  let sats = Math.ceil((fileSize / 4) * feeRate);
+  let cost = sats + 1500 + 550;
+  let sizeFee = parseInt(Math.ceil(cost / 10));
   let satCost = 0
   if(sizeFee < 1024){
     sizeFee = 1024
   }
-  if(satType !== "none"){
+  if(satType !== "ordinary"){
      satCost = await getSatCost(satType)
   }
   const total = serviceCharge + cost + sizeFee + satCost;
