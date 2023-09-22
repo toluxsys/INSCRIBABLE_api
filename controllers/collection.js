@@ -157,7 +157,6 @@ const addMintDetails = async (collectionId, details) => {
     });
     let savedDetails = await MintDetails.insertMany(allDetails);
     let ids = savedDetails.map(item => item._id)
-    console.log(ids)
     return ids;
   }catch(e){
     console.log(e.message);
