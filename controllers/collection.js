@@ -278,18 +278,46 @@ const verifyMint = async (collectionId, address, amount) => {
             mintCount: 0,
             message: "valid mint"
           }
-        }else{ 
-          if(s_address.pendingOrders.length >= mintStage.mintLimit){
-            let pendingOrders = [];
-            let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
-            let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
-            _pendingOrders.forEach((item)=>{
+        }else if(s_address.pendingOrders.length >= mintStage.mintLimit){
+          let pendingOrders = [];
+          let inactivePendingOrder = []
+          let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
+          let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
+          _pendingOrders.forEach((item)=>{
+            if(checkTimeElapsed(item.createdAt) === true){
+              inactivePendingOrder.push(item.id)
+            }else{
               pendingOrders.push({
                 orderId: item.id,
                 paymentStatus: item.collectionPayment,
                 inscriptionStatus: item.inscribed,
               })
-            })
+            }
+          })
+
+          console.log(inactivePendingOrder.length)
+
+          if(inactivePendingOrder.length > 0){
+            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: address}, {$pull: {pendingOrders: {$in: inactivePendingOrder}}}, {new:true});
+            if(amount + pendingOrders.length > mintStage.mintLimit){
+              return data = {
+                valid: true,
+                price: mintStage.price,
+                mintCount: s_address.mintCount,
+                message: "complete pending order(s)",
+                userResponse: {
+                  pendingOrders: pendingOrders
+                }
+              }
+            }else{
+              return data = {
+                valid: true,
+                price: mintStage.price,
+                mintCount: s_address.mintCount,
+                message: `valid mint`
+              }
+            }
+          }else{
             return data = {
               valid: true,
               price: mintStage.price,
@@ -299,10 +327,11 @@ const verifyMint = async (collectionId, address, amount) => {
                 pendingOrders: pendingOrders
               },
             }
-          }else{
-            c_address = s_address;  
           }
+        }else{
+          c_address = s_address;   
         }
+        
         if (c_address.mintCount >= mintStage.mintLimit){
           return data = {
             valid: false,
@@ -388,7 +417,7 @@ const verifyMint = async (collectionId, address, amount) => {
             let inactivePendingOrder = []
             let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
             let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
-            _pendingOrders.forEach(async (item)=>{
+            _pendingOrders.forEach((item)=>{
               //use moment to get time difference
               
               if(checkTimeElapsed(item.createdAt) === true){
@@ -409,7 +438,7 @@ const verifyMint = async (collectionId, address, amount) => {
                   valid: true,
                   price: mintStage.price,
                   mintCount: s_address.mintCount,
-                  message: `You have ${pendingOrders.length} / ${mintStage.mintLimit} active pending orders`,
+                  message: "complete pending order(s)",
                   userResponse: {
                     pendingOrders: pendingOrders
                   }
@@ -880,8 +909,8 @@ module.exports.selectItem = async (req, res) => {
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
     let verified = await verifyMint(collectionId, receiveAddress, imageNames.length);
     if(verified.message === "no valid address for mint stage") return res.status(200).json({status: false, message: "no valid address for mint stage"});
-    if (verified.message === "complete pending order(s)")return res.status(200).json({status: false, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
-    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
+    if(verified.message === "complete pending order(s)")return res.status(200).json({status: false, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
+    if(!verified.valid) return res.status(200).json({status: false, message: verified.message});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
     const price = mintDetails.price;
 
