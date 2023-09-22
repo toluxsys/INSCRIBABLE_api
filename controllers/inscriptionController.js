@@ -92,7 +92,7 @@ module.exports.inscribeText = async (req, res) => {
     let fileDetail;
     let inscriptionCost;
 
-    if(oldSats){
+    if(!oldSats === "ordinary"){
       fileDetail = await saveFile(fileName);
       inscriptionCost = inscriptionPrice(feeRate, fileDetail.size, oldSats);
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -176,7 +176,6 @@ module.exports.brc20 = async (req, res) => {
     const fileName = new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
-    let satsId;
     let s3 = false;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
 
@@ -209,7 +208,7 @@ module.exports.brc20 = async (req, res) => {
     writeFile(s_path, s_data);
     let fileDetail;
     let inscriptionCost;
-    if(oldSats){
+    if(!oldSats === "ordinary"){
       fileDetail = await saveFile(fileName);
       inscriptionCost = inscriptionPrice(feeRate, fileDetail.size, oldSats);
 
@@ -321,7 +320,7 @@ module.exports.satNames = async (req, res) => {
     let fileDetail;
     let inscriptionCost;
 
-    if(oldSats){
+    if(oldSats === "ordinary"){
       fileDetail = await saveFile(fileName);
       inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -448,7 +447,7 @@ module.exports.brc1155 = async (req, res) => {
       let fileDetail;
       let inscriptionCost;
 
-      if(oldSats){
+      if(oldSats === "ordinary"){
         fileDetail = await saveFile(fileName);
         inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;

@@ -391,11 +391,6 @@ const verifyMint = async (collectionId, address, amount) => {
         return allowedAddress.indexOf(item) === index;
       });
 
-      // if(allowedAddress[0].split("").includes(":")){
-      //   let images = addressImage(allowedAddress, address)
-        
-      // }
-
       if(allowedAddress.includes(address)){
         let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
         if(!s_address) {
