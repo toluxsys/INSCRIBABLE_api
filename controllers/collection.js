@@ -852,7 +852,7 @@ module.exports.selectItem = async (req, res) => {
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
     let verified = await verifyMint(collectionId, receiveAddress, imageNames.length);
     if(verified.message === "no valid address for mint stage") return res.status(200).json({status: false, message: "no valid address for mint stage"});
-    if (verified.message === "complete pending order(s)")return res.status(200).json({status: true, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
+    if (verified.message === "complete pending order(s)")return res.status(200).json({status: false, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
     if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
     const price = mintDetails.price;
