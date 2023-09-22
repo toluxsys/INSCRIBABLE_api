@@ -21,4 +21,18 @@ const btcToUsd = async (btcAmount) => {
   }
 };
 
-module.exports = { btcToUsd };
+const usdToSat = async (usdAmount) => {
+  try {
+    const response = await axios.get(
+      `${apiUrl}/simple/price?ids=bitcoin&vs_currencies=usd`
+    );
+    const btcToUsdExchangeRate = response.data.bitcoin.usd;
+    const btcEquivalent = parseFloat((usdAmount/btcToUsdExchangeRate).toFixed(8))
+    return {satoshi: parseInt(btcEquivalent * 1e8), btc: btcEquivalent}
+  } catch (err) {
+    console.error(`Error fetching BTC to USD exchange rate: ${err}`);
+    throw err;
+  }
+};
+
+module.exports = { btcToUsd , usdToSat};

@@ -63,6 +63,8 @@ router.post("/addFeatured", controller.addFeaturedCollection);
 router.post("/removeFeatured", controller.removeFeaturedCollection);
 router.get("/getFeatured", controller.getFeaturedCollections);
 router.get("/sats", controller.getAvailableSat);
+router.post("/updateSatCost", controller.updateSatCost);
+router.get("/getSatCost", controller.getSatCost);
 
 
 module.exports = router;

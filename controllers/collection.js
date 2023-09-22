@@ -13,9 +13,10 @@ const Ids = require("../model/ids");
 const Collection = require("../model/collection");
 const SelectedItems = require("../model/selectedItems");
 const ServiceFee = require("../model/serviceFee");
-const Sats = require("../model/sats");
+const SpecialSat = require("../model/specialSats");
 const FeaturedCollections = require("../model/featuredCollection");
 const { getType } = require("../helpers/getType");
+const {usdToSat} = require("../helpers/btcToUsd")
 const {addressImage} = require("../helpers/addressImage")
 const {
   createHDWallet,
@@ -71,17 +72,53 @@ const getServiceFee = async (collectionId) => {
   }
 }
 
-const inscriptionPrice = async (feeRate, fileSize, price, collectionId) => {
+const getSatPrices = async () => {
+  try{
+    let price = (await SpecialSat.find({})).map(sat=> {
+      return {
+        satType: sat.satType,
+        price: sat.price
+      }
+    })
+
+    return  price
+  }catch(e){
+    console.log(e.message);
+  }
+}
+
+const getSatCost = async (type) => {
+  try{
+    let sats = await getSatPrices()
+    let price;
+    sats.forEach((x)=> {
+      if (x.satType === type) price = x.price
+    })
+    return (await usdToSat(price)).satoshi
+  }catch(e){
+    console.log(e.message)
+  }
+}
+
+const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType) => {
   const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 4) * feeRate);
   const cost = sats + 1500 + 550;
-  const sizeFee = Math.ceil(cost / 5);
-  const total = serviceCharge + cost + parseInt(sizeFee) + price;
+  let sizeFee = parseInt(Math.ceil(cost / 10));
+  let satCost = 0
+  if(sizeFee < 1024){
+    sizeFee = 1024
+  }
+  if(satType !== "none"){
+     satCost = await getSatCost(satType)
+  }
+  const total = serviceCharge + cost + sizeFee + price + satCost;
   return {
     serviceCharge,
     inscriptionCost: cost + sizeFee,
     sizeFee: sizeFee,
     postageFee: 550,
+    satCost: satCost,
     total: total,
   };
 };
@@ -567,7 +604,7 @@ module.exports.addCollection = async (req, res) => {
 };
 
 /**
- {"details": [{
+ [{
   "name": "OG",
   "mintLimit": 2,
   "price": 85000,
@@ -582,7 +619,7 @@ module.exports.addCollection = async (req, res) => {
   "mintLimit": 2,
   "price": 85000,
   "duration": 2
-}]} */
+}]*/
 module.exports.addMintDetails = async (req, res) => {
   try{
     const {collectionId, mintDetails} = req.body;
@@ -870,7 +907,8 @@ module.exports.selectItem = async (req, res) => {
         feeRate,
         sortedImages[sortedImages.length - 1],
         price,
-        collectionId
+        collectionId,
+        "none"
       );
       const total = cost.total * imageNames.length;
       const cardinals = cost.inscriptionCost * imageNames.length;
@@ -918,14 +956,16 @@ module.exports.selectItem = async (req, res) => {
       await inscription.save();
     } else {
       sortedImages = fileSize.sort((a, b) => a - b);
-      cost = await inscriptionPrice(
-        feeRate,
-        sortedImages[sortedImages.length - 1],
-        price,
-        collectionId
-      );
-        //get offset and utxo from db
+        
         if (oldSats){
+          cost = await inscriptionPrice(
+            feeRate,
+            sortedImages[sortedImages.length - 1],
+            price,
+            collectionId,
+            oldSats,
+          );
+
           const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
           const r_data = {
             collectionName: "oldSatsWallet",
@@ -945,6 +985,15 @@ module.exports.selectItem = async (req, res) => {
           await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
 
         } else {
+
+          cost = await inscriptionPrice(
+            feeRate,
+            sortedImages[sortedImages.length - 1],
+            price,
+            collectionId,
+            "none"
+          );
+
           walletKey = await addWalletToOrd(inscriptionId, networkName);
           const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
           const r_data = {
@@ -2029,6 +2078,8 @@ module.exports.unpause = async (req, res) => {
   }
 };
 
+
+///featured collection
 module.exports.addFeaturedCollection = async (req,res)=> {
   try{
     let collectionIds = req.body.collectionIds;
@@ -2134,6 +2185,7 @@ module.exports.getFeaturedCollections = async (req,res)=> {
   }
 }
 
+///special sat
 module.exports.getAvailableSat = async (req,res) => {
   try{
     let sats = await getSats()
@@ -2143,6 +2195,54 @@ module.exports.getAvailableSat = async (req,res) => {
     return res.status(200).json({status: false, message: e.message});
   }
 }
+
+module.exports.updateSatCost = async (req,res)=> {
+  try{
+    //[{satType: "pizza", price: 0.5}]
+    let {satDetails} = req.body;
+    let specialSat = await SpecialSat.find({})
+    let uniqueSat = []
+    let available = []
+    if(!specialSat){
+     await SpecialSat.insertMany(satDetails)
+    }else{
+      let satTypes = specialSat.map((sat)=> {
+        return sat.satType
+      })
+      satDetails.forEach(type => {
+        if(!satTypes.includes(type.satType)){
+          uniqueSat.push(type)
+        }else{
+          available.push(type)
+        }
+      })
+      await SpecialSat.insertMany(uniqueSat)
+      
+      await SpecialSat.bulkWrite(available.map((sat) => {
+        return {
+          updateOne: {
+            filter: {satTypes: sat.satType},
+            update: {$set: {price: sat.price}},
+            upsert: true,
+          }
+        }
+      }))
+    }
+    return res.status(200).json({status: true, message: "sat price added"})
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+module.exports.getSatCost = async (req, res) => {
+  try{
+    return res.status(200).json({status: true, message: "sat cost", userResponse: await getSatPrices()})
+  }catch(e){
+    console.log(e.message)
+  }
+}
+
 
 
 //getLinks("QmUZwDUdMbvyvr6FcD16qF3FyhS88MTiBMut1cdcY5Ximv", 20).then((res) => {console.log(res)}).catch((e) => console.log(e.message));

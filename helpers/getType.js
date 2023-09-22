@@ -15,5 +15,3 @@ const getType = (inscriptionId) => {
 };
 
 module.exports = { getType };
-
-//console.log(getType("se5e484af-6974-4ae5-a5f1-3c92d6366d7e"));

@@ -106,12 +106,11 @@ const getInscriptionFeed = async() => {
       feed.map(async (e) => {
         let id = e.guid.split("/inscription/")[1];
         let title = e.title;
-        let link = e.link;
 
         let data = {
           inscriptionId: id,
           title: title,
-          link: link
+          previewUrl: `ord.io/preview/${id}`
         }
         latestInscription.push(data);
       })
