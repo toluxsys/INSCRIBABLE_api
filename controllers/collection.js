@@ -1307,6 +1307,7 @@ module.exports.getImages = async(req, res) => {
   try{
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
+    if(collection.startMint === false || collection.ended === true) return res.status(200).json({status: true, message:"ok", userResponse: []})
     let minted = collection.minted;
     let selectedItems = await SelectedItems.find({collectionId: collectionId});
     let items = [];
@@ -1682,15 +1683,8 @@ module.exports.getCollection = async (req, res) => {
         })
       }
     });
-    let collectionItems;
     let type;
-    if(collection.specialSat) {
-      collectionItems = await getLinks(collection.itemCid, collection.collectionDetails.totalSupply);  
-    }else{
-      collectionItems = await getLinks(collection.itemCid, collection.collectionDetails.totalSupply);
-    };
     let mintedItems = collection.minted;
-    //let collectionCount = collectionItems.length;
     let mintedCount = mintedItems.length;
 
     if(collection.specialSat){
