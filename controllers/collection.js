@@ -1658,7 +1658,7 @@ module.exports.getCollection = async (req, res) => {
         _mintStage = item.name;
         details.push({
           stage: item.name,
-          price: item.price/1e8,
+          price: price,
           mintLimit: item.mintLimit,
           duration: item.duration,
         })
@@ -1704,7 +1704,7 @@ module.exports.getCollection = async (req, res) => {
         collectionName: collection.name,
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
-        price: price / 1e8,
+        price: price,
         category: collection.category,
         collectionCount: collection.collectionDetails.totalSupply,
         mintedCount: mintedCount,
