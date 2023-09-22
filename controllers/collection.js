@@ -383,30 +383,58 @@ const verifyMint = async (collectionId, address, amount) => {
             mintCount: 0,
             message: "valid mint"
           }
-        }else{ 
-          if(s_address.pendingOrders.length >= mintStage.mintLimit){
+        }else if(s_address.pendingOrders.length >= mintStage.mintLimit){
             let pendingOrders = [];
+            let inactivePendingOrder = []
             let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
             let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
-            _pendingOrders.forEach((item)=>{
-              pendingOrders.push({
-                orderId: item.id,
-                paymentStatus: item.collectionPayment,
-                inscriptionStatus: item.inscribed,
-              })
+            _pendingOrders.forEach(async (item)=>{
+              //use moment to get time difference
+              
+              if(checkTimeElapsed(item.createdAt) === true){
+                inactivePendingOrder.push(item.id)
+              }else{
+                pendingOrders.push({
+                  orderId: item.id,
+                  paymentStatus: item.collectionPayment,
+                  inscriptionStatus: item.inscribed,
+                })
+              }
             })
-            return data = {
-              valid: true,
-              price: mintStage.price,
-              mintCount: 0,
-              message: "complete pending order(s)",
-              userResponse: {
-                pendingOrders: pendingOrders
-              },
+
+            if(inactivePendingOrder.length > 0){
+              await Address.findOneAndUpdate({mintStage: collection.mintStage, address: address}, {$pull: {pendingOrders: {$in: inactivePendingOrder}}}, {new:true});
+              if(amount + pendingOrders.length > mintStage.mintLimit){
+                return data = {
+                  valid: true,
+                  price: mintStage.price,
+                  mintCount: s_address.mintCount,
+                  message: `You have ${pendingOrders.length} / ${mintStage.mintLimit} active pending orders`,
+                  userResponse: {
+                    pendingOrders: pendingOrders
+                  }
+                }
+              }else{
+                return data = {
+                  valid: true,
+                  price: mintStage.price,
+                  mintCount: s_address.mintCount,
+                  message: `valid mint`
+                }
+              }
+            }else{
+              return data = {
+                valid: true,
+                price: mintStage.price,
+                mintCount: 0,
+                message: "complete pending order(s)",
+                userResponse: {
+                  pendingOrders: pendingOrders
+                },
+              }
             }
-          }else{
-            c_address = s_address;  
-          }   
+        }else{
+          c_address = s_address;   
         }
         if (c_address.mintCount >= mintStage.mintLimit){
           return data = {
