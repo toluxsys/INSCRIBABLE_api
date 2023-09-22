@@ -1,13 +1,8 @@
-const {exec, execSync} = require('child_process');
 const mempoolJS = require("@mempool/mempool.js");
-const Sats = require("../models/sats.js");
-const Address = require("../models/addresses.js");
 const fs = require("fs");
 const { MongoClient } = require('mongodb');
 const ObjectId = require('mongoose').Types.ObjectId; 
-const { add } = require('mongoose/lib/helpers/specialProperties.js');
 const dotenv = require("dotenv").config();
-let satTypes = ['rare', 'block9', 'pizza','pizza1','uncommon','block78', "black"];
 
 const init = async (network) => {
     const {
@@ -24,8 +19,8 @@ const initMongoDb = async () => {
     const uri = process.env.SATS_DB_URI;
     const client = new MongoClient(uri);
     await client.connect();
-    const db = client.db(process.env.DB_NAME);
-    return db;
+    const db = client.db("test");
+    return {db, client};
 };
 
 const getStatus = async (txId) => {
@@ -33,87 +28,38 @@ const getStatus = async (txId) => {
      let txid = txId ;
      const tx = await transactions.getTx({ txid });
      return  tx.status.confirmed;   
- };
+};
 
- const getSpendUtxo = async (address, network) => {
-    try {
-      const { addresses } = await init(network);
-      const response = await addresses.getAddressTxsUtxo({ address });
-  
-      let utxos = response;
-      let outputs =[];
-  
-      if(utxos.length === 0){
-        return "no utxos"
-      }
-  
-      for (const element of utxos) {
-        let output = element.txid + ":" + element.vout;
-        outputs.push(output);
-      }
-  
-      return outputs[0];
-    } catch (e) {
-      throw new Error(e.message);
-    }
-  };
- 
- const getAvailableCount = async (type) => {
-     try{
-         let _sats = await Sats.find({type: {$in: type}});
-         let count = 0;
-         await Promise.all(_sats.map(async (element) => {
-         let available = await getStatus(element.txid.split(':')[0]);
-         if(available === true){
-             count++;
-         }
-         }));
-     return count;
- }catch(err){
-         console.log(err);
-     }
- };
-
-const getSats = async (type, limit, walletName, payAddress, receiver, feeRate, network ) => {
+const getSats = async () => {
     try{
-        let Sats = await initMongoDb().Sats
+        let {db, client} = await initMongoDb()
+        let  Sats = db.collection("sats")
         let sats = []
-        let _sats = await Sats.find({type: type})
+        let _sats = await Sats.find({}).toArray()
+        let available = new Map()
+        let satCount = new Map()
         for (let i = 0; i < _sats.length; i++) {
             const element = _sats[i];
-            let _txid = element.txid.split(':')[0];
-            let status = await getStatus(_txid);
-        if (element.count === element.total) {
-            continue; // Continue the loop
-        } else if(status === true){
-            sats.push(element);
-            if (sats.length === limit) break; // Break the loop   
-        }else{
-            continue;
+            if (element.count !== element.total) {
+                let _count = element.total - element.count
+                if(!available.has(element.type)){
+                    available.set(element.type, _count)
+                    satCount.set(element.type, 1)
+                }else{
+                    let balance = available.get(element.type) + _count
+                    available.set(element.type, balance)
+                    satCount.set(element.type, satCount.get(element.type)+1)
+                }  
+            } 
         }
 
-        sats.forEach(async (element, index) => {
-            let offset = element.amount - 1;
-            let satPoint = element.txid + ':' + offset;
-            let path = details[index].path;
-            let spendUtxo = await getSpendUtxo(payAddress, network)
-            execSync(`sudo chmod u=rwx,g=rwx,o=rwx ${path}`);
-            let command = `ord --cookie-file "/home/ubuntu/.bitcoin/.cookie" --wallet ${walletName} wallet inscribe --no-backup --coin-control --utxo ${spendUtxo} --utxo ${element.txid} --satpoint ${satPoint} --fee-rate ${feeRate} --postage "550 sats" --change ${process.env.MAINNET_SERVICE_CHARGE_ADDRESS} --destination ${receiver}  ${path} --dump`;
-            const child = execSync(command).toString();
-            let _child = JSON.parse(child.split("}\n")[1]+`}`);
-            _inscriptions.push(_child.inscriptions[0]);
-            inscribed.push({inscriptionId: _child.inscriptions[0], id: details[index].id, address: details[index].address, fileName: path.split('/')[path.split('/').length - 1]});
-            console.log(_child.inscriptions[0]);
-            let txId = _child.commit;
-            data.push({
-                _id: element._id,
-                txid: txId,
-                amount: element.amount - 1,
-                count: element.count + 1,
-            });
-            execSync(`sudo rm ${path}`);       
-        });
-    }
+        available.forEach((value, key) => {
+            sats.push({satType:key, available:value, utxoCount:satCount.get(key) })
+        })
+        await client.close();
+
+        return sats
+  
     }catch(e){
         console.log(e.message)
     }
@@ -121,4 +67,4 @@ const getSats = async (type, limit, walletName, payAddress, receiver, feeRate, n
 
 
 
-module.exports = {getStatus, getAvailableCount, getSats}
+module.exports = {getStatus,getSats}

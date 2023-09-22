@@ -14,6 +14,7 @@ const Collection = require("../model/collection");
 const SelectedItems = require("../model/selectedItems");
 const ServiceFee = require("../model/serviceFee");
 const Sats = require("../model/sats");
+const FeaturedCollections = require("../model/featuredCollection");
 const { getType } = require("../helpers/getType");
 const {addressImage} = require("../helpers/addressImage")
 const {
@@ -36,15 +37,14 @@ const {
   checkAddress,
   getSpendUtxo
 } = require("../helpers/sendBitcoin");
+
+const {getSats} = require("../helpers/satHelper")
 const MintDetails = require("../model/mintDetails");
-const { start } = require("repl");
-const { get } = require("express/lib/response");
-const mintDetails = require("../model/mintDetails");
 const ObjectId = require('mongoose').Types.ObjectId; 
 let satTypes = ['rare', 'common', 'block9', 'block84', 'pizza','pizza1','uncommon', '2009', '2010', '2011'];
 
 
-const getLinks = async (cid) => {
+const getLinks = async (cid, totalSupply) => {
   const client = await import("ipfs-http-client");
   try {
     let links = [];
@@ -54,7 +54,7 @@ const getLinks = async (cid) => {
     for await (const link of ipfs.ls(cid)) {
       links.push(link);
     }
-    return links;
+    return links.splice(links.length - totalSupply, totalSupply);
   } catch (e) {
     console.log(e.message);
   }
@@ -778,7 +778,7 @@ module.exports.seleteItem = async (req, res) => {
     const { collectionId, receiveAddress, feeRate, imageNames, networkName, oldSats } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
-    const items = await getLinks(cid);
+    const items = await getLinks(cid, collection.collectionDetails.totalSupply);
     const minted = collection.minted;
     const mintStage = collection.mintStage;
     let s_selectedItems = await SelectedItems.find({collectionId: collectionId});
@@ -1013,7 +1013,7 @@ module.exports.calc = async (req, res) => {
     const { collectionId, feeRate, imageNames } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
-    const items = await getLinks(cid);
+    const items = await getLinks(cid, collection.collectionDetails.totalSupply);
     const minted = collection.minted;
     const mintStage = collection.mintStage;
     let s_selectedItems = await SelectedItems.find({collectionId: collectionId});
@@ -1305,7 +1305,7 @@ module.exports.getImages = async(req, res) => {
     let s_selected = [];
     let selectedImages = [];
 
-    let imageNames = await getLinks(collection.itemCid);
+    let imageNames = await getLinks(collection.itemCid, collection.collectionDetails.totalSupply);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
 
     selectedItems.forEach((selected) => {
@@ -1674,9 +1674,9 @@ module.exports.getCollection = async (req, res) => {
     let collectionItems;
     let type;
     if(collection.specialSat) {
-      collectionItems = await getLinks(collection.itemCid);  
+      collectionItems = await getLinks(collection.itemCid, collection.collectionDetails.totalSupply);  
     }else{
-      collectionItems = await getLinks(collection.itemCid);
+      collectionItems = await getLinks(collection.itemCid, collection.collectionDetails.totalSupply);
     };
     let mintedItems = collection.minted;
     //let collectionCount = collectionItems.length;
@@ -2025,8 +2025,123 @@ module.exports.unpause = async (req, res) => {
   }
 };
 
+module.exports.addFeaturedCollection = async (req,res)=> {
+  try{
+    let collectionIds = req.body.collectionIds;
+    let collections = await Collection.find({})
+    let invalidIds = []
+    let validIds = []
+    let availableIds = collections.map((x)=> {
+      return x.id
+    })
+    
+    
+    collectionIds.forEach(item => {
+      if(!availableIds.includes(item)){ 
+        invalidIds.push(item)
+      }else{
+        validIds.push(item)
+      }
+    })
+    
+    let featuredCollection = await FeaturedCollections.find({})
+    console.log(featuredCollection[0])
+    let featuredColllectionId = featuredCollection[0]._id;
+    
+    if(!featuredCollection){
+      let collection = new FeaturedCollections({
+        ids: validIds
+      })
+      let saved = await collection.save()
+      return res.status(200).json({status:true, message: "featured collection list added" , id: saved._id})
+    }else{
+      validIds.concat(featuredCollection[0].ids)
+      await FeaturedCollections.findOneAndUpdate({_id: featuredColllectionId}, {$set: {ids: validIds}}, {new:true}) 
+      return res.status(200).json({status:true, message: `${validIds.length} valid collection ids added. ${invalidIds.length} invalid collection ids`})
+    }
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
 
-//getLinks("QmUZwDUdMbvyvr6FcD16qF3FyhS88MTiBMut1cdcY5Ximv").then((res) => {console.log(res)}).catch((e) => console.log(e.message));
+module.exports.removeFeaturedCollection = async (req,res)=> {
+  try{
+    let collectionId = req.body.collectionId;
+    let collections = await Collection.find({})
+    let availableIds = collections.map((x)=> {
+      return x.id
+    })
+   
+    if(!availableIds.includes(collectionId))return res.status(200).json({status:false, message: "invalid collectionId"})
+    let featuredCollection = await FeaturedCollections.find({})
+    if(!featuredCollection){
+      return res.status(200).json({status:false, message: "no featured collection added"})
+    }else{
+      let ids = featuredCollection[0].ids
+      if(!ids.includes(collectionId)) return res.status(200).json({status:false, message: "collection not part of featured collection"})
+      ids.splice(ids.indexOf(collectionId),1)
+      await FeaturedCollections.findOneAndUpdate({_id:featuredCollection[0]._id},{$set:{ids:ids}},{new:true})
+      return res.status(200).json({status:true, message: "featured collection removed"})
+    }
+  }catch(e){
+    console.log(e);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+module.exports.getFeaturedCollections = async (req,res)=> {
+  try{
+    let networkName = req.body.networkName
+    let _collections = await FeaturedCollections.find({})
+    let ids = []
+    let data = []
+    if (!_collections){
+      let collections = await Collection.find({ flag: networkName, status: "approved"})
+      collections.forEach(item => ids.push(item.id))
+    }else {
+      ids = _collections[0].ids;
+    }
+    let collections = await Collection.find({id: {$in: ids}})
+    collections.forEach(item => {
+      data.push({
+        collectionId: item.id,
+        collectionName: item.name,
+        creatorName: item.collectionDetails.creatorName,
+        description: item.description,
+        category: item.category,
+        collectionCount: item.collectionDetails.totalSupply,
+        totalSupply: item.collectionDetails.totalSupply,
+        bannerUrl: item.banner,
+        featuredUrl: item.featuredImage,
+        website: item.collectionDetails.website,
+        twitter: item.collectionDetails.twitter,
+        discord: item.collectionDetails.discord,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        ended: item.ended,
+        mintStarted: item.startMint,
+      })
+    })
+    return res.status(200).json({status:true, message: "featured collections", userResponse: data});
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+module.exports.getAvailableSat = async (req,res) => {
+  try{
+    let sats = await getSats()
+    return res.status(200).json({status: true, message: "ok", userResponse: sats})
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+
+//getLinks("QmUZwDUdMbvyvr6FcD16qF3FyhS88MTiBMut1cdcY5Ximv", 20).then((res) => {console.log(res)}).catch((e) => console.log(e.message));
 //create a new model for address that has made payment and update the new model at check payment with 
 //change destination, satType, feeRate,
 

@@ -59,6 +59,10 @@ router.post("/addMintDetails", controller.addMintDetails);
 router.get("/getCollections", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 router.post("/checkWhitelist", controller.checkWhitelist);
+router.post("/addFeatured", controller.addFeaturedCollection);
+router.post("/removeFeatured", controller.removeFeaturedCollection);
+router.get("/getFeatured", controller.getFeaturedCollections);
+router.get("/sats", controller.getAvailableSat);
 
 
 module.exports = router;
