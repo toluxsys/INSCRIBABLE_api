@@ -309,6 +309,17 @@ const verifyMint = async (collectionId, address, amount) => {
       };
       let regex = /[^,\r\n]+/g;
       let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
+      if(_allowedAddress.length === 0){
+        return data = {
+          valid: false,
+          price: "",
+          mintCount: 0,
+          message: "addresses for stage not found",
+          userResponse: {
+            pendingOrders: []
+          },
+        }
+      }
       let allowedAddress = _allowedAddress.match(regex)
       .split(",")
       .filter((item, index) => {
@@ -773,7 +784,7 @@ module.exports.approveCollection = async (req, res) => {
   }
 };
 
-module.exports.seleteItem = async (req, res) => {
+module.exports.selectItem = async (req, res) => {
   try {
     const { collectionId, receiveAddress, feeRate, imageNames, networkName, oldSats } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
@@ -1001,7 +1012,7 @@ module.exports.seleteItem = async (req, res) => {
 
     return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
