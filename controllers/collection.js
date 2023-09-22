@@ -144,7 +144,7 @@ const addMintDetails = async (collectionId, details) => {
   try{
     // let details = await JSON.parse(items);
     let allDetails = []
-    details.details.forEach(async (detail) => {
+    details.forEach(async (detail) => {
       //convert duration from hours to seconds
       let duration = detail.duration * 60 * 60;
       allDetails.push({
@@ -157,6 +157,7 @@ const addMintDetails = async (collectionId, details) => {
     });
     let savedDetails = await MintDetails.insertMany(allDetails);
     let ids = savedDetails.map(item => item._id)
+    console.log(ids)
     return ids;
   }catch(e){
     console.log(e.message);
