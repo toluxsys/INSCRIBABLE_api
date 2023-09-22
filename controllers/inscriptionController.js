@@ -306,8 +306,8 @@ module.exports.satNames = async (req, res) => {
     if(name.split("").includes(".")){
       return res.status(200).json({status: false, message: `${name} your name can not contain "."`});
     }
-    let verifyName = await verifySats(name + ".sats");
-    if(!verifyName) return res.status(200).json({status: false, message: `${name} already exists`});
+    // let verifyName = await verifySats(name + ".sats");
+    // if(!verifyName) return res.status(200).json({status: false, message: `${name} already exists`});
     
     data = {
       p: "sns",
@@ -387,7 +387,7 @@ module.exports.satNames = async (req, res) => {
       },
     });
   } catch (e){
-    console.log(e.message);
+    console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
