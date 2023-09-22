@@ -1117,6 +1117,7 @@ module.exports.calc = async (req, res) => {
         serviceCharge: cost.serviceCharge * imageNames.length,
         inscriptionCost: cost.inscriptionCost * imageNames.length,
         sizeFee: cost.sizeFee * imageNames.length,
+        satCost: cost.satCost,
         postageFee: cost.postageFee,
         total: cost.total * imageNames.length,
       },
