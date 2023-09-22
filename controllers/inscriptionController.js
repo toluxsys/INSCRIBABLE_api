@@ -94,7 +94,7 @@ module.exports.inscribeText = async (req, res) => {
 
     if(!oldSats === "ordinary"){
       fileDetail = await saveFile(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size, oldSats);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: "oldSatsWallet",
@@ -108,7 +108,7 @@ module.exports.inscribeText = async (req, res) => {
       paymentAddress = result.data.userResponse.data[0];
     }else {
       fileDetail = await saveFileS3(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -210,7 +210,7 @@ module.exports.brc20 = async (req, res) => {
     let inscriptionCost;
     if(!oldSats === "ordinary"){
       fileDetail = await saveFile(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size, oldSats);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
 
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -225,7 +225,7 @@ module.exports.brc20 = async (req, res) => {
       paymentAddress = result.data.userResponse.data[0];
     }else {
       fileDetail = await saveFileS3(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -322,7 +322,7 @@ module.exports.satNames = async (req, res) => {
 
     if(oldSats === "ordinary"){
       fileDetail = await saveFile(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: "oldSatsWallet",
@@ -336,7 +336,7 @@ module.exports.satNames = async (req, res) => {
       paymentAddress = result.data.userResponse.data[0];
     }else {
       fileDetail = await saveFileS3(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -449,7 +449,7 @@ module.exports.brc1155 = async (req, res) => {
 
       if(oldSats === "ordinary"){
         fileDetail = await saveFile(fileName);
-        inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+        inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -463,7 +463,7 @@ module.exports.brc1155 = async (req, res) => {
         paymentAddress = result.data.userResponse.data[0];
       }else{
         fileDetail = await saveFileS3(fileName);
-        inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+        inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
         s3 = true;
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
