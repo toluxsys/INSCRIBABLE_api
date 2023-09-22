@@ -160,7 +160,6 @@ const addMintDetails = async (collectionId, details) => {
     return ids;
   }catch(e){
     console.log(e.message);
-    return false;
   }
 }
 
@@ -535,7 +534,7 @@ module.exports.addCollection = async (req, res) => {
 
     const data = await compressAndSaveBulk(collectionId, false);
     //let startTime = new Date(startAt).getTime();
-    let ids = await addMintDetails(collectionId, mintDetails);
+    let ids = await addMintDetails(collectionId, JSON.parse(mintDetails));
     const collection = new Collection({
       id: collectionId,
       status: `pending`,
