@@ -2053,26 +2053,30 @@ const getSatCost = async (type) => {
 }
 
 const inscriptionPrice = async (feeRate, fileSize, satType) => {
-  let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
-  let sats = Math.ceil((fileSize / 4) * feeRate);
-  let cost = sats + 1500 + 550;
-  let sizeFee = parseInt(Math.ceil(cost / 10));
-  let satCost = 0
-  if(sizeFee < 1024){
-    sizeFee = 1024
+  try{
+    let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
+    let sats = Math.ceil((fileSize / 4) * feeRate);
+    let cost = sats + 1500 + 550;
+    let sizeFee = parseInt(Math.ceil(cost / 5));
+    let satCost = 0
+    if(sizeFee < 1024){
+      sizeFee = 1024
+    }
+    if(satType !== "ordinary"){
+      satCost = await getSatCost(satType)
+    }
+    const total = serviceCharge + cost + sizeFee + satCost;
+    return {
+      serviceCharge,
+      inscriptionCost: cost + sizeFee,
+      sizeFee: sizeFee,
+      satCost: satCost,
+      postageFee: 550,
+      total: total,
+    };
+  }catch(e){
+    console.log(e.message);
   }
-  if(satType !== "ordinary"){
-     satCost = await getSatCost(satType)
-  }
-  const total = serviceCharge + cost + sizeFee + satCost;
-  return {
-    serviceCharge,
-    inscriptionCost: cost + sizeFee,
-    sizeFee: sizeFee,
-    satCost: satCost,
-    postageFee: 550,
-    total: total,
-  };
 };
 
 const getInscriptionCost = async (file, feeRate, optimize, satType) => {
