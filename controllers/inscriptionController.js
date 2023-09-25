@@ -2043,7 +2043,7 @@ const getSatCost = async (type) => {
     let sats = await getSatPrices()
     let price;
     sats.forEach((x)=> {
-      if (x.satType === type) price = x.price
+      if (x.satType === type) price = x.price + 10000
     })
     //convert usd to sat
     return (await usdToSat(price)).satoshi

@@ -17,6 +17,9 @@ const collection = new mongoose.Schema(
     name: {
       type: String,
     },
+    fileType: {
+      type: String,
+    },
     price: {
       type: Number,
     },

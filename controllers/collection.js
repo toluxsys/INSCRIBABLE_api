@@ -94,7 +94,7 @@ const getSatCost = async (type) => {
     sats.forEach((x)=> {
       if (x.satType === type) price = x.price
     })
-    return (await usdToSat(price)).satoshi
+    return (await usdToSat(price)).satoshi + 10000
   }catch(e){
     console.log(e.message)
   }
@@ -1381,6 +1381,7 @@ module.exports.getImages = async(req, res) => {
   try{
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
+    if(!collection) return res.status(200).json({status: false, message: "collection not found"})
     if(collection.startMint === false || collection.ended === true) return res.status(200).json({status: true, message:"ok", userResponse: []})
     let minted = collection.minted;
     let selectedItems = await SelectedItems.find({collectionId: collectionId});
@@ -1407,6 +1408,7 @@ module.exports.getImages = async(req, res) => {
         item.items.forEach((image) => {
           let data = {
             name: image,
+            fileType: image.split(".")[1],
             imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
              selected: false,
              minted: false,
@@ -1418,6 +1420,7 @@ module.exports.getImages = async(req, res) => {
       }else if (checkTimeElapsed(item.timestamp) === false){
         item.items.forEach((image) => {
           let data = {
+            fileType:image.split(".")[1],
             name: image,
             imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
              selected: true,
@@ -1439,6 +1442,7 @@ module.exports.getImages = async(req, res) => {
      if (minted.includes(image.name)) {
         i_data = {
           name: image.name,
+          fileType: image.name.split(".")[1],
           imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image.name}`,
           selected: false,
            minted: true,
@@ -1450,6 +1454,7 @@ module.exports.getImages = async(req, res) => {
       } else {
         i_data = {
           name: image.name,
+          fileType: image.name.split(".")[1],
           imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image.name}`,
           selected: false,
            minted: false,
