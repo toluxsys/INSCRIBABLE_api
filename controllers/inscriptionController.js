@@ -15,7 +15,6 @@ const Address = require("../model/address");
 const Collection = require("../model/collection");
 const SpecialSat = require("../model/specialSats");
 const ObjectId = require('mongoose').Types.ObjectId; 
-const verifySats = require("../helpers/satNameHelper");
 const {
   compressImage,
   compressAndSave,
@@ -2047,7 +2046,7 @@ const getSatCost = async (type) => {
       if (x.satType === type) price = x.price
     })
     //convert usd to sat
-    return (await usdToSat(price)).satoshi + 10000
+    return (await usdToSat(price)).satoshi + 5000
   }catch(e){
     console.log(e.message)
   }
