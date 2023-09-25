@@ -740,11 +740,13 @@ module.exports.sendUtxo1 = async(req,res) => {
       ids = await Ids.where("id").equals(instance._id);
     }
     
+    if(instance.sat !== "random")return res.status(200).json({ status: true, message: `ok`, userResponse: true });
     const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
       walletName: inscriptionId,
       networkName: networkName,
     });
     balance = result.data.userResponse.data;
+
 
     if (balance < instance.cost.inscriptionCost) {
       return res.status(200).json({
