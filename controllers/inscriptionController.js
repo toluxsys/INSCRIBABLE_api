@@ -92,7 +92,7 @@ module.exports.inscribeText = async (req, res) => {
     let fileDetail;
     let inscriptionCost;
 
-    if(!oldSats === "ordinary"){
+    if(oldSats !== "random"){
       fileDetail = await saveFile(fileName);
       inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -208,7 +208,7 @@ module.exports.brc20 = async (req, res) => {
     writeFile(s_path, s_data);
     let fileDetail;
     let inscriptionCost;
-    if(!oldSats === "ordinary"){
+    if(oldSats !== "random"){
       fileDetail = await saveFile(fileName);
       inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
 
@@ -320,7 +320,7 @@ module.exports.satNames = async (req, res) => {
     let fileDetail;
     let inscriptionCost;
 
-    if(oldSats === "ordinary"){
+    if(oldSats !== "random"){
       fileDetail = await saveFile(fileName);
       inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -447,7 +447,7 @@ module.exports.brc1155 = async (req, res) => {
       let fileDetail;
       let inscriptionCost;
 
-      if(oldSats === "ordinary"){
+      if(oldSats !== "random"){
         fileDetail = await saveFile(fileName);
         inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -826,7 +826,7 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     }
-    if(instance.sat && instance.sat !=="ordinary"){ 
+    if(instance.sat && instance.sat !=="random"){ 
       if(instance.s3 === true){
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
           feeRate: instance.feeRate,
@@ -1811,7 +1811,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     
     if (optimize === `true`) {
       compImage = await compressAndSaveS3(fileName, true);
-      if(!satType === "ordinary"){
+      if(satType !== "random"){
         inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1842,7 +1842,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     } else if (optimize === `false`) {
       compImage = await compressAndSaveS3(fileName, false);
       
-      if(!satType === "ordinary"){
+      if(satType !== "random"){
         inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -2062,7 +2062,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     if(sizeFee < 1024){
       sizeFee = 1024
     }
-    if(satType !== "ordinary"){
+    if(satType !== "random"){
       satCost = await getSatCost(satType)
     }
     const total = serviceCharge + cost + sizeFee + satCost;

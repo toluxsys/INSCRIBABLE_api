@@ -109,7 +109,7 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType)
   if(sizeFee < 1024){
     sizeFee = 1024
   }
-  if(satType !== "ordinary"){
+  if(satType !== "random"){
      satCost = await getSatCost(satType)
   }
   const total = serviceCharge + cost + sizeFee + price + satCost;
@@ -1008,7 +1008,7 @@ module.exports.selectItem = async (req, res) => {
 
       await inscription.save();
     } else {
-        if (!oldSats === "ordinary"){
+        if (oldSats !== "random"){
           const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
           const r_data = {
             collectionName: "oldSatsWallet",
@@ -1581,7 +1581,7 @@ module.exports.inscribe = async (req, res) => {
       }
     }
 
-    if(instance.specialSat !== "ordinary"){ 
+    if(instance.specialSat !== "random"){ 
       newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
         feeRate: instance.feeRate,
         receiverAddress: receiveAddress,

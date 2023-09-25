@@ -53,7 +53,7 @@ const getSats = async () => {
             } 
         }
 
-        sats.push({satType:"ordinary", available:100000, utxoCount:1 })
+        sats.push({satType:"random", available:100000, utxoCount:1 })
 
         available.forEach((value, key) => {
             sats.push({satType:key, available:value, utxoCount:satCount.get(key) })
