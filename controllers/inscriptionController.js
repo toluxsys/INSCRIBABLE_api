@@ -1214,13 +1214,12 @@ module.exports.checkUtxo = async (req, res) => {
     let balance;
     let ORD_API_URL;
 
-    if (networkName === "mainnet")
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    if (networkName === "testnet")
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+    if (networkName === "mainnet") ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet") ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
+      if(inscription.sat !== "random")return res.status(200).json({ status: true, message: `ok`, userResponse: true });
       const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
         walletName: inscriptionId,
         networkName: networkName,
