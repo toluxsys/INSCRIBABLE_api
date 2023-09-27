@@ -29,7 +29,7 @@ const getRecomendedFee = async (network) => {
 const getWalletBalance = async (address, network) => {
   try {
     const { addresses } = await init(network);
-    const response = await addresses.getAddressTxsUtxo({ address });
+    const response = await addresses.getAddressTxsUtxo({ address: address });
     let status = [];
     let txid = [];
 
@@ -73,8 +73,7 @@ const checkAddress = async (address, network) => {
 const getSpendUtxo = async (address, network) => {
   try {
     const { addresses } = await init(network);
-    const response = await addresses.getAddressTxsUtxo({ address });
-
+    let response = await addresses.getAddressTxsUtxo({ address: address });
     let utxos = response;
     let outputs =[];
 

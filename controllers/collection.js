@@ -1623,12 +1623,9 @@ module.exports.inscribe = async (req, res) => {
     if(n_inscriptions.length === 0) return res.status(200).json({status: false, message: "file not inscribed"})
     
     n_inscriptions.forEach((item) => {
-      let inscriptions = item.inscriptions;
-      inscriptions.map((e) => {
-        details.push({
-          inscription: e,
-        });
-      }) 
+      details.push({
+        inscription: item,
+      });
     });
 
     await Address.findOneAndUpdate({mintStage: collection.mintStage, address: instance.receiver}, {$inc: {mintCount: instance.fileNames.length}}, {new: true});

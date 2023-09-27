@@ -777,7 +777,7 @@ module.exports.inscribe = async (req, res) => {
     const type = getType(inscriptionId);
     let inscription;
     let instance;
-    let newInscription;
+    let newInscription ;
     let imageName;
     let n_inscriptions;
     let details = [];
@@ -795,13 +795,10 @@ module.exports.inscribe = async (req, res) => {
       if(!changeAddress) changeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
     }
     
-    
     if (type === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-
       balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
-
       imageName = instance.inscriptionDetails.fileName;
       receiverAddress = instance.receiver;
       let cost = instance.cost.inscriptionCost;
@@ -815,8 +812,9 @@ module.exports.inscribe = async (req, res) => {
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
+
       balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
-      console.log(balance)
+      
       receiverAddress = instance.receiver;
       let cost = instance.cost.cardinal;
       if (balance < cost) {
@@ -827,8 +825,8 @@ module.exports.inscribe = async (req, res) => {
       }
     }
     if(instance.sat && instance.sat !=="random"){ 
-      let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
-      if(spendUtxo === "no utxos") return res.status(200).json({status: false, message: "payment address has no transaction"})
+      //let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
+      //if(spendUtxo === "no utxos") return res.status(200).json({status: false, message: "payment address has no transaction"})
       if(instance.s3 === true){
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
           feeRate: instance.feeRate,
@@ -836,11 +834,10 @@ module.exports.inscribe = async (req, res) => {
           type: instance.sat,
           imageName: imageName,
           networkName: "mainnet",
-          spendUtxo: spendUtxo,
+          spendUtxo: "spendUtxo",
           changeAddress: changeAddress,
           walletName: "oldSatsWallet",
           storageType: "AWS",
-          paymentAddress: instance.inscriptionDetails.payAddress,
         });
       }else{
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
@@ -851,13 +848,14 @@ module.exports.inscribe = async (req, res) => {
           type: instance.sat,
           imageName: imageName,
           networkName: "mainnet",
-          spendUtxo: spendUtxo,
+          spendUtxo: "spendUtxo",
           changeAddress: changeAddress,
           walletName: "oldSatsWallet",
           storageType: "IPFS",
-          paymentAddress: instance.inscriptionDetails.payAddress
         });
       }
+
+      console.log(newInscription.data)
     }else {
       if(instance.s3 === true){
         newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/changeS3`, {
@@ -892,13 +890,10 @@ module.exports.inscribe = async (req, res) => {
     n_inscriptions = newInscription.data.userResponse.data;
     if(newInscription.data.userResponse.data.length === 0) return res.status(200).json({status: false, message: "file not inscribed"})
     n_inscriptions.forEach((item) => {
-      let inscriptions = item.inscriptions;
-      inscriptions.map((e) => {
-        const data = {
-          inscription: e,
-        };
-        details.push(data);
-      }) 
+      const data = {
+        inscription: item,
+      };
+      details.push(data);
     });
     
     instance.inscription = details;
@@ -1047,6 +1042,7 @@ module.exports.checkPayment = async (req, res) => {
         inscription.inscriptionDetails.payAddress,
         networkName
       );
+      console.log("balance: ", balance )
       cost = inscription.cost.total;
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
