@@ -890,6 +890,7 @@ module.exports.inscribe = async (req, res) => {
         .json({ status: false, message: newInscription.data.message });
     }
     n_inscriptions = newInscription.data.userResponse.data;
+    if(newInscription.data.userResponse.data.length === 0) return res.status(200).json({status: false, message: "file not inscribed"})
     n_inscriptions.forEach((item) => {
       let inscriptions = item.inscriptions;
       inscriptions.map((e) => {
