@@ -1581,7 +1581,8 @@ module.exports.inscribe = async (req, res) => {
       }
     }
 
-    if(instance.specialSat !== "random"){ 
+    if(instance.sat !== "random"){ 
+      let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
       newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
         feeRate: instance.feeRate,
         receiverAddress: receiveAddress,
@@ -1590,6 +1591,7 @@ module.exports.inscribe = async (req, res) => {
         imageNames: imageNames,
         type: instance.specialSat,
         networkName: "mainnet",
+        spendUtxo: spendUtxo,
         changeAddress: changeAddress,
         inscriptionId: inscriptionId,
         walletName: "oldSatsWallet",
@@ -1615,7 +1617,11 @@ module.exports.inscribe = async (req, res) => {
         .json({ status: false, message: newInscription.data.message });
     }
 
+    if(newInscription.data.status === false) return res.status(200).json({status: false, message: newInscription.data.message})
+
     n_inscriptions = newInscription.data.userResponse.data;
+    if(n_inscriptions.length === 0) return res.status(200).json({status: false, message: "file not inscribed"})
+    
     n_inscriptions.forEach((item) => {
       let inscriptions = item.inscriptions;
       inscriptions.map((e) => {
