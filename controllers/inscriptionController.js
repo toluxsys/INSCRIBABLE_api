@@ -825,8 +825,8 @@ module.exports.inscribe = async (req, res) => {
       }
     }
     if(instance.sat && instance.sat !=="random"){ 
-      //let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
-      //if(spendUtxo === "no utxos") return res.status(200).json({status: false, message: "payment address has no transaction"})
+      let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
+      if(spendUtxo === "no utxos") return res.status(200).json({status: false, message: "payment address has no transaction"})
       if(instance.s3 === true){
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
           feeRate: instance.feeRate,
@@ -834,7 +834,7 @@ module.exports.inscribe = async (req, res) => {
           type: instance.sat,
           imageName: imageName,
           networkName: "mainnet",
-          spendUtxo: "spendUtxo",
+          spendUtxo: spendUtxo,
           changeAddress: changeAddress,
           walletName: "oldSatsWallet",
           storageType: "AWS",
@@ -848,14 +848,12 @@ module.exports.inscribe = async (req, res) => {
           type: instance.sat,
           imageName: imageName,
           networkName: "mainnet",
-          spendUtxo: "spendUtxo",
+          spendUtxo: spendUtxo,
           changeAddress: changeAddress,
           walletName: "oldSatsWallet",
           storageType: "IPFS",
         });
       }
-
-      console.log(newInscription.data)
     }else {
       if(instance.s3 === true){
         newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/changeS3`, {
