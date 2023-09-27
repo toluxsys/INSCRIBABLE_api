@@ -74,7 +74,7 @@ module.exports.inscribeText = async (req, res) => {
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    const fileName = inscriptionId + new Date().getTime().toString() + `.txt`;
+    const fileName = inscriptionId +`_`+ new Date().getTime().toString() + `.txt`;
     let walletKey = "";
     let paymentAddress;
     s3 = false;
@@ -172,7 +172,7 @@ module.exports.brc20 = async (req, res) => {
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    const fileName = inscriptionId + new Date().getTime().toString() +`.txt`;
+    const fileName = inscriptionId +`_`+ new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
     let s3 = false;
@@ -289,7 +289,7 @@ module.exports.satNames = async (req, res) => {
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    const fileName = inscriptionId + new Date().getTime().toString() +`.txt`;
+    const fileName = inscriptionId +`_`+ new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
     let s3 = false;
@@ -423,7 +423,7 @@ module.exports.brc1155 = async (req, res) => {
     if (networkName === "testnet")
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
-    const s_fileName = inscriptionId + new Date().getTime().toString() + path.extname(file.name);
+    const s_fileName = inscriptionId +`_`+ new Date().getTime().toString() + path.extname(file.name);
       const savePath = path.join(
         process.cwd(),
         "src",
@@ -1802,7 +1802,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     if (networkName === "testnet")
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
-    const fileName = inscriptionId + new Date().getTime().toString() + path.extname(file.name);
+    const fileName = inscriptionId +`_`+new Date().getTime().toString() + path.extname(file.name);
       const savePath = path.join(
         process.cwd(),
         "src",
