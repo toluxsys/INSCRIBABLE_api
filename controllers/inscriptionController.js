@@ -1040,7 +1040,6 @@ module.exports.checkPayment = async (req, res) => {
         inscription.inscriptionDetails.payAddress,
         networkName
       );
-      console.log("balance: ", balance )
       cost = inscription.cost.total;
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
