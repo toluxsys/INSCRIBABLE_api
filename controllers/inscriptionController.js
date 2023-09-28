@@ -1026,6 +1026,8 @@ module.exports.checkPayment = async (req, res) => {
         networkName
       );
       cost = inscription.cost.total;
+      _txid = balance.txid[0].split(`:`)[0];
+      txid = `https://mempool.space/tx/${_txid}`
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
