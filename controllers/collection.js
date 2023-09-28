@@ -1751,14 +1751,6 @@ module.exports.getCollection = async (req, res) => {
     let mintedItems = collection.minted;
     let mintedCount = mintedItems.length;
 
-    if(collection.specialSat){
-      if(!collection.mintCount) {
-        mintedCount = 0;
-      }else{
-        mintedCount = collection.mintCount;
-      }
-    }
-
     if(collection.ended === true) {
       mintedCount = null;
       totalSupply = null;
