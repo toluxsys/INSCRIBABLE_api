@@ -1038,20 +1038,17 @@ module.exports.checkPayment = async (req, res) => {
       txid = `https://mempool.space/tx/${_txid}`
     }
 
-    if (inscription.stage === "stage 2") {
-      return res.status(200).json({ status: true, message: "utxo sent" });
+    if (inscription.stage === "stage 2" && inscription.collectionId) {
+      return res.status(200).json({ status: true, message: "utxo sent" ,txid: txid});
+    }else if(inscription.stage === "stage 2"){
+      return res.status(200).json({ status: true, message: "utxo sent" ,txid: txid});
     }else if(inscription.stage === "stage 3" && inscription.collectionId){
-      let collection = await Collection.findOne({id: inscription.collectionId});
-      if (collection.specialSat){
-        let n_txid = inscription.spendTxid.split(":")[0]
-        return res.status(200).json({status: true, type: "sat", message: "inscription done", txid:`https://mempool.space/tx/${n_txid}` })
-      }else{
-        return res.status(200).json({
-          status: true,
-          message: "inscription complete",
-          userResponse: inscription.inscription,
-        });
-      }
+      return res.status(200).json({
+        status: true,
+        message: "inscription complete",
+        txid : txid,
+        userResponse: inscription.inscription,
+      });
     } else if (inscription.stage === "stage 3") {
       return res.status(200).json({
         status: true,
