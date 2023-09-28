@@ -1575,7 +1575,7 @@ module.exports.inscribe = async (req, res) => {
         collectionId: collectionId,
         cid: collection.itemCid,
         imageNames: imageNames,
-        type: instance.specialSat,
+        type: instance.sat,
         networkName: "mainnet",
         spendUtxo: spendUtxo,
         changeAddress: changeAddress,
@@ -1640,7 +1640,7 @@ module.exports.inscribe = async (req, res) => {
       });
     }
   } catch(e) {
-    console.log(e.message);
+    console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
