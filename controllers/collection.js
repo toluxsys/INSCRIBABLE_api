@@ -621,8 +621,7 @@ module.exports.addCollection = async (req, res) => {
       totalSupply: totalSupply,
     };
 
-    const data = await compressAndSaveBulk(collectionId, false);
-    //let startTime = new Date(startAt).getTime();
+    const data = await compressAndSaveBulk(collectionId, false); //let startTime = new Date(startAt).getTime();
     let ids = await addMintDetails(collectionId, JSON.parse(mintDetails));
     const collection = new Collection({
       id: collectionId,
