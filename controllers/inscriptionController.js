@@ -1025,6 +1025,7 @@ module.exports.checkPayment = async (req, res) => {
         inscription.inscriptionDetails.payAddress,
         networkName
       );
+      if(balance.totalAmountAvailable == 0) return res.status(200).json({status:false, message: `Payment address balance: 0 sats`})
       cost = inscription.cost.total;
       _txid = balance.txid[0].split(`:`)[0];
       txid = `https://mempool.space/tx/${_txid}`
@@ -1035,6 +1036,7 @@ module.exports.checkPayment = async (req, res) => {
         inscription.inscriptionDetails.payAddress,
         networkName
       );
+      if(balance.totalAmountAvailable == 0) return res.status(200).json({status:false, message: `Payment address balance: 0 sats`})
       cost = inscription.cost.total;
       _txid = balance.txid[0].split(`:`)[0];
       txid = `https://mempool.space/tx/${_txid}`
