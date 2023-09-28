@@ -1961,7 +1961,7 @@ module.exports.checkWhitelist = async (req, res) => {
       return res.status(200).json({status: true, message: "ok", userResponse: details});
     }
   }catch(err){
-    console.log(err.message);
+    console.log(err);
     return res.status(200).json({status: false, message: err.message});
   }
 };
