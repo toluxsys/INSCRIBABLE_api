@@ -55,6 +55,7 @@ const getLinks = async (cid, totalSupply) => {
     for await (const link of ipfs.ls(cid)) {
       links.push(link);
     }
+    if(links.length === totalSupply) return links
     return links.splice(links.length - totalSupply, totalSupply);
   } catch (e) {
     console.log(e.message);
