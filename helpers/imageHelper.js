@@ -375,10 +375,13 @@ const compressAndSaveBulk = async (inscriptionId, optimize) => {
   }
 };
 
-const saveFile = async (fileName) => {
+const saveFile = async (fileName, collectionId) => {
   try{
     const storage = await initStorage();
     const filePath = `${process.cwd()}/build/files`
+    if(collectionId){
+      filePath = process.cwd()`/build/files/${collectionId}`
+    }
 
     if (!fs.existsSync(filePath)) {
       fs.mkdirSync(
@@ -392,7 +395,7 @@ const saveFile = async (fileName) => {
 
     const n_file = await getFilesFromPath(filePath + `/${fileName}`);
       const rootCid = await storage.put(n_file);
-      fs.unlinkSync(filePath);
+      fs.unlinkSync(filePath + `/${fileName}`);
       const newData = {
         cid: rootCid,
         size: n_file[0].size,
@@ -403,11 +406,13 @@ const saveFile = async (fileName) => {
   }
 }
 
-const saveFileS3 = async (fileName) => {
+const saveFileS3 = async (fileName, collectionId) => {
   try{
     const storage = await initStorage();
-    const filePath = `${process.cwd()}/build/files`
-
+    let filePath = `${process.cwd()}/build/files`
+    if(collectionId){
+      filePath = process.cwd()`/build/files/${collectionId}`
+    }
     const n_file = fs.readFileSync(filePath + `/${fileName}`);
      let data = await uploadToS3(fileName, n_file);
       fs.unlinkSync(filePath + `/${fileName}`);

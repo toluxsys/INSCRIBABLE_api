@@ -31,7 +31,7 @@ router.use(
 router.post("/add", controller.addCollection);
 router.post("/addMintAddress", controller.addMintAddress);
 router.post("/upload", controller.addCollectionItems);
-router.post("/seleteItem", controller.seleteItem);
+router.post("/seleteItem", controller.selectItem);
 router.post("/undoSelection/:inscriptionId", controller.undoSelection);
 router.post("/getImages", controller.getImages);
 router.post("/sendUtxo", controller.sendUtxo1);
@@ -59,6 +59,12 @@ router.post("/addMintDetails", controller.addMintDetails);
 router.get("/getCollections", controller.getCollections);
 router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 router.post("/checkWhitelist", controller.checkWhitelist);
+router.post("/addFeatured", controller.addFeaturedCollection);
+router.post("/removeFeatured", controller.removeFeaturedCollection);
+router.get("/getFeatured", controller.getFeaturedCollections);
+router.get("/sats", controller.getAvailableSat);
+router.post("/updateSatCost", controller.updateSatCost);
+router.get("/getSatCost", controller.getSatCost);
 
 
 module.exports = router;

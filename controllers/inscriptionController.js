@@ -13,9 +13,8 @@ const PayLink = require("../model/paymentLink");
 const BulkInscription = require("../model/bulkInscription");
 const Address = require("../model/address");
 const Collection = require("../model/collection");
-const Sats = require("../model/sats");
+const SpecialSat = require("../model/specialSats");
 const ObjectId = require('mongoose').Types.ObjectId; 
-const verifySats = require("../helpers/satNameHelper");
 const {
   compressImage,
   compressAndSave,
@@ -45,7 +44,7 @@ const {
   createLegacyPayLinkAddress,
 } = require("../helpers/sendBitcoin2");
 const { getType } = require("../helpers/getType");
-const { btcToUsd } = require("../helpers/btcToUsd");
+const { btcToUsd, usdToSat } = require("../helpers/btcToUsd");
 const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/svg`, `image/svg+xml`];
 
 const writeFile = (path, data) => {
@@ -75,7 +74,7 @@ module.exports.inscribeText = async (req, res) => {
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    const fileName = new Date().getTime().toString() + `.txt`;
+    const fileName = inscriptionId +`_`+ new Date().getTime().toString() + `.txt`;
     let walletKey = "";
     let paymentAddress;
     s3 = false;
@@ -92,9 +91,9 @@ module.exports.inscribeText = async (req, res) => {
     let fileDetail;
     let inscriptionCost;
 
-    if(oldSats){
+    if(oldSats !== "random"){
       fileDetail = await saveFile(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: "oldSatsWallet",
@@ -108,7 +107,7 @@ module.exports.inscribeText = async (req, res) => {
       paymentAddress = result.data.userResponse.data[0];
     }else {
       fileDetail = await saveFileS3(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -173,7 +172,7 @@ module.exports.brc20 = async (req, res) => {
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    const fileName = new Date().getTime().toString() +`.txt`;
+    const fileName = inscriptionId +`_`+ new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
     let s3 = false;
@@ -208,9 +207,10 @@ module.exports.brc20 = async (req, res) => {
     writeFile(s_path, s_data);
     let fileDetail;
     let inscriptionCost;
-    if(oldSats){
+    if(oldSats !== "random"){
       fileDetail = await saveFile(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
+
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: "oldSatsWallet",
@@ -224,7 +224,7 @@ module.exports.brc20 = async (req, res) => {
       paymentAddress = result.data.userResponse.data[0];
     }else {
       fileDetail = await saveFileS3(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -289,7 +289,7 @@ module.exports.satNames = async (req, res) => {
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    const fileName = new Date().getTime().toString() +`.txt`;
+    const fileName = inscriptionId +`_`+ new Date().getTime().toString() +`.txt`;
     let walletKey = "";
     let paymentAddress;
     let s3 = false;
@@ -305,8 +305,8 @@ module.exports.satNames = async (req, res) => {
     if(name.split("").includes(".")){
       return res.status(200).json({status: false, message: `${name} your name can not contain "."`});
     }
-    let verifyName = await verifySats(name + ".sats");
-    if(!verifyName) return res.status(200).json({status: false, message: `${name} already exists`});
+    // let verifyName = await verifySats(name + ".sats");
+    // if(!verifyName) return res.status(200).json({status: false, message: `${name} already exists`});
     
     data = {
       p: "sns",
@@ -319,9 +319,9 @@ module.exports.satNames = async (req, res) => {
     let fileDetail;
     let inscriptionCost;
 
-    if(oldSats){
+    if(oldSats !== "random"){
       fileDetail = await saveFile(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
         collectionName: "oldSatsWallet",
@@ -335,7 +335,7 @@ module.exports.satNames = async (req, res) => {
       paymentAddress = result.data.userResponse.data[0];
     }else {
       fileDetail = await saveFileS3(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+      inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
       s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -386,7 +386,7 @@ module.exports.satNames = async (req, res) => {
       },
     });
   } catch (e){
-    console.log(e.message);
+    console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
@@ -423,8 +423,7 @@ module.exports.brc1155 = async (req, res) => {
     if (networkName === "testnet")
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
-    const s_fileName = new Date().getTime().toString() + path.extname(file.name);
-    const fileName = new Date().getTime().toString() +`.txt`
+    const s_fileName = inscriptionId +`_`+ new Date().getTime().toString() + path.extname(file.name);
       const savePath = path.join(
         process.cwd(),
         "src",
@@ -446,9 +445,9 @@ module.exports.brc1155 = async (req, res) => {
       let fileDetail;
       let inscriptionCost;
 
-      if(oldSats === `true`){
+      if(oldSats !== "random"){
         fileDetail = await saveFile(fileName);
-        inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+        inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -460,9 +459,9 @@ module.exports.brc1155 = async (req, res) => {
           return res.status(200).json({status: false, message: result.data.message});
         }
         paymentAddress = result.data.userResponse.data[0];
-      }else {
+      }else{
         fileDetail = await saveFileS3(fileName);
-        inscriptionCost = inscriptionPrice(feeRate, fileDetail.size);
+        inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
         s3 = true;
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -525,7 +524,7 @@ module.exports.upload = async (req, res) => {
     let feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     let optimize = req.body.optimize;
-    const receiveAddress = req.body.receiveAddress;
+    let receiveAddress = req.body.receiveAddress;
     let oldSats = req.body.oldSats;
 
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
@@ -536,12 +535,13 @@ module.exports.upload = async (req, res) => {
     const details = await init(file, feeRate, networkName, optimize, receiveAddress, oldSats);
     if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
     if(details.resError) return res.status(200).json({status: false, message: details.resError})
-    res.status(200).json({
+    
+    return res.status(200).json({
       status: true,
       message: "ok",
       userResponse: {
         compImage: details.compImage,
-        cost: details.inscriptionCost,
+        cost: await details.inscriptionCost,
         paymentAddress: details.paymentAddress,
         inscriptionId: details.inscriptionId,
       },
@@ -717,7 +717,6 @@ module.exports.sendUtxo1 = async(req,res) => {
 
     let inscription;
     let instance;
-    let balance;
     let ids;
     let ORD_API_URL;
 
@@ -738,25 +737,13 @@ module.exports.sendUtxo1 = async(req,res) => {
       ids = await Ids.where("id").equals(instance._id);
     }
     
-    const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
-      walletName: inscriptionId,
-      networkName: networkName,
-    });
-    balance = result.data.userResponse.data;
+    instance.stage = "stage 2";
+    ids.status = `utxo sent`;
+    await instance.save();
+    return res
+      .status(200)
+      .json({ status: true, message: `ok`, userResponse: true });
 
-    if (balance < instance.cost.inscriptionCost) {
-      return res.status(200).json({
-        status: false,
-        message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-      });
-    } else {
-      instance.stage = "stage 2";
-      ids.status = `utxo sent`;
-      await instance.save();
-      return res
-        .status(200)
-        .json({ status: true, message: `ok`, userResponse: true });
-    }
   }catch(e){
     console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
@@ -775,7 +762,7 @@ module.exports.inscribe = async (req, res) => {
     const type = getType(inscriptionId);
     let inscription;
     let instance;
-    let newInscription;
+    let newInscription ;
     let imageName;
     let n_inscriptions;
     let details = [];
@@ -793,40 +780,26 @@ module.exports.inscribe = async (req, res) => {
       if(!changeAddress) changeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
     }
     
-    
     if (type === "single") {
       inscription = await Inscription.where("id").equals(inscriptionId);
       instance = inscription[0];
-
       balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
-
-      if(instance.sat){
-        imageName = instance.inscriptionDetails.fileName;
-        receiverAddress = instance.receiver;
-        let cost = instance.cost.inscriptionCost;
-        if (balance < cost) {
-          return res.status(200).json({
+      imageName = instance.inscriptionDetails.fileName;
+      receiverAddress = instance.receiver;
+      let cost = instance.cost.inscriptionCost;
+      if (balance < cost) {
+        return res.status(200).json({
           status: false,
           message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-         });
-        }
-      }else{
-        imageName = instance.inscriptionDetails.fileName;
-        console.log(imageName);
-        receiverAddress = instance.receiver;
-        let cost = instance.cost.inscriptionCost;
-        if (balance < cost) {
-          return res.status(200).json({
-            status: false,
-            message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-          });
-        }
+        });
       }
+      
     } else if (type === "bulk") {
       inscription = await BulkInscription.where("id").equals(inscriptionId);
       instance = inscription[0];
+
       balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
-      console.log(balance)
+      
       receiverAddress = instance.receiver;
       let cost = instance.cost.cardinal;
       if (balance < cost) {
@@ -836,18 +809,20 @@ module.exports.inscribe = async (req, res) => {
         });
       }
     }
-    if(instance.sat){ 
-      if(instance.s3){
+    if(instance.sat && instance.sat !=="random"){ 
+      let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
+      if(spendUtxo === "no utxos") return res.status(200).json({status: false, message: "payment address has no transaction"})
+      if(instance.s3 === true){
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
           feeRate: instance.feeRate,
           receiverAddress: receiverAddress,
           type: instance.sat,
           imageName: imageName,
           networkName: "mainnet",
+          spendUtxo: spendUtxo,
           changeAddress: changeAddress,
           walletName: "oldSatsWallet",
           storageType: "AWS",
-          paymentAddress: instance.inscriptionDetails.payAddress,
         });
       }else{
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
@@ -858,10 +833,10 @@ module.exports.inscribe = async (req, res) => {
           type: instance.sat,
           imageName: imageName,
           networkName: "mainnet",
+          spendUtxo: spendUtxo,
           changeAddress: changeAddress,
           walletName: "oldSatsWallet",
           storageType: "IPFS",
-          paymentAddress: instance.inscriptionDetails.payAddress
         });
       }
     }else {
@@ -896,14 +871,12 @@ module.exports.inscribe = async (req, res) => {
         .json({ status: false, message: newInscription.data.message });
     }
     n_inscriptions = newInscription.data.userResponse.data;
+    if(newInscription.data.userResponse.data.length === 0) return res.status(200).json({status: false, message: "file not inscribed"})
     n_inscriptions.forEach((item) => {
-      let inscriptions = item.inscriptions;
-      inscriptions.map((e) => {
-        const data = {
-          inscription: e,
-        };
-        details.push(data);
-      }) 
+      const data = {
+        inscription: item,
+      };
+      details.push(data);
     });
     
     instance.inscription = details;
@@ -984,11 +957,11 @@ module.exports.inscriptionCalc = async (req, res) => {
     const file = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
-    const details = await getInscriptionCost(file, feeRate, optimize);
+    const oldSats = req.body.oldSats
+    const details = await getInscriptionCost(file, feeRate, optimize, oldSats);
     if(typeof(details) === `string`){
       return res.status(200).json({status: false, message: details});
     }
-
     return res.status(200).json({
       status: true,
       message: "ok",
@@ -1053,6 +1026,8 @@ module.exports.checkPayment = async (req, res) => {
         networkName
       );
       cost = inscription.cost.total;
+      _txid = balance.txid[0].split(`:`)[0];
+      txid = `https://mempool.space/tx/${_txid}`
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
@@ -1065,20 +1040,17 @@ module.exports.checkPayment = async (req, res) => {
       txid = `https://mempool.space/tx/${_txid}`
     }
 
-    if (inscription.stage === "stage 2") {
-      return res.status(200).json({ status: true, message: "utxo sent" });
+    if (inscription.stage === "stage 2" && inscription.collectionId) {
+      return res.status(200).json({ status: true, message: "utxo sent" ,txid: txid});
+    }else if(inscription.stage === "stage 2"){
+      return res.status(200).json({ status: true, message: "utxo sent" ,txid: txid});
     }else if(inscription.stage === "stage 3" && inscription.collectionId){
-      let collection = await Collection.findOne({id: inscription.collectionId});
-      if (collection.specialSat){
-        let n_txid = inscription.spendTxid.split(":")[0]
-        return res.status(200).json({status: true, type: "sat", message: "inscription done", txid:`https://mempool.space/tx/${n_txid}` })
-      }else{
-        return res.status(200).json({
-          status: true,
-          message: "inscription complete",
-          userResponse: inscription.inscription,
-        });
-      }
+      return res.status(200).json({
+        status: true,
+        message: "inscription complete",
+        txid : txid,
+        userResponse: inscription.inscription,
+      });
     } else if (inscription.stage === "stage 3") {
       return res.status(200).json({
         status: true,
@@ -1095,19 +1067,20 @@ module.exports.checkPayment = async (req, res) => {
         _txid = balance.txid[0].split(`:`)[0];
         txid = `https://mempool.space/tx/${_txid}`
         if(inscription.collectionPayment === "waiting"){
-          if(collection.specialSat){
-            await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
-            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
-            inscription.collectionPayment = "received";
-            let _savedInscription = await inscription.save();
-            mintCount = _savedInscription.mintCount;
-            return res.status(200).json({
-              status: false,
-              message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-              userResponse: txid,
-            });
-          }else{
+          //if(collection.specialSat){
+            // await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
+            // await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
+            // inscription.collectionPayment = "received";
+            // let _savedInscription = await inscription.save();
+            // mintCount = _savedInscription.mintCount;
+            // return res.status(200).json({
+            //   status: false,
+            //   message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+            //   userResponse: txid,
+            // });
+         // }else{
             await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
             await SelectedItems.deleteOne({_id: inscription.selected});
             inscription.collectionPayment = "received";
             let _savedCollection = await inscription.save();
@@ -1117,7 +1090,7 @@ module.exports.checkPayment = async (req, res) => {
               message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
               userResponse: txid,
             });
-          }
+          //}
         }else if (inscription.collectionPayment === "received" && balance.status[0].confirmed === false){
           return res.status(200).json({
             status: false,
@@ -1129,20 +1102,21 @@ module.exports.checkPayment = async (req, res) => {
         _txid = balance.txid[0].split(`:`)[0];
         txid = `https://mempool.space/tx/${_txid}`
         if(inscription.collectionPayment === "waiting"){
-          if(collection.specialSat){
-            await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
-            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } },{$pull: {pendingOrders: new ObjectId(inscription._id)}},{new: true});
-            inscription.collectionPayment = "paid";
-            inscription.spendTxid = balance.txid[0];
-            let _savedInscription = await inscription.save();
-            mintCount = _savedInscription.mintCount;
-            return res.status(200).json({
-              status: true,
-              message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-              txid: txid,
-            });
-          }else{
+          // if(collection.specialSat){
+          //   await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
+          //   await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } },{$pull: {pendingOrders: new ObjectId(inscription._id)}},{new: true});
+          //   inscription.collectionPayment = "paid";
+          //   inscription.spendTxid = balance.txid[0];
+          //   let _savedInscription = await inscription.save();
+          //   mintCount = _savedInscription.mintCount;
+          //   return res.status(200).json({
+          //     status: true,
+          //     message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
+          //     txid: txid,
+          //   });
+          // }else{
             await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length } },{$pull: {pendingOrders: new ObjectId(inscription._id)}},{new: true});
             await SelectedItems.deleteOne({_id: inscription.selected});
             inscription.collectionPayment = "received";
             let _savedInscription = await inscription.save();
@@ -1152,7 +1126,7 @@ module.exports.checkPayment = async (req, res) => {
               message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
               txid: txid,
             });
-          }
+          //}
         }else if(inscription.collectionPayment === "received"){
           if(collection.specialSat){
             inscription.collectionPayment = "paid";
@@ -1222,13 +1196,12 @@ module.exports.checkUtxo = async (req, res) => {
     let balance;
     let ORD_API_URL;
 
-    if (networkName === "mainnet")
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    if (networkName === "testnet")
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+    if (networkName === "mainnet") ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet") ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
+      if(inscription.sat !== "random")return res.status(200).json({ status: true, message: `ok`, userResponse: true });
       const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
         walletName: inscriptionId,
         networkName: networkName,
@@ -1359,35 +1332,19 @@ module.exports.getStage = async (req, res) => {
     }
 
     if (inscription.stage === "stage 1"){
-      if (inscription.collectionId) {
-        let collection = await Collection.findOne({id: inscription.collectionId});
-        if (collection.specialSat){
-          return res.status(200).json({
-            status: true,
-            message: "ok",
-            type: "sat",
-            userResponse: {
-              stage: 1,
-              endpoint: "inscription/checkPayment",
-              route: "checkPayment",
-              address: inscription.receiver,
-              collectionId: inscription.collectionId,
-            }
-          });
-        }else{
-          return res.status(200).json({
-            status: true,
-            type: "collection",
-            message: "ok",
-            userResponse: {
-              stage: 1,
-              endpoint: "inscription/checkPayment",
-              route: "checkPayment",
-              address: inscription.receiver,
-              collectionId: inscription.collectionId,
-            }
-          });
-        }  
+      if (inscription.collectionId) {   
+        return res.status(200).json({
+          status: true,
+          type: "collection",
+          message: "ok",
+          userResponse: {
+            stage: 1,
+            endpoint: "inscription/checkPayment",
+            route: "checkPayment",
+            address: inscription.receiver,
+            collectionId: inscription.collectionId,
+          }
+        });   
       } else {
         return res.status(200).json({
           status: true,
@@ -1404,33 +1361,18 @@ module.exports.getStage = async (req, res) => {
       
     if (inscription.stage === "stage 2"){
         if (inscription.collectionId) {
-          let collection = await Collection.findOne({id: inscription.collectionId});
-          if (collection.specialSat){
-            return res.status(200).json({
-              status: true,
-              type: "sat",
-              message: "ok",
-              userResponse: {
-                stage: 2,
-                endpoint: "inscription/checkPayment",
-                route: "checkPayment",
-                collectionId: inscription.collectionId,
-              }
-            });
-          }else{
-            return res.status(200).json({
-              status: true,
-              message: "ok",
-              type: "collection",
-              userResponse: {
-                stage: 2,
-                endpoint: "collection/checkUtxo",
-                route: "checkUtxo",
-                address: inscription.receiver,
-                collectionId: inscription.collectionId,
-              }
-            });
-          } 
+          return res.status(200).json({
+            status: true,
+            message: "ok",
+            type: "collection",
+            userResponse: {
+              stage: 2,
+              endpoint: "collection/checkUtxo",
+              route: "checkUtxo",
+              address: inscription.receiver,
+              collectionId: inscription.collectionId,
+            }
+          }); 
         } else {
           return res.status(200).json({
             status: true,
@@ -1447,34 +1389,18 @@ module.exports.getStage = async (req, res) => {
     
     if (inscription.stage === "stage 3"){
       if(inscription.collectionId){
-        let collection = await Collection.findOne({id: inscription.collectionId});
-          if (collection.specialSat){
-            return res.status(200).json({
-              status: true,
-              message: "ok",
-              type: "sat",
-              userResponse: {
-                stage: 3,
-                endpoint: "",
-                route: "checkPayment",
-                address: inscription.receiver,
-                collectionId: inscription.collectionId,
-              }
-            });
-          }else{
-            return res.status(200).json({
-              status: true,
-              type: "collection",
-              message: "ok",
-              userResponse: {
-                stage: 3,
-                endpoint: "",
-                route: "viewInscriptions",
-                address: inscription.receiver,
-                collectionId: inscription.collectionId,
-              }
-            });
+        return res.status(200).json({
+          status: true,
+          type: "collection",
+          message: "ok",
+          userResponse: {
+            stage: 3,
+            endpoint: "",
+            route: "viewInscriptions",
+            address: inscription.receiver,
+            collectionId: inscription.collectionId,
           }
+        });
       }else{
         return res.status(200).json({
           status: true,
@@ -1807,7 +1733,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     if (networkName === "testnet")
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
-    const fileName = new Date().getTime().toString() + path.extname(file.name);
+    const fileName = inscriptionId +`_`+new Date().getTime().toString() + path.extname(file.name);
       const savePath = path.join(
         process.cwd(),
         "src",
@@ -1819,9 +1745,8 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     
     if (optimize === `true`) {
       compImage = await compressAndSaveS3(fileName, true);
-      inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut);
-
-      if(satType){
+      if(satType !== "random"){
+        inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1834,6 +1759,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
+        inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1849,9 +1775,9 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       }
     } else if (optimize === `false`) {
       compImage = await compressAndSaveS3(fileName, false);
-      inscriptionCost = inscriptionPrice(feeRate, file.size);
-
-      if(satType){
+      
+      if(satType !== "random"){
+        inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1864,6 +1790,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
+        inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1968,7 +1895,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
     );
 
     const data = await compressAndSaveBulkS3(inscriptionId, optimized);
-    const costPerInscription = inscriptionPrice(feeRate, data.largestFile);
+    const costPerInscription = inscriptionPrice(feeRate, data.largestFile, "none");
     const totalCost = costPerInscription.total * files.length;
     const cardinals = costPerInscription.inscriptionCost;
     const sizeFee = costPerInscription.sizeFee * files.length;
@@ -2030,22 +1957,63 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
   }
 };
 
-const inscriptionPrice = (feeRate, fileSize) => {
-  const serviceCharge = parseInt(process.env.SERVICE_CHARGE);
-  const sats = Math.ceil((fileSize / 4) * feeRate);
-  const cost = sats + 1500 + 550;
-  const sizeFee = Math.ceil(cost / 2);
-  const total = serviceCharge + cost + parseInt(sizeFee);
-  return {
-    serviceCharge,
-    inscriptionCost: cost + sizeFee,
-    sizeFee: sizeFee,
-    postageFee: 550,
-    total: total,
-  };
+const getSatPrices = async () => {
+  try{
+    let price = (await SpecialSat.find({})).map(sat=> {
+      return {
+        satType: sat.satType,
+        price: sat.price
+      }
+    })
+
+    return  price
+  }catch(e){
+    console.log(e.message);
+  }
+}
+
+const getSatCost = async (type) => {
+  try{
+    let sats = await getSatPrices()
+    let price;
+    sats.forEach((x)=> {
+      if (x.satType === type) price = x.price
+    })
+    //convert usd to sat
+    return (await usdToSat(price)).satoshi + 5000
+  }catch(e){
+    console.log(e.message)
+  }
+}
+
+const inscriptionPrice = async (feeRate, fileSize, satType) => {
+  try{
+    let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
+    let sats = Math.ceil((fileSize / 4) * feeRate);
+    let cost = sats + 1500 + 550;
+    let sizeFee = parseInt(Math.ceil(cost / 5));
+    let satCost = 0
+    if(sizeFee < 1024){
+      sizeFee = 1024
+    }
+    if(satType !== "random"){
+      satCost = await getSatCost(satType)
+    }
+    const total = serviceCharge + cost + sizeFee + satCost;
+    return {
+      serviceCharge,
+      inscriptionCost: cost + sizeFee,
+      sizeFee: sizeFee,
+      satCost: satCost,
+      postageFee: 550,
+      total: total,
+    };
+  }catch(e){
+    console.log(e.message);
+  }
 };
 
-const getInscriptionCost = async (file, feeRate, optimize) => {
+const getInscriptionCost = async (file, feeRate, optimize, satType) => {
   try {
     let inscriptionCost;
     let compImage;
@@ -2068,7 +2036,7 @@ const getInscriptionCost = async (file, feeRate, optimize) => {
     await file.mv(savePath);
     if (optimize === "true") {
       compImage = await compressImage(fileName);
-      inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut);
+      inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
       sizeIn = file.size / 1e3;
       sizeOut = compImage.sizeOut / 1e3;
       compPercentage = compImage.comPercentage;
@@ -2082,7 +2050,7 @@ const getInscriptionCost = async (file, feeRate, optimize) => {
         inscriptionCost: inscriptionCost,
       };
     } else if (optimize === "false") {
-      inscriptionCost = inscriptionPrice(feeRate, file.size);
+      inscriptionCost = await inscriptionPrice(feeRate, file.size, satType);
       unlinkSync(savePath);
       return {
         compImage: {
@@ -2123,7 +2091,7 @@ const getBulkInscriptionCost = async (files, feeRate, optimize) => {
     });
     const data = await compressBulk(id, optimize);
 
-    const inscriptionCost = inscriptionPrice(feeRate, data.largestFile);
+    const inscriptionCost = await inscriptionPrice(feeRate, data.largestFile, "none");
     const total = inscriptionCost.total * files.length;
 
     return {
@@ -2135,3 +2103,5 @@ const getBulkInscriptionCost = async (files, feeRate, optimize) => {
     console.log(e.message);
   }
 };
+
+

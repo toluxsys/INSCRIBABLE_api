@@ -13,8 +13,10 @@ const Ids = require("../model/ids");
 const Collection = require("../model/collection");
 const SelectedItems = require("../model/selectedItems");
 const ServiceFee = require("../model/serviceFee");
-const Sats = require("../model/sats");
+const SpecialSat = require("../model/specialSats");
+const FeaturedCollections = require("../model/featuredCollection");
 const { getType } = require("../helpers/getType");
+const {usdToSat} = require("../helpers/btcToUsd")
 const {addressImage} = require("../helpers/addressImage")
 const {
   createHDWallet,
@@ -36,15 +38,14 @@ const {
   checkAddress,
   getSpendUtxo
 } = require("../helpers/sendBitcoin");
+
+const {getSats} = require("../helpers/satHelper")
 const MintDetails = require("../model/mintDetails");
-const { start } = require("repl");
-const { get } = require("express/lib/response");
-const mintDetails = require("../model/mintDetails");
 const ObjectId = require('mongoose').Types.ObjectId; 
 let satTypes = ['rare', 'common', 'block9', 'block84', 'pizza','pizza1','uncommon', '2009', '2010', '2011'];
 
 
-const getLinks = async (cid) => {
+const getLinks = async (cid, totalSupply) => {
   const client = await import("ipfs-http-client");
   try {
     let links = [];
@@ -54,7 +55,7 @@ const getLinks = async (cid) => {
     for await (const link of ipfs.ls(cid)) {
       links.push(link);
     }
-    return links;
+    return links.splice(links.length - totalSupply, totalSupply);
   } catch (e) {
     console.log(e.message);
   }
@@ -71,17 +72,53 @@ const getServiceFee = async (collectionId) => {
   }
 }
 
-const inscriptionPrice = async (feeRate, fileSize, price, collectionId) => {
+const getSatPrices = async () => {
+  try{
+    let price = (await SpecialSat.find({})).map(sat=> {
+      return {
+        satType: sat.satType,
+        price: sat.price
+      }
+    })
+
+    return  price
+  }catch(e){
+    console.log(e.message);
+  }
+}
+
+const getSatCost = async (type) => {
+  try{
+    let sats = await getSatPrices()
+    let price;
+    sats.forEach((x)=> {
+      if (x.satType === type) price = x.price
+    })
+    return (await usdToSat(price)).satoshi + 5000
+  }catch(e){
+    console.log(e.message)
+  }
+}
+
+const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType) => {
   const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 4) * feeRate);
   const cost = sats + 1500 + 550;
-  const sizeFee = Math.ceil(cost / 5);
-  const total = serviceCharge + cost + parseInt(sizeFee) + price;
+  let sizeFee = parseInt(Math.ceil(cost / 5));
+  let satCost = 0
+  if(sizeFee < 1024){
+    sizeFee = 1024
+  }
+  if(satType !== "random"){
+     satCost = await getSatCost(satType)
+  }
+  const total = serviceCharge + cost + sizeFee + price + satCost;
   return {
     serviceCharge,
     inscriptionCost: cost + sizeFee,
     sizeFee: sizeFee,
     postageFee: 550,
+    satCost: satCost,
     total: total,
   };
 };
@@ -144,7 +181,7 @@ const addMintDetails = async (collectionId, details) => {
   try{
     // let details = await JSON.parse(items);
     let allDetails = []
-    details.details.forEach(async (detail) => {
+    details.forEach(async (detail) => {
       //convert duration from hours to seconds
       let duration = detail.duration * 60 * 60;
       allDetails.push({
@@ -160,7 +197,6 @@ const addMintDetails = async (collectionId, details) => {
     return ids;
   }catch(e){
     console.log(e.message);
-    return false;
   }
 }
 
@@ -242,18 +278,46 @@ const verifyMint = async (collectionId, address, amount) => {
             mintCount: 0,
             message: "valid mint"
           }
-        }else{ 
-          if(s_address.pendingOrders.length >= mintStage.mintLimit){
-            let pendingOrders = [];
-            let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
-            let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
-            _pendingOrders.forEach((item)=>{
+        }else if(s_address.pendingOrders.length >= mintStage.mintLimit){
+          let pendingOrders = [];
+          let inactivePendingOrder = []
+          let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
+          let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
+          _pendingOrders.forEach((item)=>{
+            if(checkTimeElapsed(item.createdAt) === true){
+              inactivePendingOrder.push(item.id)
+            }else{
               pendingOrders.push({
                 orderId: item.id,
                 paymentStatus: item.collectionPayment,
                 inscriptionStatus: item.inscribed,
               })
-            })
+            }
+          })
+
+          console.log(inactivePendingOrder.length)
+
+          if(inactivePendingOrder.length > 0){
+            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: address}, {$pull: {pendingOrders: {$in: inactivePendingOrder}}}, {new:true});
+            if(amount + pendingOrders.length > mintStage.mintLimit){
+              return data = {
+                valid: true,
+                price: mintStage.price,
+                mintCount: s_address.mintCount,
+                message: "complete pending order(s)",
+                userResponse: {
+                  pendingOrders: pendingOrders
+                }
+              }
+            }else{
+              return data = {
+                valid: true,
+                price: mintStage.price,
+                mintCount: s_address.mintCount,
+                message: `valid mint`
+              }
+            }
+          }else{
             return data = {
               valid: true,
               price: mintStage.price,
@@ -263,10 +327,11 @@ const verifyMint = async (collectionId, address, amount) => {
                 pendingOrders: pendingOrders
               },
             }
-          }else{
-            c_address = s_address;  
           }
+        }else{
+          c_address = s_address;   
         }
+        
         if (c_address.mintCount >= mintStage.mintLimit){
           return data = {
             valid: false,
@@ -309,16 +374,22 @@ const verifyMint = async (collectionId, address, amount) => {
       };
       let regex = /[^,\r\n]+/g;
       let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
+      if(_allowedAddress.length === 0){
+        return data = {
+          valid: false,
+          price: "",
+          mintCount: 0,
+          message: "addresses for stage not found",
+          userResponse: {
+            pendingOrders: []
+          },
+        }
+      }
       let allowedAddress = _allowedAddress.match(regex)
       .split(",")
       .filter((item, index) => {
         return allowedAddress.indexOf(item) === index;
       });
-
-      // if(allowedAddress[0].split("").includes(":")){
-      //   let images = addressImage(allowedAddress, address)
-        
-      // }
 
       if(allowedAddress.includes(address)){
         let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
@@ -336,30 +407,58 @@ const verifyMint = async (collectionId, address, amount) => {
             mintCount: 0,
             message: "valid mint"
           }
-        }else{ 
-          if(s_address.pendingOrders.length >= mintStage.mintLimit){
+        }else if(s_address.pendingOrders.length >= mintStage.mintLimit){
             let pendingOrders = [];
+            let inactivePendingOrder = []
             let mappedObjectId = s_address.pendingOrders.map(val => val.toString())
             let _pendingOrders = await Inscription.find({id: {$in: mappedObjectId}});
             _pendingOrders.forEach((item)=>{
-              pendingOrders.push({
-                orderId: item.id,
-                paymentStatus: item.collectionPayment,
-                inscriptionStatus: item.inscribed,
-              })
+              //use moment to get time difference
+              
+              if(checkTimeElapsed(item.createdAt) === true){
+                inactivePendingOrder.push(item.id)
+              }else{
+                pendingOrders.push({
+                  orderId: item.id,
+                  paymentStatus: item.collectionPayment,
+                  inscriptionStatus: item.inscribed,
+                })
+              }
             })
-            return data = {
-              valid: true,
-              price: mintStage.price,
-              mintCount: 0,
-              message: "complete pending order(s)",
-              userResponse: {
-                pendingOrders: pendingOrders
-              },
+
+            if(inactivePendingOrder.length > 0){
+              await Address.findOneAndUpdate({mintStage: collection.mintStage, address: address}, {$pull: {pendingOrders: {$in: inactivePendingOrder}}}, {new:true});
+              if(amount + pendingOrders.length > mintStage.mintLimit){
+                return data = {
+                  valid: true,
+                  price: mintStage.price,
+                  mintCount: s_address.mintCount,
+                  message: "complete pending order(s)",
+                  userResponse: {
+                    pendingOrders: pendingOrders
+                  }
+                }
+              }else{
+                return data = {
+                  valid: true,
+                  price: mintStage.price,
+                  mintCount: s_address.mintCount,
+                  message: `valid mint`
+                }
+              }
+            }else{
+              return data = {
+                valid: true,
+                price: mintStage.price,
+                mintCount: 0,
+                message: "complete pending order(s)",
+                userResponse: {
+                  pendingOrders: pendingOrders
+                },
+              }
             }
-          }else{
-            c_address = s_address;  
-          }   
+        }else{
+          c_address = s_address;   
         }
         if (c_address.mintCount >= mintStage.mintLimit){
           return data = {
@@ -557,7 +656,7 @@ module.exports.addCollection = async (req, res) => {
 };
 
 /**
- {"details": [{
+ [{
   "name": "OG",
   "mintLimit": 2,
   "price": 85000,
@@ -572,7 +671,7 @@ module.exports.addCollection = async (req, res) => {
   "mintLimit": 2,
   "price": 85000,
   "duration": 2
-}]} */
+}]*/
 module.exports.addMintDetails = async (req, res) => {
   try{
     const {collectionId, mintDetails} = req.body;
@@ -773,12 +872,12 @@ module.exports.approveCollection = async (req, res) => {
   }
 };
 
-module.exports.seleteItem = async (req, res) => {
+module.exports.selectItem = async (req, res) => {
   try {
     const { collectionId, receiveAddress, feeRate, imageNames, networkName, oldSats } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
-    const items = await getLinks(cid);
+    const items = await getLinks(cid, collection.collectionDetails.totalSupply);
     const minted = collection.minted;
     const mintStage = collection.mintStage;
     let s_selectedItems = await SelectedItems.find({collectionId: collectionId});
@@ -794,7 +893,6 @@ module.exports.seleteItem = async (req, res) => {
     let paymentAddress;
     let cost;
     let sortedImages = [];
-    let satsId;
     let walletKey;
     let ORD_API_URL;
     if(collection.ended === true) return res.status(200).json({status: false, message: "collection has ended"});
@@ -806,8 +904,8 @@ module.exports.seleteItem = async (req, res) => {
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
     let verified = await verifyMint(collectionId, receiveAddress, imageNames.length);
     if(verified.message === "no valid address for mint stage") return res.status(200).json({status: false, message: "no valid address for mint stage"});
-    if (verified.message === "complete pending order(s)")return res.status(200).json({status: true, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
-    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
+    if(verified.message === "complete pending order(s)")return res.status(200).json({status: false, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
+    if(!verified.valid) return res.status(200).json({status: false, message: verified.message});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
     const price = mintDetails.price;
 
@@ -855,14 +953,16 @@ module.exports.seleteItem = async (req, res) => {
       });
     }
 
-    if (imageNames.length > 1) {
-      sortedImages = fileSize.sort((a, b) => a - b);
+    sortedImages = fileSize.sort((a, b) => a - b);
       cost = await inscriptionPrice(
         feeRate,
         sortedImages[sortedImages.length - 1],
         price,
-        collectionId
-      );
+        collectionId,
+        oldSats
+    );
+
+    if (imageNames.length > 1) {
       const total = cost.total * imageNames.length;
       const cardinals = cost.inscriptionCost * imageNames.length;
 
@@ -908,19 +1008,7 @@ module.exports.seleteItem = async (req, res) => {
 
       await inscription.save();
     } else {
-      sortedImages = fileSize.sort((a, b) => a - b);
-      cost = await inscriptionPrice(
-        feeRate,
-        sortedImages[sortedImages.length - 1],
-        price,
-        collectionId
-      );
-        //get offset and utxo from db
-        if (oldSats === "true"){
-          let sats = await Sats.findOne({_id: new ObjectId(process.env.OLD_SATS_ID)});
-          if(!sats) return res.status(200).json({status: false, message: "No 2009 sats available"});
-          if(sats.count >= sats.size) return res.status(200).json({status: false, message: "sat range exusted"});
-          satsId = sats._id;
+        if (oldSats !== "random"){
           const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
           const r_data = {
             collectionName: "oldSatsWallet",
@@ -958,7 +1046,6 @@ module.exports.seleteItem = async (req, res) => {
           })
           savedSelected = await selectedItems.save();
           await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
-
         }      
       inscription = new Inscription({
         id: inscriptionId,
@@ -967,7 +1054,7 @@ module.exports.seleteItem = async (req, res) => {
         feeRate: feeRate,
         collectionId: collectionId,
         selected: savedSelected._id,
-        sat: satsId,
+        sat: oldSats,
 
         inscriptionDetails: {
           payAddress: paymentAddress,
@@ -996,6 +1083,7 @@ module.exports.seleteItem = async (req, res) => {
         serviceCharge: cost.serviceCharge * imageNames.length,
         inscriptionCost: cost.inscriptionCost * imageNames.length,
         sizeFee: cost.sizeFee * imageNames.length,
+        satCost: cost.satCost,
         postageFee: cost.postageFee,
         total: cost.total * imageNames.length,
       },
@@ -1006,7 +1094,7 @@ module.exports.seleteItem = async (req, res) => {
 
     return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
@@ -1015,10 +1103,10 @@ module.exports.seleteItem = async (req, res) => {
 
 module.exports.calc = async (req, res) => {
   try {
-    const { collectionId, feeRate, imageNames } = req.body;
+    const { collectionId, feeRate, imageNames, oldSats } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
-    const items = await getLinks(cid);
+    const items = await getLinks(cid, collection.collectionDetails.totalSupply);
     const minted = collection.minted;
     const mintStage = collection.mintStage;
     let s_selectedItems = await SelectedItems.find({collectionId: collectionId});
@@ -1067,29 +1155,21 @@ module.exports.calc = async (req, res) => {
       });
     }
 
-    if (imageNames.length > 1) {
-      sortedImages = fileSize.sort((a, b) => a - b);
-      cost = await inscriptionPrice(
-        feeRate,
-        sortedImages[sortedImages.length - 1],
-        price,
-        collectionId
-      );
-    } else {
-      sortedImages = fileSize.sort((a, b) => a - b);
-      cost = await inscriptionPrice(
-        feeRate,
-        sortedImages[sortedImages.length - 1],
-        price,
-        collectionId
-      );
-    }
-
+    sortedImages = fileSize.sort((a, b) => a - b);
+    cost = await inscriptionPrice(
+      feeRate,
+      sortedImages[sortedImages.length - 1],
+      price,
+      collectionId,
+      oldSats
+    );
+    
     userResponse = {
       cost: {
         serviceCharge: cost.serviceCharge * imageNames.length,
         inscriptionCost: cost.inscriptionCost * imageNames.length,
         sizeFee: cost.sizeFee * imageNames.length,
+        satCost: cost.satCost,
         postageFee: cost.postageFee,
         total: cost.total * imageNames.length,
       },
@@ -1250,11 +1330,9 @@ module.exports.sendUtxo1 = async(req,res) => {
     const inscriptionId = req.body.inscriptionId;
     const networkName = req.body.networkName;
     const inscriptionType = getType(inscriptionId);
-    const collectionId = req.body.collectionId;
 
     let inscription;
     let instance;
-    let balance;
     let ORD_API_URL;
 
     if (networkName === `mainnet`){
@@ -1271,24 +1349,12 @@ module.exports.sendUtxo1 = async(req,res) => {
       instance = inscription[0];
     }
     
-    const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
-      walletName: inscriptionId,
-      networkName: networkName,
-    });
-    balance = result.data.userResponse.data;
-
-    if (balance < instance.cost.inscriptionCost) {
-      return res.status(200).json({
-        status: false,
-        message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-      });
-    } else {
-      instance.stage = "stage 2";
-      await instance.save();
-      return res
-        .status(200)
-        .json({ status: true, message: `ok`, userResponse: true });
-    }
+    instance.stage = "stage 2";
+    await instance.save();
+    return res
+      .status(200)
+      .json({ status: true, message: `ok`, userResponse: true });
+    
   }catch(e){
     console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
@@ -1301,6 +1367,8 @@ module.exports.getImages = async(req, res) => {
   try{
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
+    if(!collection) return res.status(200).json({status: false, message: "collection not found"})
+    if(collection.startMint === false || collection.ended === true) return res.status(200).json({status: true, message:"ok", userResponse: []})
     let minted = collection.minted;
     let selectedItems = await SelectedItems.find({collectionId: collectionId});
     let items = [];
@@ -1310,7 +1378,7 @@ module.exports.getImages = async(req, res) => {
     let s_selected = [];
     let selectedImages = [];
 
-    let imageNames = await getLinks(collection.itemCid);
+    let imageNames = await getLinks(collection.itemCid, collection.collectionDetails.totalSupply);
     if(!imageNames) return res.status(200).json({status: false, message: `error getting images`})
 
     selectedItems.forEach((selected) => {
@@ -1326,6 +1394,7 @@ module.exports.getImages = async(req, res) => {
         item.items.forEach((image) => {
           let data = {
             name: image,
+            fileType: image.split(".")[1],
             imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
              selected: false,
              minted: false,
@@ -1337,6 +1406,7 @@ module.exports.getImages = async(req, res) => {
       }else if (checkTimeElapsed(item.timestamp) === false){
         item.items.forEach((image) => {
           let data = {
+            fileType:image.split(".")[1],
             name: image,
             imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image}`,
              selected: true,
@@ -1358,6 +1428,7 @@ module.exports.getImages = async(req, res) => {
      if (minted.includes(image.name)) {
         i_data = {
           name: image.name,
+          fileType: image.name.split(".")[1],
           imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image.name}`,
           selected: false,
            minted: true,
@@ -1369,6 +1440,7 @@ module.exports.getImages = async(req, res) => {
       } else {
         i_data = {
           name: image.name,
+          fileType: image.name.split(".")[1],
           imageUrl: process.env.IPFS_IMAGE_URL + collection.itemCid + `/${image.name}`,
           selected: false,
            minted: false,
@@ -1495,15 +1567,17 @@ module.exports.inscribe = async (req, res) => {
       }
     }
 
-    if(collection.specialSat){ 
+    if(instance.sat !== "random"){ 
+      let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
       newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
         feeRate: instance.feeRate,
         receiverAddress: receiveAddress,
         collectionId: collectionId,
         cid: collection.itemCid,
         imageNames: imageNames,
-        type: collection.specialSat,
+        type: instance.sat,
         networkName: "mainnet",
+        spendUtxo: spendUtxo,
         changeAddress: changeAddress,
         inscriptionId: inscriptionId,
         walletName: "oldSatsWallet",
@@ -1529,21 +1603,19 @@ module.exports.inscribe = async (req, res) => {
         .json({ status: false, message: newInscription.data.message });
     }
 
+    if(newInscription.data.status === false) return res.status(200).json({status: false, message: newInscription.data.message})
+
     n_inscriptions = newInscription.data.userResponse.data;
+    if(n_inscriptions.length === 0) return res.status(200).json({status: false, message: "file not inscribed"})
+    
     n_inscriptions.forEach((item) => {
-      let inscriptions = item.inscriptions;
-      inscriptions.map((e) => {
-        details.push({
-          inscription: e,
-        });
-      }) 
+      details.push({
+        inscription: item,
+      });
     });
 
     await Address.findOneAndUpdate({mintStage: collection.mintStage, address: instance.receiver}, {$inc: {mintCount: instance.fileNames.length}}, {new: true});
     await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: instance.selected}}}, { new: true }); 
-    if(instance.sat){
-      await Sats.findOneAndUpdate({_id: instance.sat}, {$inc: {count: 1} }, {new: true });
-    }
     if (!receiveAddress) {
       instance.inscription = details;
       instance.inscribed = true;
@@ -1568,7 +1640,7 @@ module.exports.inscribe = async (req, res) => {
       });
     }
   } catch(e) {
-    console.log(e.message);
+    console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
@@ -1663,7 +1735,7 @@ module.exports.getCollection = async (req, res) => {
         _mintStage = item.name;
         details.push({
           stage: item.name,
-          price: item.price/1e8,
+          price: price,
           mintLimit: item.mintLimit,
           duration: item.duration,
         })
@@ -1676,15 +1748,8 @@ module.exports.getCollection = async (req, res) => {
         })
       }
     });
-    let collectionItems;
     let type;
-    if(collection.specialSat) {
-      collectionItems = [];  
-    }else{
-      collectionItems = await getLinks(collection.itemCid);
-    };
     let mintedItems = collection.minted;
-    //let collectionCount = collectionItems.length;
     let mintedCount = mintedItems.length;
 
     if(collection.specialSat){
@@ -2036,7 +2101,168 @@ module.exports.unpause = async (req, res) => {
 };
 
 
-//getLinks("QmUZwDUdMbvyvr6FcD16qF3FyhS88MTiBMut1cdcY5Ximv").then((res) => {console.log(res)}).catch((e) => console.log(e.message));
-//create a new model for address that has made payment and update the new model at check payment with 
-//change destination, satType, feeRate,
+///featured collection
+module.exports.addFeaturedCollection = async (req,res)=> {
+  try{
+    let collectionIds = req.body.collectionIds;
+    let collections = await Collection.find({})
+    let invalidIds = []
+    let validIds = []
+    let availableIds = collections.map((x)=> {
+      return x.id
+    })
+    
+    
+    collectionIds.forEach(item => {
+      if(!availableIds.includes(item)){ 
+        invalidIds.push(item)
+      }else{
+        validIds.push(item)
+      }
+    })
+    
+    let featuredCollection = await FeaturedCollections.find({})
+    console.log(featuredCollection[0])
+    let featuredColllectionId = featuredCollection[0]._id;
+    
+    if(!featuredCollection){
+      let collection = new FeaturedCollections({
+        ids: validIds
+      })
+      let saved = await collection.save()
+      return res.status(200).json({status:true, message: "featured collection list added" , id: saved._id})
+    }else{
+      validIds.concat(featuredCollection[0].ids)
+      await FeaturedCollections.findOneAndUpdate({_id: featuredColllectionId}, {$set: {ids: validIds}}, {new:true}) 
+      return res.status(200).json({status:true, message: `${validIds.length} valid collection ids added. ${invalidIds.length} invalid collection ids`})
+    }
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+module.exports.removeFeaturedCollection = async (req,res)=> {
+  try{
+    let collectionId = req.body.collectionId;
+    let collections = await Collection.find({})
+    let availableIds = collections.map((x)=> {
+      return x.id
+    })
+   
+    if(!availableIds.includes(collectionId))return res.status(200).json({status:false, message: "invalid collectionId"})
+    let featuredCollection = await FeaturedCollections.find({})
+    if(!featuredCollection){
+      return res.status(200).json({status:false, message: "no featured collection added"})
+    }else{
+      let ids = featuredCollection[0].ids
+      if(!ids.includes(collectionId)) return res.status(200).json({status:false, message: "collection not part of featured collection"})
+      ids.splice(ids.indexOf(collectionId),1)
+      await FeaturedCollections.findOneAndUpdate({_id:featuredCollection[0]._id},{$set:{ids:ids}},{new:true})
+      return res.status(200).json({status:true, message: "featured collection removed"})
+    }
+  }catch(e){
+    console.log(e);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+module.exports.getFeaturedCollections = async (req,res)=> {
+  try{
+    let networkName = req.body.networkName
+    let _collections = await FeaturedCollections.find({})
+    let ids = []
+    let data = []
+    if (!_collections){
+      let collections = await Collection.find({ flag: networkName, status: "approved"})
+      collections.forEach(item => ids.push(item.id))
+    }else {
+      ids = _collections[0].ids;
+    }
+    let collections = await Collection.find({id: {$in: ids}})
+    collections.forEach(item => {
+      data.push({
+        collectionId: item.id,
+        collectionName: item.name,
+        creatorName: item.collectionDetails.creatorName,
+        description: item.description,
+        category: item.category,
+        collectionCount: item.collectionDetails.totalSupply,
+        totalSupply: item.collectionDetails.totalSupply,
+        bannerUrl: item.banner,
+        featuredUrl: item.featuredImage,
+        website: item.collectionDetails.website,
+        twitter: item.collectionDetails.twitter,
+        discord: item.collectionDetails.discord,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        ended: item.ended,
+        mintStarted: item.startMint,
+      })
+    })
+    return res.status(200).json({status:true, message: "featured collections", userResponse: data});
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+///special sat
+module.exports.getAvailableSat = async (req,res) => {
+  try{
+    let sats = await getSats()
+    return res.status(200).json({status: true, message: "ok", userResponse: sats})
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+module.exports.updateSatCost = async (req,res)=> {
+  try{
+    //[{satType: "pizza", price: 0.5}]
+    let {satDetails} = req.body;
+    let specialSat = await SpecialSat.find({})
+    let uniqueSat = []
+    let available = []
+    if(!specialSat){
+     await SpecialSat.insertMany(satDetails)
+    }else{
+      let satTypes = specialSat.map((sat)=> {
+        return sat.satType
+      })
+      satDetails.forEach(type => {
+        if(!satTypes.includes(type.satType)){
+          uniqueSat.push(type)
+        }else{
+          available.push(type)
+        }
+      })
+      await SpecialSat.insertMany(uniqueSat)
+      
+      await SpecialSat.bulkWrite(available.map((sat) => {
+        return {
+          updateOne: {
+            filter: {satTypes: sat.satType},
+            update: {$set: {price: sat.price}},
+            upsert: true,
+          }
+        }
+      }))
+    }
+    return res.status(200).json({status: true, message: "sat price added"})
+  }catch(e){
+    console.log(e.message);
+    return res.status(200).json({status: false, message: e.message});
+  }
+}
+
+module.exports.getSatCost = async (req, res) => {
+  try{
+    return res.status(200).json({status: true, message: "sat cost", userResponse: await getSatPrices()})
+  }catch(e){
+    console.log(e.message)
+  }
+}
+
 
