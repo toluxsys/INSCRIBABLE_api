@@ -96,7 +96,7 @@ const getSatCost = async (type) => {
     sats.forEach((x)=> {
       if (x.satType === type) price = x.price
     })
-    return (await usdToSat(price)).satoshi + 5000
+    return (await usdToSat(price)).satoshi
   }catch(e){
     console.log(e.message)
   }
@@ -114,7 +114,7 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType)
   if(satType !== "random"){
      satCost = await getSatCost(satType)
   }
-  const total = serviceCharge + cost + sizeFee + price + satCost;
+  const total = serviceCharge + cost + sizeFee + price + satCost + 5000;
   return {
     serviceCharge,
     inscriptionCost: cost + sizeFee,
@@ -2245,7 +2245,7 @@ module.exports.updateSatCost = async (req,res)=> {
         return {
           updateOne: {
             filter: {satType: sat.satType},
-            update: {$set: {price: sat.price}},
+            update: {price: sat.price},
             upsert: true,
           }
         }

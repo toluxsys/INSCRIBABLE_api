@@ -1955,7 +1955,7 @@ const getSatCost = async (type) => {
       if (x.satType === type) price = x.price
     })
     //convert usd to sat
-    return (await usdToSat(price)).satoshi + 5000
+    return (await usdToSat(price)).satoshi
   }catch(e){
     console.log(e.message)
   }
@@ -1974,7 +1974,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     if(satType !== "random"){
       satCost = await getSatCost(satType)
     }
-    const total = serviceCharge + cost + sizeFee + satCost;
+    const total = serviceCharge + cost + sizeFee + satCost + 5000;
     return {
       serviceCharge,
       inscriptionCost: cost + sizeFee,
