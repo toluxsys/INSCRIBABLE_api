@@ -1965,7 +1965,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
   try{
     let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
     let sats = Math.ceil((fileSize / 4) * feeRate);
-    let cost = sats + 1500 + 550;
+    let cost = sats + 1500 + 550 + 5000;
     let sizeFee = parseInt(Math.ceil(cost / 5));
     let satCost = 0
     if(sizeFee < 1024){
@@ -1974,7 +1974,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     if(satType !== "random"){
       satCost = await getSatCost(satType)
     }
-    const total = serviceCharge + cost + sizeFee + satCost + 5000;
+    const total = serviceCharge + cost + sizeFee + satCost;
     return {
       serviceCharge,
       inscriptionCost: cost + sizeFee,
