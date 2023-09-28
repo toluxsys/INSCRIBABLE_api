@@ -1069,30 +1069,17 @@ module.exports.checkPayment = async (req, res) => {
         _txid = balance.txid[0].split(`:`)[0];
         txid = `https://mempool.space/tx/${_txid}`
         if(inscription.collectionPayment === "waiting"){
-          //if(collection.specialSat){
-            // await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
-            // await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } }, {new: true});
-            // inscription.collectionPayment = "received";
-            // let _savedInscription = await inscription.save();
-            // mintCount = _savedInscription.mintCount;
-            // return res.status(200).json({
-            //   status: false,
-            //   message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-            //   userResponse: txid,
-            // });
-         // }else{
-            await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
-            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
-            await SelectedItems.deleteOne({_id: inscription.selected});
-            inscription.collectionPayment = "received";
-            let _savedCollection = await inscription.save();
-            mintCount = _savedCollection.minted.length;
-            return res.status(200).json({
-              status: false,
-              message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-              userResponse: txid,
-            });
-          //}
+          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+          await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
+          await SelectedItems.deleteOne({_id: inscription.selected});
+          inscription.collectionPayment = "received";
+          let _savedCollection = await inscription.save();
+          mintCount = _savedCollection.minted.length;
+          return res.status(200).json({
+            status: false,
+            message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
+            userResponse: txid,
+          });
         }else if (inscription.collectionPayment === "received" && balance.status[0].confirmed === false){
           return res.status(200).json({
             status: false,
@@ -1104,31 +1091,17 @@ module.exports.checkPayment = async (req, res) => {
         _txid = balance.txid[0].split(`:`)[0];
         txid = `https://mempool.space/tx/${_txid}`
         if(inscription.collectionPayment === "waiting"){
-          // if(collection.specialSat){
-          //   await Collection.findOneAndUpdate({id: inscription.collectionId},{$inc: {mintCount: 1}}, {new: true});
-          //   await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: 1 } },{$pull: {pendingOrders: new ObjectId(inscription._id)}},{new: true});
-          //   inscription.collectionPayment = "paid";
-          //   inscription.spendTxid = balance.txid[0];
-          //   let _savedInscription = await inscription.save();
-          //   mintCount = _savedInscription.mintCount;
-          //   return res.status(200).json({
-          //     status: true,
-          //     message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-          //     txid: txid,
-          //   });
-          // }else{
-            await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
-            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length } },{$pull: {pendingOrders: new ObjectId(inscription._id)}},{new: true});
-            await SelectedItems.deleteOne({_id: inscription.selected});
-            inscription.collectionPayment = "received";
-            let _savedInscription = await inscription.save();
-            mintCount = _savedInscription.mintCount;
-            return res.status(200).json({
-              status: true,
-              message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-              txid: txid,
-            });
-          //}
+          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+          await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length } },{$pull: {pendingOrders: new ObjectId(inscription._id)}},{new: true});
+          await SelectedItems.deleteOne({_id: inscription.selected});
+          inscription.collectionPayment = "received";
+          let _savedInscription = await inscription.save();
+          mintCount = _savedInscription.mintCount;
+          return res.status(200).json({
+            status: true,
+            message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
+            txid: txid,
+          });
         }else if(inscription.collectionPayment === "received"){
           if(collection.specialSat){
             inscription.collectionPayment = "paid";
@@ -1982,7 +1955,7 @@ const getSatCost = async (type) => {
       if (x.satType === type) price = x.price
     })
     //convert usd to sat
-    return (await usdToSat(price)).satoshi + 5000
+    return (await usdToSat(price)).satoshi
   }catch(e){
     console.log(e.message)
   }
@@ -1992,7 +1965,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
   try{
     let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
     let sats = Math.ceil((fileSize / 4) * feeRate);
-    let cost = sats + 1500 + 550;
+    let cost = sats + 1500 + 550 + 5000;
     let sizeFee = parseInt(Math.ceil(cost / 5));
     let satCost = 0
     if(sizeFee < 1024){

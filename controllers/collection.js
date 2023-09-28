@@ -55,6 +55,8 @@ const getLinks = async (cid, totalSupply) => {
     for await (const link of ipfs.ls(cid)) {
       links.push(link);
     }
+    console.log(links.length)
+    if(links.length === totalSupply) return links
     return links.splice(links.length - totalSupply, totalSupply);
   } catch (e) {
     console.log(e.message);
@@ -94,7 +96,7 @@ const getSatCost = async (type) => {
     sats.forEach((x)=> {
       if (x.satType === type) price = x.price
     })
-    return (await usdToSat(price)).satoshi + 5000
+    return (await usdToSat(price)).satoshi
   }catch(e){
     console.log(e.message)
   }
@@ -103,7 +105,7 @@ const getSatCost = async (type) => {
 const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType) => {
   const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 4) * feeRate);
-  const cost = sats + 1500 + 550;
+  const cost = sats + 1500 + 550 + 5000;
   let sizeFee = parseInt(Math.ceil(cost / 5));
   let satCost = 0
   if(sizeFee < 1024){
@@ -1725,12 +1727,12 @@ module.exports.getCollection = async (req, res) => {
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
     }
-    
+    let totalSupply = collection.collectionDetails.totalSupply;
     let mappedObjectId = mintDetails.map(val => val.toString())
     let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
     s_mintDetails.forEach((item, index) => {
       if(item._id.toString() === mintStage.toString()){
-        price = item.price/1e8;
+        price = item.price / 1e8;
         _mintStage = item.name;
         details.push({
           stage: item.name,
@@ -1759,6 +1761,11 @@ module.exports.getCollection = async (req, res) => {
       }
     }
 
+    if(collection.ended === true) {
+      mintedCount = null;
+      totalSupply = null;
+    }
+
     if (collection.userSelect === "false" && !collection.specialSat) {
       type = "single";
     }else if(collection.userSelect === "true" && !collection.specialSat){
@@ -1777,7 +1784,7 @@ module.exports.getCollection = async (req, res) => {
         category: collection.category,
         collectionCount: collection.collectionDetails.totalSupply,
         mintedCount: mintedCount,
-        totalSupply: collection.collectionDetails.totalSupply,
+        totalSupply: totalSupply,
         bannerUrl: collection.banner,
         featuredUrl: collection.featuredImage,
         website: collection.collectionDetails.website,
@@ -2237,8 +2244,8 @@ module.exports.updateSatCost = async (req,res)=> {
       await SpecialSat.bulkWrite(available.map((sat) => {
         return {
           updateOne: {
-            filter: {satTypes: sat.satType},
-            update: {$set: {price: sat.price}},
+            filter: {satType: sat.satType},
+            update: {price: sat.price},
             upsert: true,
           }
         }
@@ -2259,9 +2266,4 @@ module.exports.getSatCost = async (req, res) => {
   }
 }
 
-
-
-//getLinks("QmUZwDUdMbvyvr6FcD16qF3FyhS88MTiBMut1cdcY5Ximv", 20).then((res) => {console.log(res)}).catch((e) => console.log(e.message));
-//create a new model for address that has made payment and update the new model at check payment with 
-//change destination, satType, feeRate,
 
