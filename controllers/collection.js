@@ -55,6 +55,7 @@ const getLinks = async (cid, totalSupply) => {
     for await (const link of ipfs.ls(cid)) {
       links.push(link);
     }
+    console.log(links.length)
     if(links.length === totalSupply) return links
     return links.splice(links.length - totalSupply, totalSupply);
   } catch (e) {
@@ -2243,7 +2244,7 @@ module.exports.updateSatCost = async (req,res)=> {
       await SpecialSat.bulkWrite(available.map((sat) => {
         return {
           updateOne: {
-            filter: {satTypes: sat.satType},
+            filter: {satType: sat.satType},
             update: {$set: {price: sat.price}},
             upsert: true,
           }
