@@ -55,7 +55,6 @@ const getLinks = async (cid, totalSupply) => {
     for await (const link of ipfs.ls(cid)) {
       links.push(link);
     }
-    console.log(links.length)
     if(links.length === totalSupply) return links
     return links.splice(links.length - totalSupply, totalSupply);
   } catch (e) {
@@ -388,8 +387,7 @@ const verifyMint = async (collectionId, address, amount) => {
         }
       }
       let allowedAddress = _allowedAddress.match(regex)
-      .split(",")
-      .filter((item, index) => {
+      allowedAddress = allowedAddress.filter((item, index) => {
         return allowedAddress.indexOf(item) === index;
       });
 
