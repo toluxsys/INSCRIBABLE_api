@@ -1348,35 +1348,19 @@ module.exports.getStage = async (req, res) => {
     }
 
     if (inscription.stage === "stage 1"){
-      if (inscription.collectionId) {
-        let collection = await Collection.findOne({id: inscription.collectionId});
-        if (collection.specialSat){
-          return res.status(200).json({
-            status: true,
-            message: "ok",
-            type: "sat",
-            userResponse: {
-              stage: 1,
-              endpoint: "inscription/checkPayment",
-              route: "checkPayment",
-              address: inscription.receiver,
-              collectionId: inscription.collectionId,
-            }
-          });
-        }else{
-          return res.status(200).json({
-            status: true,
-            type: "collection",
-            message: "ok",
-            userResponse: {
-              stage: 1,
-              endpoint: "inscription/checkPayment",
-              route: "checkPayment",
-              address: inscription.receiver,
-              collectionId: inscription.collectionId,
-            }
-          });
-        }  
+      if (inscription.collectionId) {   
+        return res.status(200).json({
+          status: true,
+          type: "collection",
+          message: "ok",
+          userResponse: {
+            stage: 1,
+            endpoint: "inscription/checkPayment",
+            route: "checkPayment",
+            address: inscription.receiver,
+            collectionId: inscription.collectionId,
+          }
+        });   
       } else {
         return res.status(200).json({
           status: true,
