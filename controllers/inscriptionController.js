@@ -717,7 +717,6 @@ module.exports.sendUtxo1 = async(req,res) => {
 
     let inscription;
     let instance;
-    let balance;
     let ids;
     let ORD_API_URL;
 
@@ -738,27 +737,13 @@ module.exports.sendUtxo1 = async(req,res) => {
       ids = await Ids.where("id").equals(instance._id);
     }
     
-    if(instance.sat !== "random")return res.status(200).json({ status: true, message: `ok`, userResponse: true });
-    const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
-      walletName: inscriptionId,
-      networkName: networkName,
-    });
-    balance = result.data.userResponse.data;
+    instance.stage = "stage 2";
+    ids.status = `utxo sent`;
+    await instance.save();
+    return res
+      .status(200)
+      .json({ status: true, message: `ok`, userResponse: true });
 
-
-    if (balance < instance.cost.inscriptionCost) {
-      return res.status(200).json({
-        status: false,
-        message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-      });
-    } else {
-      instance.stage = "stage 2";
-      ids.status = `utxo sent`;
-      await instance.save();
-      return res
-        .status(200)
-        .json({ status: true, message: `ok`, userResponse: true });
-    }
   }catch(e){
     console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});

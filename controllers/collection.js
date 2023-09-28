@@ -1330,11 +1330,9 @@ module.exports.sendUtxo1 = async(req,res) => {
     const inscriptionId = req.body.inscriptionId;
     const networkName = req.body.networkName;
     const inscriptionType = getType(inscriptionId);
-    const collectionId = req.body.collectionId;
 
     let inscription;
     let instance;
-    let balance;
     let ORD_API_URL;
 
     if (networkName === `mainnet`){
@@ -1351,24 +1349,12 @@ module.exports.sendUtxo1 = async(req,res) => {
       instance = inscription[0];
     }
     
-    const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
-      walletName: inscriptionId,
-      networkName: networkName,
-    });
-    balance = result.data.userResponse.data;
-
-    if (balance < instance.cost.inscriptionCost) {
-      return res.status(200).json({
-        status: false,
-        message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-      });
-    } else {
-      instance.stage = "stage 2";
-      await instance.save();
-      return res
-        .status(200)
-        .json({ status: true, message: `ok`, userResponse: true });
-    }
+    instance.stage = "stage 2";
+    await instance.save();
+    return res
+      .status(200)
+      .json({ status: true, message: `ok`, userResponse: true });
+    
   }catch(e){
     console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
