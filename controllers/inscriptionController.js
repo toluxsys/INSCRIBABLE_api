@@ -1057,6 +1057,7 @@ module.exports.checkPayment = async (req, res) => {
       return res.status(200).json({
         status: true,
         message: "inscription complete",
+        txid : txid,
         userResponse: inscription.inscription,
       });
     }
@@ -1078,13 +1079,13 @@ module.exports.checkPayment = async (req, res) => {
           return res.status(200).json({
             status: false,
             message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-            userResponse: txid,
+            txid: txid,
           });
         }else if (inscription.collectionPayment === "received" && balance.status[0].confirmed === false){
           return res.status(200).json({
             status: false,
             message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-            userResponse: txid,
+            txid: txid,
           });
         }
       }else if (balance.status[0].confirmed === true){
