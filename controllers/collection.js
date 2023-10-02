@@ -1568,6 +1568,7 @@ module.exports.inscribe = async (req, res) => {
 
     if(instance.sat !== "random"){ 
       let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
+      if(spendUtxo === "no sats") return res.status(200).json({status:false, message: "payment not received or spent"})
       newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
         feeRate: instance.feeRate,
         receiverAddress: receiveAddress,
