@@ -1933,11 +1933,19 @@ module.exports.getPendingOrders = async (req,res)=> {
     let ids = newPendingOrder.map(val => val.toString())
     let _pendingOrders = await Inscription.find({id: {$in: ids}});
     _pendingOrders.forEach((item)=>{
-      pendingOrders.push({
-        orderId: item.id,
-        paymentStatus: item.collectionPayment,
-        inscriptionStatus: item.inscribed,
-      })
+      if(item.inscribed !== true && item.collectionPayment === "paid"){
+        pendingOrders.push({
+          orderId: item.id,
+          paymentStatus: "waiting",
+          inscriptionStatus: item.inscribed,
+        })
+      }else{
+        pendingOrders.push({
+          orderId: item.id,
+          paymentStatus: item.collectionPayment,
+          inscriptionStatus: item.inscribed,
+        })
+      }
     })
     return res.status(200).json({ status:true, message: "ok", userResponse: {pendingOrders: pendingOrders} });
   }catch(e){
