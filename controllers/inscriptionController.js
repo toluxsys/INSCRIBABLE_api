@@ -1021,6 +1021,7 @@ module.exports.checkPayment = async (req, res) => {
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
+      if(inscription.inscribed === true) return res.status(200).json({status:false, message: "inscription complete", ids: inscription.inscription})
       balance = await getWalletBalance(
         inscription.inscriptionDetails.payAddress,
         networkName
@@ -1032,6 +1033,7 @@ module.exports.checkPayment = async (req, res) => {
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
+      if(inscription.inscribed === true) return res.status(200).json({status:false, message: "inscription complete", ids: inscription.inscription})
       balance = await getWalletBalance(
         inscription.inscriptionDetails.payAddress,
         networkName
