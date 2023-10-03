@@ -1749,8 +1749,13 @@ module.exports.getCollection = async (req, res) => {
       }
     });
     let type;
+
     let mintedItems = collection.minted;
     let mintedCount = mintedItems.length;
+
+    if(collection.ended && collection.inscriptions.length === 0){
+      mintedCount = collection.collectionDetails.totalSupply
+    }
 
     if (collection.userSelect === "false" && !collection.specialSat) {
       type = "single";
