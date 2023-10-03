@@ -1752,11 +1752,6 @@ module.exports.getCollection = async (req, res) => {
     let mintedItems = collection.minted;
     let mintedCount = mintedItems.length;
 
-    if(collection.ended === true) {
-      mintedCount = null;
-      totalSupply = null;
-    }
-
     if (collection.userSelect === "false" && !collection.specialSat) {
       type = "single";
     }else if(collection.userSelect === "true" && !collection.specialSat){
