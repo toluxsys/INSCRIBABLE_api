@@ -1753,7 +1753,7 @@ module.exports.getCollection = async (req, res) => {
     let mintedItems = collection.minted;
     let mintedCount = mintedItems.length;
 
-    if(collection.ended === true && collection.inscriptions.length === 0){
+    if(collection.ended === true && collection.minted.length === 0){
       mintedCount = collection.collectionDetails.totalSupply
     }
 
