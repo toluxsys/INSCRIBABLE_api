@@ -62,6 +62,8 @@ const getLinks = async (cid, totalSupply) => {
   }
 };
 
+
+
 const getServiceFee = async (collectionId) => {
   try{
     const serviceFee = await ServiceFee.findOne({collectionId: collectionId});
@@ -91,7 +93,7 @@ const getSatPrices = async () => {
 const getSatCost = async (type) => {
   try{
     let sats = await getSatPrices()
-    let price;
+    let price = 0;
     sats.forEach((x)=> {
       if (x.satType === type) price = x.price
     })
