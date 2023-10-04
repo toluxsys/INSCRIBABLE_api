@@ -759,6 +759,8 @@ module.exports.inscribe = async (req, res) => {
     const networkName = req.body.networkName;
     let changeAddress = req.body.changeAddress
 
+    console.log("Id:", inscriptionId)
+
     const type = getType(inscriptionId);
     let inscription;
     let instance;
