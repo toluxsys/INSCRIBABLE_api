@@ -1723,6 +1723,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     
     if (optimize === `true`) {
       compImage = await compressAndSaveS3(fileName, true);
+      console.log(compImage)
       if(satType !== "random"){
         inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -1972,7 +1973,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
     let sats = Math.ceil((fileSize / 4) * feeRate);
     let cost = sats + 1500 + 550 + 5000;
-    let sizeFee = parseInt(Math.ceil(cost / 5));
+    let sizeFee = parseInt(Math.ceil(cost / 10));
     let satCost = 0
     if(sizeFee < 1024){
       sizeFee = 1024
