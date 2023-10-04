@@ -1724,7 +1724,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     if (optimize === `true`) {
       compImage = await compressAndSaveS3(fileName, true);
       if(satType !== "random"){
-        inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1737,7 +1737,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
-        inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1755,7 +1755,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       compImage = await compressAndSaveS3(fileName, false);
       
       if(satType !== "random"){
-        inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1768,7 +1768,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
-        inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1783,6 +1783,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         paymentAddress = result.data.userResponse.data[0];
       }
     }
+
     const inscription = new Inscription({
       id: inscriptionId,
       flag: networkName,
@@ -1873,7 +1874,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
     );
 
     const data = await compressAndSaveBulkS3(inscriptionId, optimized);
-    const costPerInscription = inscriptionPrice(feeRate, data.largestFile, "none");
+    const costPerInscription = await inscriptionPrice(feeRate, data.largestFile, "random");
     const totalCost = costPerInscription.total * files.length;
     const cardinals = costPerInscription.inscriptionCost;
     const sizeFee = costPerInscription.sizeFee * files.length;
@@ -1953,9 +1954,11 @@ const getSatPrices = async () => {
 const getSatCost = async (type) => {
   try{
     let sats = await getSatPrices()
-    let price;
+    let price = 0;
     sats.forEach((x)=> {
-      if (x.satType === type) price = x.price
+      if (x.satType === type) {
+        price = x.price
+      }
     })
     //convert usd to sat
     return (await usdToSat(price)).satoshi
@@ -1977,6 +1980,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     if(satType !== "random"){
       satCost = await getSatCost(satType)
     }
+
     const total = serviceCharge + cost + sizeFee + satCost;
     return {
       serviceCharge,
