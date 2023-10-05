@@ -1087,6 +1087,7 @@ module.exports.selectItem = async (req, res) => {
         satCost: cost.satCost,
         postageFee: cost.postageFee,
         price: price/1e8,
+        priceInSat: price,
         total: cost.total * imageNames.length,
       },
       paymentAddress: paymentAddress,
@@ -1174,6 +1175,7 @@ module.exports.calc = async (req, res) => {
         satCost: cost.satCost,
         postageFee: cost.postageFee,
         price: price/1e8,
+        priceInSat: price,
         total: cost.total * imageNames.length,
       },
       paymentAddress: "",
@@ -1715,6 +1717,7 @@ module.exports.getCollection = async (req, res) => {
     let collection;
     let mintStage;
     let price;
+    let priceInSat;
     let _mintStage;
     let mintDetails;
     let details = [];
@@ -1736,10 +1739,12 @@ module.exports.getCollection = async (req, res) => {
     s_mintDetails.forEach((item, index) => {
       if(item._id.toString() === mintStage.toString()){
         price = item.price / 1e8;
+        priceInSat = item.price;
         _mintStage = item.name;
         details.push({
           stage: item.name,
           price: price,
+          priceInSat: item.price,
           mintLimit: item.mintLimit,
           duration: item.duration,
         })
@@ -1747,6 +1752,7 @@ module.exports.getCollection = async (req, res) => {
         details.push({
           stage: item.name,
           price: item.price/1e8,
+          priceInSat: item.price,
           mintLimit: item.mintLimit,
           duration: item.duration,
         })
@@ -1776,6 +1782,7 @@ module.exports.getCollection = async (req, res) => {
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
         price: price,
+        priceInSat: priceInSat,
         category: collection.category,
         collectionCount: collection.collectionDetails.totalSupply,
         mintedCount: mintedCount,

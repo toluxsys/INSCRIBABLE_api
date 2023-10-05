@@ -1796,7 +1796,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       s3: true,
 
       inscriptionDetails: {
-        imageSizeIn: compImage.sizeIn / 1e3,
+        imageSizeIn: file.size / 1e3,
         imageSizeOut: compImage.sizeOut / 1e3,
         fileName: fileName,
         comPercentage: compImage.comPercentage,
@@ -1975,7 +1975,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
     let sats = Math.ceil((fileSize / 4) * feeRate);
     let cost = sats + 1500 + 550 + 5000;
-    let sizeFee = parseInt(Math.ceil(cost / 10));
+    let sizeFee = parseInt(Math.ceil(cost / 7));
     let satCost = 0
     if(sizeFee < 1024){
       sizeFee = 1024
