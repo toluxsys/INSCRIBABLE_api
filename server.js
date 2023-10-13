@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const inscriptRoute = require("./routes/inscriptRoute.js");
 const collectionRoute = require("./routes/collectionRoute.js");
 const explorerRoute = require("./routes/explorerRoute.js");
+const RabbitMqClient = require("./helpers/queue/rabbitMqClient.js");
 const interval = process.env.INDEXING_INTERVAL;
 
 const app = express();
@@ -32,12 +33,16 @@ app.use(`/api/inscript`, inscriptRoute);
 app.use(`/api/collection`, collectionRoute);
 app.use(`/api/explore`, explorerRoute);
 
-app.get("/", (req, res) => {
-  res.status(200).json({ message: "You are connected to the server" });
+app.get("/", async(req, res) => {
+  let result = await RabbitMqClient.addToQueue({orderId:"s-urbciu8ub-tub-f", networkName: "mainnet", paymentAddress:"rjuierwhueveduvyedyqevqyhvdwqvuqwd", total:200}, "paymentSeen")
+  if(result.status !== true) return res.status(200).json({message: "message not added to queue"})
+  res.status(200).json({ message: "You are connected to the server", rabbitMq: result.message });
+  
 });
 
-app.listen(port, host, () => {
+app.listen(port, host, async() => {
   console.log(`Server running on port ${port}`);
+  await RabbitMqClient.initilize()
 });
 
 //docker commands = docker compose up --scale api=1000
