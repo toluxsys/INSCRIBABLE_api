@@ -22,5 +22,7 @@ router.use(basicAuth({
 
 router.post("/inscribe", controller.inscribeItem);
 router.post("/checkPayment", controller.verifyPayment);
+router.post("/address_orders", controller.getAllAddressOrder)
+router.post("/getOrder", controller.getOrder);
 
 module.exports = router;

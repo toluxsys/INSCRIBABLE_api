@@ -38,7 +38,7 @@ router.post("/inscribe", controller.inscribe);
 router.post("/sendInscription", controller.sendInscription);
 router.post("/inscription/calc", controller.inscriptionCalc);
 router.post("/bulkInscription/calc", controller.bulkInscriptionCalc);
-router.post("/checkPayment", controller.checkPayment);
+router.post("/checkPayment", controller.checkPayments);
 router.post("/addNetwork", controller.addNetwork);
 router.post("/changeNetwork", controller.toogleNetwork);
 router.post("/checkStage", controller.getStage);

@@ -9,6 +9,8 @@ const uniInscriptionRoute = require("./routes/uniInscriptionRoute.js")
 const RabbitMqClient = require("./helpers/queue/rabbitMqClient.js");
 const RabbitMqConsumer = require("./helpers/queue/rabbitMqConsumer.js");
 
+const {checkPayment} = require("./helpers/inscriptionHelper.js")
+
 const app = express();
 const port = process.env.PORT || 5000;
 const host = "0.0.0.0";
@@ -38,7 +40,6 @@ app.use(`/api/explore`, explorerRoute);
 
 //endpoint for universal api route
 app.use(`/api`, uniInscriptionRoute);
-
 
 app.get("/", async(req, res) => {
   let result = await RabbitMqClient.addToQueue({orderId:"se28c1b9d-b90f-4f6f-b914-a933cbb1ce89", networkName: "mainnet", txid:"bfe74fe8d9e70f89f1c57388de801e498e082e755c8217f9b05a12742786ab7d"}, "paymentSeen")

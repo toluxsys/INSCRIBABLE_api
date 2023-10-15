@@ -11,6 +11,7 @@ const BulkInscription = require("../model/bulkInscription");
 const Address = require("../model/address");
 const Collection = require("../model/collection");
 const SpecialSat = require("../model/specialSats");
+const {checkPayment} = require("../helpers/inscriptionHelper.js")
 const ObjectId = require('mongoose').Types.ObjectId; 
 const {
   compressImage,
@@ -23,7 +24,6 @@ const {
 } = require("../helpers/imageHelper");
 const {
   addWalletToOrd,
-  utxoDetails,
   verifyAddress,
 } = require("../helpers/walletHelper");
 const {
@@ -32,10 +32,6 @@ const {
   getSpendUtxo
 } = require("../helpers/sendBitcoin");
 
-const {
-  sendBitcoin,
-  createLegacyAddress,
-} = require("../helpers/sendBitcoin2");
 const { getType } = require("../helpers/getType");
 const { btcToUsd, usdToSat } = require("../helpers/btcToUsd");
 const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/svg`, `image/svg+xml`];
@@ -846,160 +842,17 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
   }
 };
 
-module.exports.checkPayment = async (req, res) => {
+module.exports.checkPayments = async (req, res) => {
   try {
-    const { networkName, inscriptionId } = req.body;
-    const type = getType(inscriptionId);
-    let inscription;
-    let balance;
-    let cost;
-    let txid;
-    let _txid;
-
-    if (type === `single`) {
-      inscription = await Inscription.findOne({ id: inscriptionId });
-      if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
-      if(inscription.inscribed === true) return res.status(200).json({status:false, message: "inscription complete", ids: inscription.inscription})
-      balance = await getWalletBalance(
-        inscription.inscriptionDetails.payAddress,
-        networkName
-      );
-      if(balance.totalAmountAvailable == 0) return res.status(200).json({status:false, message: `Payment address balance: 0 sats`})
-      cost = inscription.cost.total;
-      _txid = balance.txid[0].split(`:`)[0];
-      txid = `https://mempool.space/tx/${_txid}`
-    } else if (type === `bulk`) {
-      inscription = await BulkInscription.findOne({ id: inscriptionId });
-      if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
-      if(inscription.inscribed === true) return res.status(200).json({status:false, message: "inscription complete", ids: inscription.inscription})
-      balance = await getWalletBalance(
-        inscription.inscriptionDetails.payAddress,
-        networkName
-      );
-      if(balance.totalAmountAvailable == 0) return res.status(200).json({status:false, message: `Payment address balance: 0 sats`})
-      cost = inscription.cost.total;
-      _txid = balance.txid[0].split(`:`)[0];
-      txid = `https://mempool.space/tx/${_txid}`
-    }
-
-    if (inscription.stage === "stage 2" && inscription.collectionId) {
-      return res.status(200).json({ status: true, message: "utxo sent" ,txid: txid});
-    }else if(inscription.stage === "stage 2"){
-      return res.status(200).json({ status: true, message: "utxo sent" ,txid: txid});
-    }else if(inscription.stage === "stage 3" && inscription.collectionId){
-      return res.status(200).json({
-        status: true,
-        message: "inscription complete",
-        txid : txid,
-        userResponse: inscription.inscription,
-      });
-    } else if (inscription.stage === "stage 3") {
-      return res.status(200).json({
-        status: true,
-        message: "inscription complete",
-        txid : txid,
-        userResponse: inscription.inscription,
-      });
-    }
-
-    if(inscription.collectionId){
-      let mintCount;
-      if(balance.status.length === 0) return res.status(200).json({status: false, message: "Waiting for payment", txid: null});
-      let collection = await Collection.findOne({id: inscription.collectionId});
-      if(balance.status[0].confirmed === false){
-        _txid = balance.txid[0].split(`:`)[0];
-        txid = `https://mempool.space/tx/${_txid}`
-        if(inscription.collectionPayment === "waiting"){
-          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
-          await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
-          await SelectedItems.deleteOne({_id: inscription.selected});
-          inscription.collectionPayment = "received";
-          let _savedCollection = await inscription.save();
-          mintCount = _savedCollection.minted.length;
-          return res.status(200).json({
-            status: false,
-            message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-            txid: txid,
-          });
-        }else if (inscription.collectionPayment === "received" && balance.status[0].confirmed === false){
-          return res.status(200).json({
-            status: false,
-            message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-            txid: txid,
-          });
-        }
-      }else if (balance.status[0].confirmed === true){
-        _txid = balance.txid[0].split(`:`)[0];
-        txid = `https://mempool.space/tx/${_txid}`
-        if(inscription.collectionPayment === "waiting"){
-          await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
-          await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length } },{$pull: {pendingOrders: new ObjectId(inscription._id)}},{new: true});
-          await SelectedItems.deleteOne({_id: inscription.selected});
-          inscription.collectionPayment = "received";
-          let _savedInscription = await inscription.save();
-          mintCount = _savedInscription.mintCount;
-          return res.status(200).json({
-            status: true,
-            message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-            txid: txid,
-          });
-        }else if(inscription.collectionPayment === "received"){
-          if(collection.specialSat){
-            inscription.collectionPayment = "paid";
-            inscription.spendTxid = balance.txid[0];
-            await inscription.save();
-            return res.status(200).json({
-              status: true,
-              message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-              txid: txid,
-            });
-          }else{
-            return res.status(200).json({
-              status: true,
-              message: `Payment received. confirmed: ${balance.status[0].confirmed}`,
-              txid: txid,
-            });
-          }
-        }
-      }
-
-      if(collection.collectionDetails.totalSupply === mintCount){
-        await Collection.findOneAndUpdate({id: inscription.collectionId}, {ended: true}, {new: true});
-      }
-    }
-
-    if (balance.status[0] === undefined)
-      return res.status(200).json({
-        status: false,
-        message: `Waiting for payment`,
-        txid: null
-      });
-
-    if (balance.status[0].confirmed === false) {
-      _txid = balance.txid[0].split(`:`)[0];
-      txid = `https://mempool.space/tx/${_txid}`
-      return res.status(200).json({
-        status: false,
-        message: `Waiting for payment confirmation. confirmed: ${balance.status[0].confirmed}`,
-        txid: txid,
-      });
-    }
-  
-    if (balance.totalAmountAvailable < cost){
-      return res.status(200).json({
-        status: false,
-        message: `payment not received. Available: ${balance.totalAmountAvailable}, Required: ${cost}`,
-        txid: null
-      });
+    const { inscriptionId, networkName } = req.body;
+    let result = await checkPayment({inscriptionId: inscriptionId, networkName: networkName})
+    if(result.status === true){
+      return res.status(200).json({status:true, message: result.message, userResponse: result.data.ids})
     }else{
-      return res
-      .status(200)
-      .json({ status: true, message: `ok`, txid: txid });
+      return res.status(200).json({status:false, message: result.message, userResponse: result.data.ids})
     }
-    
   } catch (e) {
     console.log(e.message);
-    if(e.message === "Cannot read properties of undefined (reading 'status')") return res.status(200).json({status: false, message: "Waiting for payment"});
     return res.status(200).json({ status: false, message: e.message });
   }
 };
