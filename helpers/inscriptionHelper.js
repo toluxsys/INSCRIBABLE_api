@@ -411,7 +411,8 @@ const checkPayment = async ({ inscriptionId, networkName }) => {
                 return {
                     message: `payment received`,
                     txid: txid,
-                    ids: []
+                    ids: [],
+                    status: false
                 };
             }
         }
