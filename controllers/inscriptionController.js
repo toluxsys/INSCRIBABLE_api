@@ -1,4 +1,4 @@
-const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
+const { unlinkSync, existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
 const path = require("path");
 const fs = require("fs");
@@ -6,10 +6,7 @@ const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
 const Inscription = require("../model/inscription");
 const Network = require("../model/network");
-const Ids = require("../model/ids");
-const PayIds = require("../model/paymentIds");
 const SelectedItems = require("../model/selectedItems");
-const PayLink = require("../model/paymentLink");
 const BulkInscription = require("../model/bulkInscription");
 const Address = require("../model/address");
 const Collection = require("../model/collection");
@@ -18,7 +15,6 @@ const ObjectId = require('mongoose').Types.ObjectId;
 const {
   compressImage,
   compressAndSave,
-  compressAndSaveBulk,
   compressAndSaveS3,
   compressAndSaveBulkS3,
   compressBulk,
@@ -26,7 +22,6 @@ const {
   saveFileS3,
 } = require("../helpers/imageHelper");
 const {
-  createHDWallet,
   addWalletToOrd,
   utxoDetails,
   verifyAddress,
@@ -40,8 +35,6 @@ const {
 const {
   sendBitcoin,
   createLegacyAddress,
-  createTaprootAddress,
-  createLegacyPayLinkAddress,
 } = require("../helpers/sendBitcoin2");
 const { getType } = require("../helpers/getType");
 const { btcToUsd, usdToSat } = require("../helpers/btcToUsd");
@@ -596,168 +589,14 @@ module.exports.uploadMultiple = async (req, res) => {
   }
 };
 
-module.exports.sendUtxo = async (req, res) => {
-  try {
-    const inscriptionId = req.body.id;
-    const network = req.body.networkName;
-    const inscriptionType = getType(inscriptionId);
-
-    let inscription;
-    let instance;
-    let addrCount;
-    let details;
-    let amount;
-    let payAddress;
-    let addressFromId;
-    let payAddressId;
-    let balance;
-    let txDetails;
-    let ids;
-    let txId;
-    let ORD_API_URL;
-
-    if (network === "mainnet") {
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    } else if (network === "testnet") {
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-    }
-
-    if (inscriptionType === "single") {
-      inscription = await Inscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      addrCount = 1;
-      amount = instance.cost.inscriptionCost;
-      payAddressId = instance.inscriptionDetails.payAddressId;
-      payAddress = instance.inscriptionDetails.payAddress;
-      addressFromId = (await createLegacyAddress(network, payAddressId))
-        .p2pkh_addr;
-      ids = await Ids.where("id").equals(instance._id);
-      startTime = ids.startTime;
-      if (addressFromId !== payAddress) {
-        return res
-          .status(200)
-          .json({ status: false, message: "Invalid address from ID" });
-      }
-    } else if (inscriptionType === "bulk") {
-      inscription = await BulkInscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      addrCount = instance.inscriptionDetails.totalAmount;
-      amount = instance.cost.costPerInscription.inscriptionCost;
-      payAddressId = instance.inscriptionDetails.payAddressId;
-      payAddress = instance.inscriptionDetails.payAddress;
-      addressFromId = (await createLegacyAddress(network, payAddressId))
-        .p2pkh_addr;
-      ids = await Ids.where("id").equals(instance._id);
-      startTime = ids.startTime;
-      if (addressFromId !== payAddress) {
-        return res
-          .status(200)
-          .json({ status: false, message: "Invalid address from ID" });
-      }
-    }
-
-    balance = await getWalletBalance(payAddress, network);
-    if (balance < instance.cost.total) {
-      return res.status(200).json({
-        status: false,
-        message: `inscription cost not received. Available: ${balance}, Required: ${instance.cost.total}`,
-      });
-    }
-
-    details = await utxoDetails(inscriptionId, addrCount, amount, network);
-    txDetails = await sendBitcoin(
-      network,
-      payAddressId,
-      details,
-      inscriptionType
-    );
-
-    if (txDetails.rawTx === "000")
-      return res
-        .status(200)
-        .json({ status: false, message: `No input available for signing` });
-
-    const txHash = await axios.post(ORD_API_URL + `/ord/broadcastTransaction`, {
-      txHex: txDetails.rawTx,
-      networkName: network,
-    });
-
-    if (txHash.data.message !== "ok") {
-      return res.status(200).json({
-        status: false,
-        message: txHash.data.message,
-      });
-    }
-    txId = txHash.data.userResponse.data;
-    instance.inscriptionDetails.receciverDetails = details;
-    instance.stage = "stage 2";
-    ids.status = `utxo sent`;
-    await instance.save();
-    return res.status(200).json({
-      status: true,
-      message: "ok",
-      userResponse: {
-        details: txDetails,
-        txId: txId,
-      },
-    });
-  } catch (e) {
-    console.log(e.message);
-    if(e.request) return res.status(200).json({status: false, message: e.message});
-    if(e.response) return res.status(200).json({status: false, message: e.response.data});
-    return res.status(200).json({ status: false, message: e.message });
-  }
-};
-
-module.exports.sendUtxo1 = async(req,res) => {
-  try{
-    const inscriptionId = req.body.id;
-    const networkName = req.body.networkName;
-    const inscriptionType = getType(inscriptionId);
-
-    let inscription;
-    let instance;
-    let ids;
-    let ORD_API_URL;
-
-    if (networkName === `mainnet`){
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    } else if(networkName === `testnet`){
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL
-    }
-    
-    if (inscriptionType === "single") {
-      inscription = await Inscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      ids = await Ids.where("id").equals(instance._id);
-      
-    } else if (inscriptionType === "bulk") {
-      inscription = await BulkInscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      ids = await Ids.where("id").equals(instance._id);
-    }
-    
-    instance.stage = "stage 2";
-    ids.status = `utxo sent`;
-    await instance.save();
-    return res
-      .status(200)
-      .json({ status: true, message: `ok`, userResponse: true });
-
-  }catch(e){
-    console.log(e);
-    if(e.request) return res.status(200).json({status: false, message: e.message});
-    if(e.response) return res.status(200).json({status: false, message: e.response.data});
-    return res.status(200).json({ status: false, message: e.message });
-  }
-}
-
 module.exports.inscribe = async (req, res) => {
   try {
     req.setTimeout(450000);
     const inscriptionId = req.body.id;
     const networkName = req.body.networkName;
     let changeAddress = req.body.changeAddress
+
+    console.log("Id:", inscriptionId)
 
     const type = getType(inscriptionId);
     let inscription;
@@ -811,7 +650,6 @@ module.exports.inscribe = async (req, res) => {
     }
     if(instance.sat && instance.sat !=="random"){ 
       let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
-      if(spendUtxo === "no utxos") return res.status(200).json({status: false, message: "payment address has no transaction"})
       if(instance.s3 === true){
         newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
           feeRate: instance.feeRate,
@@ -1021,6 +859,7 @@ module.exports.checkPayment = async (req, res) => {
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
+      if(inscription.inscribed === true) return res.status(200).json({status:false, message: "inscription complete", ids: inscription.inscription})
       balance = await getWalletBalance(
         inscription.inscriptionDetails.payAddress,
         networkName
@@ -1032,6 +871,7 @@ module.exports.checkPayment = async (req, res) => {
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       if(!inscription) return res.status(200).json({status: false, message: "invalid inscription"});
+      if(inscription.inscribed === true) return res.status(200).json({status:false, message: "inscription complete", ids: inscription.inscription})
       balance = await getWalletBalance(
         inscription.inscriptionDetails.payAddress,
         networkName
@@ -1164,78 +1004,6 @@ module.exports.checkPayment = async (req, res) => {
   }
 };
 
-module.exports.checkUtxo = async (req, res) => {
-  try {
-    const { inscriptionId, networkName } = req.body;
-    const type = getType(inscriptionId);
-    let inscription;
-    let balance;
-    let ORD_API_URL;
-
-    if (networkName === "mainnet") ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    if (networkName === "testnet") ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-
-    if (type === `single`) {
-      inscription = await Inscription.findOne({ id: inscriptionId });
-      if(inscription.sat !== "random")return res.status(200).json({ status: true, message: `ok`, userResponse: true });
-      const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
-        walletName: inscriptionId,
-        networkName: networkName,
-      });
-      balance = result.data.userResponse.data;
-      if (inscription.stage === "stage 2") {
-        if (balance < inscription.cost.inscriptionCost) {
-          return res.status(200).json({
-            status: false,
-            message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-          });
-        } else {
-          return res
-            .status(200)
-            .json({ status: true, message: `ok`, userResponse: true });
-        }
-      } else if (inscription.stage === "stage 3") {
-        return res.status(200).json({
-          status: true,
-          message: "inscription complete",
-          userResponse: inscription.inscription,
-        });
-      }
-    } else if (type === `bulk`) {
-      inscription = await BulkInscription.findOne({ id: inscriptionId });
-      const result = await axios.post(ORD_API_URL + `/ord/wallet/balance`, {
-        walletName: inscriptionId,
-        networkName: networkName,
-      });
-      balance = result.data.userResponse.data;
-
-      if (inscription.stage === "stage 2") {
-        if (balance < inscription.cost.cardinal) {
-          return res.status(200).json({
-            status: false,
-            message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-          });
-        } else {
-          return res
-            .status(200)
-            .json({ status: true, message: `ok`, userResponse: true });
-        }
-      } else if (inscription.stage === "stage 3") {
-        return res.status(200).json({
-          status: true,
-          message: "inscription complete",
-          userResponse: inscription.inscription,
-        });
-      }
-    }
-  } catch (e) {
-    console.log(e.message);
-    if(e.request) return res.status(200).json({status: false, message: e.message});
-    if(e.response) return res.status(200).json({status: false, message: e.response.data});
-    return res.status(200).json({ status: false, message: e.message });
-  }
-};
-
 module.exports.getNetwork = async (req, res) => {
   try {
     let stat;
@@ -1315,7 +1083,7 @@ module.exports.getStage = async (req, res) => {
           message: "ok",
           userResponse: {
             stage: 1,
-            endpoint: "inscription/checkPayment",
+            endpoint: "inscript",
             route: "checkPayment",
             address: inscription.receiver,
             collectionId: inscription.collectionId,
@@ -1327,7 +1095,7 @@ module.exports.getStage = async (req, res) => {
           message: "ok",
           userResponse: {
             stage: 1,
-            endpoint: "inscription/checkPayment",
+            endpoint: "inscript",
             route: "checkPayment",
             address: inscription.receiver
           }
@@ -1343,8 +1111,8 @@ module.exports.getStage = async (req, res) => {
             type: "collection",
             userResponse: {
               stage: 2,
-              endpoint: "collection/checkUtxo",
-              route: "checkUtxo",
+              endpoint: "collection",
+              route: "inscribe",
               address: inscription.receiver,
               collectionId: inscription.collectionId,
             }
@@ -1355,8 +1123,8 @@ module.exports.getStage = async (req, res) => {
             message: "ok",
             userResponse: {
               stage: 2,
-              endpoint: "inscription/checkUtxo",
-              route: "checkUtxo",
+              endpoint: "inscript",
+              route: "inscribe",
               address: inscription.receiver
             }
           });
@@ -1371,8 +1139,8 @@ module.exports.getStage = async (req, res) => {
           message: "ok",
           userResponse: {
             stage: 3,
-            endpoint: "",
-            route: "viewInscriptions",
+            endpoint: "collection",
+            route: "getInscriptions",
             address: inscription.receiver,
             collectionId: inscription.collectionId,
           }
@@ -1383,8 +1151,8 @@ module.exports.getStage = async (req, res) => {
           message: "ok",
           userResponse: {
             stage: 3,
-            endpoint: "",
-            route: "viewInscriptions",
+            endpoint: "inscript",
+            route: "getInscriptions",
             address: inscription.receiver
           }
         });
@@ -1432,141 +1200,6 @@ module.exports.getConversion = async (req, res) => {
   }
 };
 
-module.exports.createPaymentLink = async (req, res) => {
-  try {
-    const { inscriptions, amount, networkName, inscriptionId } = req.body;
-    const id = `p${uuidv4()}`;
-    const count = await PayIds.find({}, { _id: 0 });
-    const details = await createLegacyPayLinkAddress(networkName, count.length);
-    const payAddress = details.p2pkh_addr;
-
-    const payLink = new PayLink({
-      id: id,
-      amount: amount,
-      inscriptions: inscriptions,
-      payAddress: payAddress,
-      payAddressId: count.length,
-      inscriptionId: inscriptionId,
-      sent: false,
-    });
-
-    const savedPayLink = await payLink.save();
-
-    const payIds = new PayIds({
-      id: savedPayLink._id,
-      status: "pending",
-    });
-
-    await payIds.save();
-
-    return res.status(200).json({
-      status: true,
-      message: "ok",
-      userResponse: { amount: amount, id: id },
-    });
-  } catch (e) {
-    console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
-  }
-};
-
-module.exports.collectAddress = async (req, res) => {
-  try {
-    const { id, receiver } = req.body;
-    const payLink = await PayLink.findOne({ id: id });
-    const inscriptions = payLink.inscriptions;
-    let n_inscriptions = [];
-    inscriptions.forEach((id) => {
-      let data = {
-        address: receiver,
-        id: id,
-      };
-      n_inscriptions.push(data);
-    });
-    const updatedPaylink = await PayLink.findOneAndUpdate(
-      { id: id },
-      { receiver: receiver }
-    );
-
-    const userResponse = {
-      paymentAddress: updatedPaylink.payAddress,
-      amount: updatedPaylink.amount,
-      id: id,
-    };
-
-    return res
-      .status(200)
-      .json({ status: true, message: "ok", userResponse: userResponse });
-  } catch (e) {
-    console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
-  }
-};
-
-module.exports.completePayment = async (req, res) => {
-  try {
-    const { id, networkName } = req.body;
-    const payLink = await PayLink.findOne({ id: id });
-    const payIds = await PayIds.findOne({ id: payLink._id });
-
-    let payLinkAddress;
-    let paymentDetails = [];
-    const type = getType(id);
-    if (networkName === `mainnet`) {
-      payLinkAddress = process.env.MAINNET_PAYLINK_ADDRESS;
-    } else if (networkName === `testnet`) {
-      payLinkAddress = process.env.TESTNET_PAYLINK_ADDRESS;
-    }
-    const details = {
-      address: payLinkAddress,
-      value: payLink.amount - 5000,
-    };
-
-    paymentDetails.push(details);
-
-    payLink.sent = true;
-    payIds.status = "complete";
-
-    const txDetails = await sendBitcoin(
-      networkName,
-      payLink.payAddressId,
-      paymentDetails,
-      type
-    );
-
-    console.log(txDetails);
-
-    const txHash = await axios.post(
-      process.env.ORD_API_URL + `/ord/broadcastTransaction`,
-      { txHex: txDetails.rawTx, networkName: networkName }
-    );
-
-    if (txHash.data.message !== "ok") {
-      return res.status(200).json({
-        status: false,
-        message: txHash.data.message,
-      });
-    }
-  } catch (e) {
-    console.log(e.message);
-    if(e.request) return res.status(200).json({status: false, message: e.message});
-    if(e.response) return res.status(200).json({status: false, message: e.response.data});
-    return res.status(200).json({ status: false, message: e.message });
-  }
-};
-
-module.exports.getPayLinkDetails = async (req, res) => {
-  try {
-    const { id } = req.body;
-    const payLinkDetails = await PayLink.findOne({ id: id });
-    return res
-      .status(200)
-      .json({ status: true, message: "ok", userResponse: payLinkDetails });
-  } catch (e) {
-    console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
-  }
-};
 
 module.exports.getOrderDetails = async (req, res) => {
   try {
@@ -1642,59 +1275,6 @@ module.exports.addSats = async (req, res) => {
   }
 };
 
-module.exports.getSatsByYear = async (req, res) => {
-  try {
-    const { year } = req.body;
-    const sats = await _getSatsByYear(year)
-    return res
-      .status(200)
-      .json({ status: true, message: "ok", userResponse: sats });
-  } catch (e) {
-    console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
-  }
-};
-
-module.exports.getSatsById = async (req, res) => {
-  try {
-    const { id } = req.body;
-    const sat = await _getSatById(id)
-    return res
-      .status(200)
-      .json({ status: true, message: "ok", userResponse: sat });
-  } catch (e) {
-    console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
-  }
-};
-
-
-const _getSatsByYear = async (year) => {
-  try {
-    const sats = await Sats.find({ year: year });
-    let validSats = [];
-    sats.forEach((sat) => {
-      if (sat.count < sat.size){
-        validSats.push(sat);
-      }
-    });
-    return validSats;
-  } catch (e) {
-    console.log(e.message);
-    return [];
-  }
-};
-
-const _getSatById = async (id) => {
-  try {
-    const sat = await Sats.findOne({ _id: id });
-    return sat;
-  } catch (e) {
-    console.log(e.message);
-    return null;
-  }
-};
-
 const init = async (file, feeRate, networkName, optimize, receiveAddress, satType) => {
   try {
     const inscriptionId = `s${uuidv4()}`;
@@ -1721,8 +1301,9 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     
     if (optimize === `true`) {
       compImage = await compressAndSaveS3(fileName, true);
+      console.log(compImage)
       if(satType !== "random"){
-        inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1735,7 +1316,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
-        inscriptionCost = inscriptionPrice(feeRate, compImage.sizeOut, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1753,7 +1334,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       compImage = await compressAndSaveS3(fileName, false);
       
       if(satType !== "random"){
-        inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1766,7 +1347,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
-        inscriptionCost = inscriptionPrice(feeRate, file.size, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1781,6 +1362,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         paymentAddress = result.data.userResponse.data[0];
       }
     }
+
     const inscription = new Inscription({
       id: inscriptionId,
       flag: networkName,
@@ -1790,7 +1372,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       s3: true,
 
       inscriptionDetails: {
-        imageSizeIn: compImage.sizeIn / 1e3,
+        imageSizeIn: file.size / 1e3,
         imageSizeOut: compImage.sizeOut / 1e3,
         fileName: fileName,
         comPercentage: compImage.comPercentage,
@@ -1871,7 +1453,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
     );
 
     const data = await compressAndSaveBulkS3(inscriptionId, optimized);
-    const costPerInscription = inscriptionPrice(feeRate, data.largestFile, "none");
+    const costPerInscription = await inscriptionPrice(feeRate, data.largestFile, "random");
     const totalCost = costPerInscription.total * files.length;
     const cardinals = costPerInscription.inscriptionCost;
     const sizeFee = costPerInscription.sizeFee * files.length;
@@ -1951,9 +1533,11 @@ const getSatPrices = async () => {
 const getSatCost = async (type) => {
   try{
     let sats = await getSatPrices()
-    let price;
+    let price = 0;
     sats.forEach((x)=> {
-      if (x.satType === type) price = x.price
+      if (x.satType === type) {
+        price = x.price
+      }
     })
     //convert usd to sat
     return (await usdToSat(price)).satoshi
@@ -1967,7 +1551,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
     let sats = Math.ceil((fileSize / 4) * feeRate);
     let cost = sats + 1500 + 550 + 5000;
-    let sizeFee = parseInt(Math.ceil(cost / 5));
+    let sizeFee = parseInt(Math.ceil(cost / 7));
     let satCost = 0
     if(sizeFee < 1024){
       sizeFee = 1024
@@ -1975,6 +1559,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     if(satType !== "random"){
       satCost = await getSatCost(satType)
     }
+
     const total = serviceCharge + cost + sizeFee + satCost;
     return {
       serviceCharge,

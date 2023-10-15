@@ -3,15 +3,16 @@ const dotenv = require("dotenv").config()
 
 const options = {
     protocol: "amqp",
-    hostname: process.env.RMQ_HOST || "localhost",
+    hostname: process.env.RMQ_HOST,
     port: 5672,
-    username: "guest",
-    password: process.env.RMQ_PASSWORD || "admin",
+    username: "admin",
+    password: process.env.RMQ_PASSWORD,
     vhost: "/",
     authMechnisim: ["PLAIN", "AMQPLAIN", "EXTERNAL"]
 }
 
-const validRoutingKeys = ["paymentSeen", "error"]
+const validRoutingKeys = ["paymentSeen", "paymentReceived", "error"]
+const validQueue = ["seen", "received", "error"]
 
 class RabbitMqClient {
 
@@ -22,12 +23,12 @@ class RabbitMqClient {
     initilize = async () => {
         try{
             if(this.isInitilized === false){
-                const _conn = await ampq.connect(options);
+                const _conn = await ampq.connect("amqp://localhost:5672");
                 this.channel = await _conn.createChannel();
             }else{
                 return;
             }
-            await this.consumeMessage("error", "error")
+            //await this.consumeMessage("error", "error")
             this.isInitilized = true; 
             console.log("Channel Initilized...")  
         }catch(e){
@@ -56,27 +57,24 @@ class RabbitMqClient {
             return {message: "message added to queue", status: await this.channel.publish(exchangeName, routingKey ,message)};
         }catch(e){
             console.log(e.message)
-            throw new Error(e.message)
         }
     }
 
-    consumeMessage = async (queueName, bindingKey) => {
-        try{
-            let exchangeName = process.env.EXCHANGE_NAME || "inscriptions" 
-            await this.channel.assertExchange(exchangeName);
-            let q = await this.channel.assertQueue(queueName)
-            await this.channel.bindQueue(q.queue, exchangeName, bindingKey)
-            await this.channel.consume(q.queue, (msg) => {
-                let received = JSON.parse(msg.content.toString())
-                this.channel.ack(msg)
-                console.log(received)
-            })
-        }catch(e){
-            console.log(e.message)
-            throw new Error(e.message)
-        }
-    }
-
+    // consumeMessage = async (queueName, bindingKey) => {
+    //     try{
+    //         let exchangeName = process.env.EXCHANGE_NAME || "inscriptions" 
+    //         await this.channel.assertExchange(exchangeName);
+    //         let q = await this.channel.assertQueue(queueName)
+    //         await this.channel.bindQueue(q.queue, exchangeName, bindingKey)
+    //         await this.channel.consume(q.queue, (msg) => {
+    //             let received = JSON.parse(msg.content.toString())
+    //             this.channel.ack(msg)
+    //             console.log(received)
+    //         })
+    //     }catch(e){
+    //         console.log(e.message)
+    //     }
+    // }
 } 
 
 module.exports = RabbitMqClient.getInstance();

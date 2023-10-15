@@ -1,4 +1,4 @@
-const { unlinkSync, rmSync, existsSync, mkdirSync } = require("fs");
+const { existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
 const interval = 15;
 const moment = require("moment");
@@ -9,7 +9,6 @@ const dotenv = require("dotenv").config();
 const Inscription = require("../model/inscription");
 const Address = require("../model/address");
 const BulkInscription = require("../model/bulkInscription");
-const Ids = require("../model/ids");
 const Collection = require("../model/collection");
 const SelectedItems = require("../model/selectedItems");
 const ServiceFee = require("../model/serviceFee");
@@ -17,33 +16,23 @@ const SpecialSat = require("../model/specialSats");
 const FeaturedCollections = require("../model/featuredCollection");
 const { getType } = require("../helpers/getType");
 const {usdToSat} = require("../helpers/btcToUsd")
-const {addressImage} = require("../helpers/addressImage")
 const {
-  createHDWallet,
   addWalletToOrd,
-  utxoDetails,
   verifyAddress,
 } = require("../helpers/walletHelper");
 const { compressAndSaveBulk, uploadToS3, downloadAddressFile,downloadAllAddressFile } = require("../helpers/imageHelper");
 const {
-  sendBitcoin,
-  createLegacyAddress,
   createCollectionLegacyAddress,
-  createTaprootAddress,
 } = require("../helpers/sendBitcoin2");
 
 const {
-  getRecomendedFee,
   getWalletBalance,
-  checkAddress,
   getSpendUtxo
 } = require("../helpers/sendBitcoin");
-
 const {getSats} = require("../helpers/satHelper")
 const MintDetails = require("../model/mintDetails");
+const {inscribe} = require("../helpers/inscriptionHelper")
 const ObjectId = require('mongoose').Types.ObjectId; 
-let satTypes = ['rare', 'common', 'block9', 'block84', 'pizza','pizza1','uncommon', '2009', '2010', '2011'];
-
 
 const getLinks = async (cid, totalSupply) => {
   const client = await import("ipfs-http-client");
@@ -91,7 +80,7 @@ const getSatPrices = async () => {
 const getSatCost = async (type) => {
   try{
     let sats = await getSatPrices()
-    let price;
+    let price = 0;
     sats.forEach((x)=> {
       if (x.satType === type) price = x.price
     })
@@ -105,7 +94,7 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType)
   const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 4) * feeRate);
   const cost = sats + 1500 + 550 + 5000;
-  let sizeFee = parseInt(Math.ceil(cost / 5));
+  let sizeFee = parseInt(Math.ceil(cost / 7));
   let satCost = 0
   if(sizeFee < 1024){
     sizeFee = 1024
@@ -208,15 +197,13 @@ const checkWallet = async (collectionId, address) => {
     let params = [];
     let addresses = [];
     mintStages.forEach(async (stage) => {
-      if(stage.name == "public" || stage.name == "Public"){
-        
-      }else{
+      if(stage.name !== "public" || stage.name !== "Public"){
         stagNames.push(`addr-`+collectionId+`-`+stage.name+`.txt`);
         params.push({
             Bucket: process.env.S3_BUCKET_NAME,
             Key: `addr-`+collectionId+`-`+stage.name+`.txt`,
         });
-      } 
+      }
     });
    
     await downloadAllAddressFile(params, collectionId);
@@ -359,6 +346,7 @@ const verifyMint = async (collectionId, address, amount) => {
           message: "valid mint"
         }
     }else{
+      //download address list
       if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`)){
         let d_address = await downloadAddressFile(stage_name, collectionId);
         if(!d_address) {
@@ -373,8 +361,11 @@ const verifyMint = async (collectionId, address, amount) => {
           }
         }
       };
+
+      //clean up address
       let regex = /[^,\r\n]+/g;
       let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
+      
       if(_allowedAddress.length === 0){
         return data = {
           valid: false,
@@ -749,7 +740,7 @@ module.exports.addMintAddress = async (req, res) => {
     await addressFile.mv(savePath);
 
     let _data = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${fileName}`);
-    let uploaded = await uploadToS3(fileName, _data);
+    await uploadToS3(fileName, _data);
 
     return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
   }catch(e){
@@ -1084,6 +1075,8 @@ module.exports.selectItem = async (req, res) => {
         sizeFee: cost.sizeFee * imageNames.length,
         satCost: cost.satCost,
         postageFee: cost.postageFee,
+        price: price/1e8,
+        priceInSat: price,
         total: cost.total * imageNames.length,
       },
       paymentAddress: paymentAddress,
@@ -1170,6 +1163,8 @@ module.exports.calc = async (req, res) => {
         sizeFee: cost.sizeFee * imageNames.length,
         satCost: cost.satCost,
         postageFee: cost.postageFee,
+        price: price/1e8,
+        priceInSat: price,
         total: cost.total * imageNames.length,
       },
       paymentAddress: "",
@@ -1214,150 +1209,6 @@ module.exports.undoSelection = async (req, res) => {
     return res.status(200).json({status: true, message: "item(s) unselected", userResponse: inscription.fileNames});
   }catch(e){
     console.log(e.message);
-    return res.status(200).json({ status: false, message: e.message });
-  }
-}
-
-module.exports.sendUtxo = async (req, res) => {
-  try {
-    const inscriptionId = req.body.inscriptionId;
-    const network = req.body.networkName;
-    const collectionId = req.body.collectionId;
-    const inscriptionType = getType(inscriptionId);
-    const collection = await Collection.findOne({ id: collectionId });
-
-    let inscription;
-    let instance;
-    let addrCount;
-    let details;
-    let amount;
-    let payAddress;
-    let addressFromId;
-    let payAddressId;
-    let balance;
-    let txDetails;
-    let ids;
-    let ORD_API_URL;
-
-    if (network === "mainnet")
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    if (network === "testnet")
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-
-    if (inscriptionType === "single") {
-      inscription = await Inscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      addrCount = 1;
-      amount = instance.cost.inscriptionCost;
-      payAddressId = instance.inscriptionDetails.payAddressId;
-      payAddress = instance.inscriptionDetails.payAddress;
-      addressFromId = (await createLegacyAddress(network, payAddressId))
-        .p2pkh_addr;
-      ids = await Ids.where("id").equals(instance._id);
-      if (addressFromId !== payAddress) {
-        return res.status(200).json({ message: "Invalid address from ID" });
-      }
-    } else if (inscriptionType === "bulk") {
-      inscription = await BulkInscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      addrCount = instance.fileNames.length;
-      amount = instance.cost.costPerInscription.inscriptionCost;
-      payAddressId = instance.inscriptionDetails.payAddressId;
-      payAddress = instance.inscriptionDetails.payAddress;
-      addressFromId = (await createLegacyAddress(network, payAddressId))
-        .p2pkh_addr;
-      ids = await Ids.where("id").equals(instance._id);
-      startTime = ids.startTime;
-      if (addressFromId !== payAddress) {
-        return res.status(200).json({ message: "Invalid address from ID" });
-      }
-    }
-
-    balance = await getWalletBalance(payAddress, network);
-    if (balance < instance.cost.total) {
-      return res.status(200).json({
-        message: `inscription cost not received. Available: ${
-          balance
-        }, Required: ${instance.cost.total}`,
-      });
-    }
-
-    details = await utxoDetails(inscriptionId, addrCount, amount, network);
-    if (collection.price !== 0) {
-      const creatorPayment = {
-        address: collection.collectionDetails.creatorsAddress,
-        value: collection.price,
-      };
-
-      details.push(creatorPayment);
-    }
-
-    console.log(details);
-
-    txDetails = await sendBitcoin(network, payAddressId, details, inscriptionType);
-    console.log(txDetails);
-    const txHash = await axios.post(ORD_API_URL + `/ord/broadcastTransaction`, {
-      txHex: txDetails.rawTx,
-      networkName: network,
-    });
-    if (txHash.data.message !== "ok") {
-      return res.status(200).json({
-        message: txHash.data.message,
-      });
-    }
-    instance.inscriptionDetails.receciverDetails = details;
-    instance.stage = "stage 2";
-    await instance.save();
-    return res.status(200).json({
-      status: true,
-      message: "ok",
-      userResponse: {
-        details: txDetails,
-        txId: txHash.data.userResponse.data,
-      },
-    });
-  } catch (e) {
-    console.log(e.message);
-    if(e.request) return res.status(200).json({status: false, message: e.message});
-    if(e.response) return res.status(200).json({status: false, message: e.response.data});
-    return res.status(200).json({ status: false, message: e.message });
-  }
-};
-
-module.exports.sendUtxo1 = async(req,res) => {
-  try{
-    const inscriptionId = req.body.inscriptionId;
-    const networkName = req.body.networkName;
-    const inscriptionType = getType(inscriptionId);
-
-    let inscription;
-    let instance;
-    let ORD_API_URL;
-
-    if (networkName === `mainnet`){
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    } else if(networkName === `testnet`){
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL
-    }
-    
-    if (inscriptionType === "single") {
-      inscription = await Inscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-    } else if (inscriptionType === "bulk") {
-      inscription = await BulkInscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-    }
-    
-    instance.stage = "stage 2";
-    await instance.save();
-    return res
-      .status(200)
-      .json({ status: true, message: `ok`, userResponse: true });
-    
-  }catch(e){
-    console.log(e.message);
-    if(e.request) return res.status(200).json({status: false, message: e.message});
-    if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
   }
 }
@@ -1711,6 +1562,7 @@ module.exports.getCollection = async (req, res) => {
     let collection;
     let mintStage;
     let price;
+    let priceInSat;
     let _mintStage;
     let mintDetails;
     let details = [];
@@ -1732,10 +1584,12 @@ module.exports.getCollection = async (req, res) => {
     s_mintDetails.forEach((item, index) => {
       if(item._id.toString() === mintStage.toString()){
         price = item.price / 1e8;
+        priceInSat = item.price;
         _mintStage = item.name;
         details.push({
           stage: item.name,
           price: price,
+          priceInSat: item.price,
           mintLimit: item.mintLimit,
           duration: item.duration,
         })
@@ -1743,18 +1597,19 @@ module.exports.getCollection = async (req, res) => {
         details.push({
           stage: item.name,
           price: item.price/1e8,
+          priceInSat: item.price,
           mintLimit: item.mintLimit,
           duration: item.duration,
         })
       }
     });
     let type;
+
     let mintedItems = collection.minted;
     let mintedCount = mintedItems.length;
 
-    if(collection.ended === true) {
-      mintedCount = null;
-      totalSupply = null;
+    if(collection.ended === true && collection.minted.length === 0){
+      mintedCount = collection.collectionDetails.totalSupply
     }
 
     if (collection.userSelect === "false" && !collection.specialSat) {
@@ -1772,6 +1627,7 @@ module.exports.getCollection = async (req, res) => {
         creatorName: collection.collectionDetails.creatorName,
         description: collection.description,
         price: price,
+        priceInSat: priceInSat,
         category: collection.category,
         collectionCount: collection.collectionDetails.totalSupply,
         mintedCount: mintedCount,
@@ -1933,11 +1789,19 @@ module.exports.getPendingOrders = async (req,res)=> {
     let ids = newPendingOrder.map(val => val.toString())
     let _pendingOrders = await Inscription.find({id: {$in: ids}});
     _pendingOrders.forEach((item)=>{
-      pendingOrders.push({
-        orderId: item.id,
-        paymentStatus: item.collectionPayment,
-        inscriptionStatus: item.inscribed,
-      })
+      if(item.inscribed !== true && item.collectionPayment === "paid"){
+        pendingOrders.push({
+          orderId: item.id,
+          paymentStatus: "waiting",
+          inscriptionStatus: item.inscribed,
+        })
+      }else{
+        pendingOrders.push({
+          orderId: item.id,
+          paymentStatus: item.collectionPayment,
+          inscriptionStatus: item.inscribed,
+        })
+      }
     })
     return res.status(200).json({ status:true, message: "ok", userResponse: {pendingOrders: pendingOrders} });
   }catch(e){
@@ -1996,53 +1860,9 @@ module.exports.getAddresses = async (req, res) => {
         });
       }
     }))
-    console.log(new Date());
     return res.status(200).json({status: true, message: "ok", userResponse: addresses});
   }catch(e){
     return res.status(200).json({ status: false, message: e.message });
-  }
-};
-
-module.exports.updateInscriptionDetails = async (req, res) => {
-  try {
-    req.setTimeout(450000);
-    const { details, collectionId } = req.body;
-    const collection = await Collection.findOne({ id: collectionId });
-
-    const addressBulkOperations = details.map((element) => ({
-      updateOne: {
-        filter: { mintStage: collection.mintStage, address: element.address },
-        update: { $inc: { mintCount: 1 } },
-        upsert: true,
-      },
-    }));
-
-    const collectionBulkOperations = details.map((element) => ({
-      updateOne: {
-        filter: { id: collectionId },
-        update: { $push: { inscriptions: { $each: element.inscriptionId, $position: -1 } } },
-        upsert: true,
-      },
-    }));
-
-    const inscriptionBulkOperations = details.map((element) => ({
-      updateOne: {
-        filter: { _id: element.id },
-        update: {
-          $set: { inscribed: true, stage: "stage 3" },
-          $push: { inscription: { $each: element.inscriptionId, $position: -1 } },
-        },
-        upsert: true,
-      },
-    }));
-
-    await Address.bulkWrite(addressBulkOperations);
-    await Collection.bulkWrite(collectionBulkOperations);
-    await Inscription.bulkWrite(inscriptionBulkOperations);
-
-    return res.status(200).json({ status: true, message: "ok" });
-  } catch (error) {
-    return res.status(200).json({ status: false, message: error.message });
   }
 };
 

@@ -9,13 +9,7 @@ try{
             return false;
         }
     }catch(err){
-        //console.log(err)
-        // if(err.response.data.error === `${name} not found`){
-        //     return true
-        // }
     }
 };
 
 module.exports = verifyName;
-
-//verifyName("nene.sats").then((res) => console.log(res));

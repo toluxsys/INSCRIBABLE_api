@@ -1,19 +1,26 @@
-const ampq = require("amqplib")
+
+const ampq = require("amqplib") 
 const mempoolJS = require("@mempool/mempool.js");
+const { inscribe } = require("../inscriptionHelper")
+const Inscription = require("../../model/inscription");
+const BulkInscription = require("../../model/bulkInscription");
+const { getType } = require("../getType");
+const { MongoClient } = require('mongodb');
 const dotenv = require("dotenv").config();
-//import inscribe function
+
 
 const options = {
     protocol: "amqp",
-    hostname: process.env.RMQ_HOST || "localhost",
+    hostname: process.env.RMQ_HOST,
     port: 5672,
-    username: "guest",
-    password: process.env.RMQ_PASSWORD || "admin",
+    username: "admin",
+    password: process.env.RMQ_PASSWORD,
     vhost: "/",
-    authMechnisim: ["PLAIN", "AMQPLAIN", "EXTERNAL"]
+    authMechnisim: ["PLAIN","AMQPLAIN", "EXTERNAL"]
 }
 
-const validBindingKeys = ["paymentSeen", "error"]
+const validBindingKeys = ["paymentSeen", "paymentReceived", "error"]
+const validQueue = ["seen", "received", "error"]
 
 class Consumer {
 
@@ -25,11 +32,12 @@ class Consumer {
     initilize = async () => {
         try{
             if(this.isInitilized === false){
-                this.conn = await ampq.connect(options);
+                this.conn = await ampq.connect("amqp://localhost:5672");
                 this.channel = await this.conn.createChannel();
             }else{
                 return;
             }
+            await this.consumeMessage("received", "paymentReceived")
             this.isInitilized = true;  
         }catch(e){
             console.log(e)
@@ -53,12 +61,21 @@ class Consumer {
       
         return { addresses, fees, transactions };
     };
+
+    getStatus = async (txId) => {
+        try{
+            const {transactions } = await this.init("mainnet");
+            let txid = txId ;
+            const tx = await transactions.getTx({ txid });
+            return  tx.status.confirmed;   
+        }catch(e){
+            console.log(e.message)
+            throw new Error(e.message)
+        }
+     };
     
     consumeMessage = async (queueName, bindingKey) => {
         try{
-            if(this.isInitilized === false){
-                await this.initilize()
-            }
             if(!validBindingKeys.includes(bindingKey)){
                 return {message: "invalid bindingKey key", status: false}
             }
@@ -73,80 +90,44 @@ class Consumer {
 
             //bind queue and exchange
             await this.channel.bindQueue(q.queue, exchangeName, bindingKey)
-            await this.channel.prefetch(4)
+            await this.channel.prefetch(1)
             
-            let data = []
-            await this.channel.consume(q.queue, (msg) => {
-                let received = JSON.parse(msg.content.toString())
-                data.push({content: received, message: msg}) 
-            })
+            await this.channel.consume(q.queue, async (msg) => {
+                let content = JSON.parse(msg.content.toString()) 
+                let status = await this.getStatus(content.txid);
+                console.log("[RECEIVED CLIENT]","orderId:",content.orderId, "paymentStatus:", status)
+                if(status === true){
+                    const type = getType(content.orderId);
+                    let inscription;
+                    if (type === `single`) {
+                      inscription = await Inscription.findOne({ id: content.orderId });
+                    } else if (type === `bulk`) {
+                      inscription = await BulkInscription.findOne({ id: content.orderId });
+                    }
 
-            let result =  await Promise.all(data.map(async(x) => {
-                let _response
-                 //check payment is confirmed
-                 let checkPayment = true;
-                 if(checkPayment === true){
-                     //let inscribe = await inscribe(x.content.inscriptionId, x.content.networkName)
-                     //if(inscribe.status === false){
-                    //   _response = {message:`order with ID: ${received.orderId}, inscribed`, content:x.content, err: true, inscriptionId:""}
-                     //}else{
-                     //  _response = {message:`order with ID: ${received.orderId}, not inscribed`, content:x.content, err: false, inscriptionId:inscribe.inscriptionId}
-                     //}
-                     this.channel.ack(x.message)
-                     _response = {message:`order with ID: ${x.content.orderId}, has been handled`, content:x.content, err: true}
-                 }else{
-                    _response = {message:`order with ID: ${x.content.orderId}, payment not confirmed`, content:x.content, err: false, inscriptionId:""}
-                 }
-                 
-                 return _response
-            }))
-
-            let err = []
-            let success = []
-            result.forEach(async(x) => {
-                if(x.err == true){
-                    await this.channel.publish(exchangeName,"error", Buffer.from(JSON.stringify(x.content)))
-                    err.push(x.content)
+                    if(inscription.inscribed === true) {
+                        this.channel.ack(msg)
+                    }else{
+                        let res = await inscribe({inscriptionId: content.orderId, networkName: content.networkName})
+                        console.log(res)
+                        if(res.message !== "inscription complete"){
+                            await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
+                            this.channel.ack(msg)
+                        }else{
+                            this.channel.ack(msg)
+                        }
+                    }
                 }else{
-                    success.push(x.content)
+                    this.channel.reject(msg, true, false);
                 }
             })
-
-            setTimeout(() => {
-                this.conn.close();
-            }, 500)
-
-            return {passed: success, failed: err}
-
         }catch(e){
             console.log(e.message)
-            throw new Error(e.message)
         }
     }
-
-    addToQueue = async (data, routingKey) => {
-        try{
-            if(!this.isInitilized){
-                await this.initilize()
-            }
-            if(!validBindingKeys.includes(routingKey)){
-                return {message: "invalid routing key", status: false}
-            }
-            let message = Buffer.from(JSON.stringify(data))
-            let exchangeName = process.env.EXCHANGE_NAME || "inscriptions" 
-            await this.channel.assertExchange(exchangeName);
-            return {message: "message added to queue", status: await this.channel.publish(exchangeName, routingKey ,message)};
-        }catch(e){
-            console.log(e.message)
-            throw new Error(e.message)
-        }
-    }
-
 } 
 
 module.exports = Consumer.getInstance();
-//queueName, bindingKey
-Consumer.getInstance().consumeMessage("seen", "paymentSeen").then(res => console.log(res)).catch()
 
 
 //docker run -d --hostname rabbit --name rabbit-server -p 15672:15672 -p 5672:5672 rabbitmq:3.12.6-management

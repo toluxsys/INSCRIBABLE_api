@@ -78,7 +78,7 @@ const getSpendUtxo = async (address, network) => {
     let outputs =[];
 
     if(utxos.length === 0){
-      return "no utxos"
+      return {message: "no available spend utxo in address", output: []}
     }
 
     for (const element of utxos) {
@@ -86,7 +86,7 @@ const getSpendUtxo = async (address, network) => {
       outputs.push(output);
     }
 
-    return outputs[0];
+    return {message: "okay", output: outputs[0]};
   } catch (e) {
     throw new Error(e.message);
   }

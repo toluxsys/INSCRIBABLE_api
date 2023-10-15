@@ -33,7 +33,7 @@ const getStatus = async (txId) => {
 const getSats = async () => {
     try{
         let {db, client} = await initMongoDb()
-        let  Sats = db.collection("sats")
+        let  Sats = db.collection("sats") 
         let sats = []
         let _sats = await Sats.find({}).toArray()
         let available = new Map()
