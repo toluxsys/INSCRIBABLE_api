@@ -1,5 +1,8 @@
 const ampq = require("amqplib")
 const dotenv = require("dotenv").config()
+const { getType } = require("../getType");
+const Inscription = require("../../model/inscription");
+const BulkInscription = require("../../model/bulkInscription");
 
 const options = {
     protocol: "amqp",
@@ -23,12 +26,13 @@ class RabbitMqClient {
     initilize = async () => {
         try{
             if(this.isInitilized === false){
+                //change this 
                 const _conn = await ampq.connect("amqp://localhost:5672");
                 this.channel = await _conn.createChannel();
             }else{
                 return;
             }
-            //await this.consumeMessage("error", "error")
+            await this.consumeMessage("error", "error")
             this.isInitilized = true; 
             console.log("Channel Initilized...")  
         }catch(e){
@@ -60,21 +64,32 @@ class RabbitMqClient {
         }
     }
 
-    // consumeMessage = async (queueName, bindingKey) => {
-    //     try{
-    //         let exchangeName = process.env.EXCHANGE_NAME || "inscriptions" 
-    //         await this.channel.assertExchange(exchangeName);
-    //         let q = await this.channel.assertQueue(queueName)
-    //         await this.channel.bindQueue(q.queue, exchangeName, bindingKey)
-    //         await this.channel.consume(q.queue, (msg) => {
-    //             let received = JSON.parse(msg.content.toString())
-    //             this.channel.ack(msg)
-    //             console.log(received)
-    //         })
-    //     }catch(e){
-    //         console.log(e.message)
-    //     }
-    // }
+    consumeMessage = async (queueName, bindingKey) => {
+        try{
+            let exchangeName = process.env.EXCHANGE_NAME || "inscriptions" 
+            await this.channel.assertExchange(exchangeName);
+            let q = await this.channel.assertQueue(queueName)
+            await this.channel.bindQueue(q.queue, exchangeName, bindingKey)
+            await this.channel.consume(q.queue, async(msg) => {
+                let content = JSON.parse(msg.content.toString())
+                let inscriptionId = content.id;
+                let errorMessage = content.message
+                let type = getType(inscriptionId)
+                let inscription
+                if (type === 'single') {
+                    inscription = await Inscription.findOne({ id: inscriptionId });
+                } else if (type === 'bulk') {
+                    inscription = await BulkInscription.findOne({ id: inscriptionId });
+                }
+                inscription.error = true;
+                inscription.errorMessage = errorMessage,
+                await inscription.save()
+                this.channel.ack(msg)
+            })
+        }catch(e){
+            console.log(e.message)
+        }
+    }
 } 
 
 module.exports = RabbitMqClient.getInstance();

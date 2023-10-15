@@ -109,7 +109,6 @@ class Consumer {
                         this.channel.ack(msg)
                     }else{
                         let res = await inscribe({inscriptionId: content.orderId, networkName: content.networkName})
-                        console.log(res)
                         if(res.message !== "inscription complete"){
                             await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
                             this.channel.ack(msg)
