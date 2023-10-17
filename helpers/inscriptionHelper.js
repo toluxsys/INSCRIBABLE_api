@@ -466,7 +466,7 @@ const inscribe = async ({inscriptionId, networkName}) => {
 
       let inscriptionTask = await Task.findOne({taskName: "inscribe"})
       if(inscResult === true){
-        let res = await perform_task(inscription.receiver, inscriptionTask)
+        let res = await perform_task(inscription.receiver, inscriptionTask.taskId)
         scribePoints = res.data.totalPoints
       }else{
         scribePoints = 0

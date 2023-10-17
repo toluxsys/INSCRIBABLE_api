@@ -849,7 +849,7 @@ module.exports.inscriptionCalc = async (req, res) => {
       }
     }
     const details = await getInscriptionCost(file, feeRate, optimize, oldSats, hasReward);
-    if(typeof(details) === `string`){
+    if(typeof details === `string`){
       return res.status(200).json({status: false, message: details});
     }
     return res.status(200).json({
@@ -1213,6 +1213,13 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     let inscriptionCost;
     let paymentAddress;
     let walletKey = "";
+    let _usePoints
+
+    if(usePoints === "true"){
+      _usePoints = true
+    }else{
+      _usePoints = false
+    }
 
     if (networkName === "mainnet")
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -1233,7 +1240,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       compImage = await compressAndSaveS3(fileName, true);
       console.log(compImage)
       if(satType !== "random"){
-        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1246,7 +1253,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
-        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1264,7 +1271,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       compImage = await compressAndSaveS3(fileName, false);
       
       if(satType !== "random"){
-        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType, _usePoints);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
           collectionName: "oldSatsWallet",
@@ -1277,7 +1284,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
         }
         paymentAddress = result.data.userResponse.data[0];
       }else {
-        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType);
+        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType, _usePoints);
         walletKey = await addWalletToOrd(inscriptionId, networkName);
         const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
         const data = {
@@ -1300,7 +1307,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       feeRate: feeRate,
       sat: satType,
       s3: true,
-      usePoints:usePoints,
+      usePoints:_usePoints,
 
       inscriptionDetails: {
         imageSizeIn: file.size / 1e3,
@@ -1357,6 +1364,14 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress, u
       optimized = false;
     }
 
+    let _usePoints
+
+    if(usePoints === "true"){
+      _usePoints = true
+    }else{
+      _usePoints = false
+    }
+
     if (!existsSync(process.cwd() + `/src/bulk/${inscriptionId}`)) {
       mkdirSync(
         process.cwd() + `./src/bulk/${inscriptionId}`,
@@ -1384,7 +1399,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress, u
     );
 
     const data = await compressAndSaveBulkS3(inscriptionId, optimized);
-    const costPerInscription = await inscriptionPrice(feeRate, data.largestFile, "random");
+    const costPerInscription = await inscriptionPrice(feeRate, data.largestFile, "random", _usePoints);
     const totalCost = costPerInscription.total * files.length;
     const cardinals = costPerInscription.inscriptionCost;
     const sizeFee = costPerInscription.sizeFee * files.length;

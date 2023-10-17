@@ -27,7 +27,7 @@ router.post("/redeemClaimCode", controller.redeemClaimCode);
 router.post("/removeTask", controller.removeTask);
 router.post("/removeReward", controller.removeClaim);
 router.post("/userReward", controller.getUserReward);
-router.get("/getAllReward", controller.getClaims);
-router.get("/getTask", controller.getTasks);
+router.get("/getActiveRewards", controller.getClaims);
+router.get("/getActiveTasks", controller.getTasks);
 
 module.exports = router;

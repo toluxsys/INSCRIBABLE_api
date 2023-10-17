@@ -18,14 +18,18 @@ const perform_task = async (address, taskId) => {
         let task = await Task.findOne({taskId:taskId})
         if(!task) return {status: false, message: "invalid task id"}
         if(task.status == "inactive") return {status: false, message: "task is inactive"}
+        let taskHistory = {
+            taskId: task.taskId,
+            createdAt: Date.now()
+        }
         
         let reward = await UserReward.findOne({address: address});
         let savedReward
         if (!reward) {
             if(task.taskName !== "checkIn"){
-                let _taskId = [];
-                _taskId.push(task._id)
-                let newReward = new UserReward({address: address, totalPoints: task.taskPoints, taskIds: _taskId,})
+                let hist = [];
+                hist.push(taskHistory)
+                let newReward = new UserReward({address: address, totalPoints: task.taskPoints, taskHistory: hist})
                 await newReward.save()
                 savedReward = {
                     status: true,
@@ -33,9 +37,9 @@ const perform_task = async (address, taskId) => {
                     message: "point claimed"
                 }
             }else{
-                let _taskId = [];
-                _taskId.push(task._id)
-                let newReward = new UserReward({address: address, totalPoints: task.taskPoints, taskIds: _taskId, lastCheckIn: Date.now(), checkInCount: 1})
+                let hist = [];
+                hist.push(taskHistory)
+                let newReward = new UserReward({address: address, totalPoints: task.taskPoints, taskHistory: hist, lastCheckIn: Date.now(), checkInCount: 1})
                 await newReward.save()
                 savedReward = {
                     status: true,
@@ -50,13 +54,17 @@ const perform_task = async (address, taskId) => {
                 if(validCheckIn.status === false){
                     savedReward = {status: false, message: "last check was less than 24 hours",  data: reward}
                 }else{
-                    let points = reward.totalPoints + task.taskPoints;
-                    let updateReward = await UserReward.findOneAndUpdate({address: address}, {$set: {points: points, lastCheckIn: Date.now(), checkInCount: reward.checkInCount + 1}}, {$push: {taskIds: task._id}}, {new: true})
+                    reward.totalPoints = reward.totalPoints + task.taskPoints;
+                    reward.lastCheckIn = Date.now()
+                    reward.checkInCount = reward.checkInCount + 1
+                    reward.taskHistory.push(taskHistory)
+                    let updateReward = await reward.save();
                     savedReward = {status: true, message: "point claimed",  data: updateReward}
                 }
             }else{
-                let points = reward.totalPoints + task.taskPoints;
-                let updateReward = await UserReward.findOneAndUpdate({address: address}, {$set: {points: points}}, {$push: {taskIds: task._id}}, {new: true})
+                reward.totalPoints = reward.totalPoints + task.taskPoints;
+                reward.taskHistory.push(taskHistory)
+                let updateReward = await reward.save();
                 savedReward = {status: true, message: "point claimed",  data: updateReward}
             }
         };
@@ -227,11 +235,19 @@ module.exports.redeemPoints = async (req, res) => {
         if (claim.status !== `active`) return res.status(200).json({status: false, message: `claim is inactive`})
         if (!userReward) return res.status(200).json({status: false, message: `address has no reward point`})
         if (userReward.totalPoints < claim.claimPoint) return res.status(200).json({status: false, message: `not enough points to redeem claim. n\ Total Point: ${userReward.totalPoints}`})
+
         //claim code: insc-claimId-uuid
         let claimCode = `insc-${rewardId}-${uuidv4()}`
+        let claimHistory = {
+            rewardId: rewardId,
+            createdAt: Date.now(),
+            claimCode: claimCode,
+        }
+
         claim.claimCode.push(claimCode)
         userReward.claimCode.push(claimCode)
         userReward.totalPoints = userReward.totalPoints - claim.claimPoint
+        userReward.claimHistory.push(claimHistory)
         await claim.save()
         await userReward.save()
         return res.status(200).json({status: true, message: "claim code generated", userResponse: claimCode})
@@ -241,7 +257,7 @@ module.exports.redeemPoints = async (req, res) => {
     }
 }
 
-module.exports.redeemClaimCode= async (req, res) => {
+module.exports.redeemClaimCode = async (req, res) => {
     try{
         const {address, claimCode} = req.body
         let claimId = parseInt(claimCode.split("-")[1])
@@ -275,7 +291,7 @@ module.exports.getClaims = async (req, res) => {
             }
             if (claim.status == "active") active.push(data)
         })
-        return res.status(200).json({status: true, message: "active claims", userResponse: active});
+        return res.status(200).json({status: true, message: "active rewards", userResponse: active});
     }catch(e){
         console.log(e.message)
         return res.status(500).json({status:false, message: e.message})

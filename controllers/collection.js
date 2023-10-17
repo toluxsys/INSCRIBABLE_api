@@ -90,7 +90,7 @@ const getSatCost = async (type) => {
   }
 }
 
-const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType) => {
+const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType, usePoints) => {
   const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 4) * feeRate);
   const cost = sats + 1500 + 550 + 5000;
@@ -99,8 +99,14 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType)
   if(sizeFee < 1024){
     sizeFee = 1024
   }
+
   if(satType !== "random"){
      satCost = await getSatCost(satType)
+  }
+
+  if(usePoints === true){
+    serviceCharge = 1000
+    //cost = cost + 1000
   }
   const total = serviceCharge + cost + sizeFee + price + satCost;
   return {
@@ -864,7 +870,7 @@ module.exports.approveCollection = async (req, res) => {
 
 module.exports.selectItem = async (req, res) => {
   try {
-    const { collectionId, receiveAddress, feeRate, imageNames, networkName, oldSats } = req.body;
+    const { collectionId, receiveAddress, feeRate, imageNames, networkName, oldSats, usePoints } = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
     const items = await getLinks(cid, collection.collectionDetails.totalSupply);
@@ -898,6 +904,22 @@ module.exports.selectItem = async (req, res) => {
     if(!verified.valid) return res.status(200).json({status: false, message: verified.message});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
     const price = mintDetails.price;
+
+    let hasReward
+    let userReward = await UserReward.findOne({address: receiveAddress})
+    if(!userReward) {
+      hasReward = false
+    }else {
+      if(usePoints !== undefined && usePoints === true){
+        if(userReward.totalPoints < inscriptionPoint) {
+          return res.status(200).json({status: false, message: "user total scribe points is less than required point"})
+        }else{
+          hasReward = true
+        }
+      }else{
+        hasReward = false
+      }
+    }
 
     if (networkName === "mainnet")
     ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -949,7 +971,8 @@ module.exports.selectItem = async (req, res) => {
         sortedImages[sortedImages.length - 1],
         price,
         collectionId,
-        oldSats
+        oldSats,
+        hasReward
     );
 
     if (imageNames.length > 1) {
@@ -1095,7 +1118,7 @@ module.exports.selectItem = async (req, res) => {
 
 module.exports.calc = async (req, res) => {
   try {
-    const { collectionId, feeRate, imageNames, oldSats } = req.body;
+    const { collectionId, feeRate, imageNames, oldSats, usePoints, receiveAddress} = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
     const items = await getLinks(cid, collection.collectionDetails.totalSupply);
@@ -1110,6 +1133,23 @@ module.exports.calc = async (req, res) => {
     let userResponse;
     let cost;
     let sortedImages = [];
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
+
+    let hasReward
+    let userReward = await UserReward.findOne({address: receiveAddress})
+    if(!userReward) {
+      hasReward = false
+    }else {
+      if(usePoints !== undefined && usePoints === true){
+        if(userReward.totalPoints < inscriptionPoint) {
+          return res.status(200).json({status: false, message: "user total scribe points is less than required point"})
+        }else{
+          hasReward = true
+        }
+      }else{
+        hasReward = false
+      }
+    }
 
     if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
     let mintDetails = await MintDetails.findOne({_id: mintStage});
@@ -1153,7 +1193,8 @@ module.exports.calc = async (req, res) => {
       sortedImages[sortedImages.length - 1],
       price,
       collectionId,
-      oldSats
+      oldSats,
+      hasReward
     );
     
     userResponse = {
@@ -1305,65 +1346,6 @@ module.exports.getImages = async(req, res) => {
     console.log(e);
     return res.status(500).json({status: false, message: e.message})
   }
-}
-
-module.exports.calSat = async (req, res) => {
-  try{
-    const { collectionId, receiveAddress, feeRate, networkName} = req.body;
-    const collection = await Collection.findOne({ id: collectionId});
-    const mintStage = collection.mintStage;
-    let cost;
-    let _feeRate;
-    if(feeRate < 15){
-      _feeRate = 15;
-    }else{
-      _feeRate = feeRate;
-    }
-    if(collection.mintCount === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "Collection has been minted out"})
-    if(collection.startMint === false) return res.status(200).json({status: false, message: "Mint has not started"});
-    if(collection.paused === true) return res.status(200).json({status: false, message: "Mint has been paused"});
-    if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
-    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
-    let verified = await verifyMint(collectionId, receiveAddress, 1);
-    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
-
-    if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
-    if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
-    let mintDetails = await MintDetails.findOne({_id: mintStage});
-    const price = mintDetails.price;
-
-    cost = await inscriptionPrice(
-      _feeRate,
-      collection.collectionDetails.fileSize,
-      price,
-      collectionId
-    );
-
-    let _cost = {
-        serviceCharge: cost.serviceCharge,
-        inscriptionCost: cost.inscriptionCost + 10000,
-        sizeFee: cost.sizeFee,
-        postageFee: cost.postageFee,
-        total: cost.total + 10000,
-    }
-
-    let userResponse = {
-      cost: {
-        serviceCharge: _cost.serviceCharge,
-        inscriptionCost: _cost.inscriptionCost,
-        sizeFee: _cost.sizeFee ,
-        postageFee: _cost.postageFee,
-        total: _cost.total,
-      },
-      paymentAddress: "",
-      inscriptionId: "",
-      createdAt: "",
-    };
-    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
-  }catch(e){
-    console.log(e)
-    return res.status(200).json({ status: false, message: e.message });
-  } 
 }
 
 module.exports.inscribe = async (req, res) => {
@@ -1674,102 +1656,6 @@ module.exports.getInscribedImages = async (req, res) => {
   }catch(e){
     console.log(e.message);
     return res.status(200).json({status: false, message: e.message});
-  }
-}
-
-module.exports.mintOnSat = async (req, res) => {
-  try{
-    const { collectionId, receiveAddress, feeRate, networkName } = req.body;
-    const collection = await Collection.findOne({ id: collectionId});
-    const mintStage = collection.mintStage;
-    let pendingOrders = false;
-    let inscriptionId;
-    let cost;
-    let _feeRate;
-    if(feeRate < 15){
-      _feeRate = 15;
-    }else{
-      _feeRate = feeRate;
-    }
-    if(collection.mintCount === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "Collection has been minted out"})
-    if(collection.startMint === false) return res.status(200).json({status: false, message: "Mint has not started"});
-    if(collection.paused === true) return res.status(200).json({status: false, message: "Mint has been paused"});
-    if(!collection.specialSat) return res.status(200).json({status: false, message: "no special Sat for collection"});
-    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
-    let verified = await verifyMint(collectionId, receiveAddress, 1);
-    if (verified.message === "complete pending order(s)")return res.status(200).json({status: true, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
-    if (!verified.valid) return res.status(200).json({status: false, message: verified.message});
-    
-    inscriptionId = `s${uuidv4()}`;
-
-    if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
-    if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
-    let mintDetails = await MintDetails.findOne({_id: mintStage});
-    const price = mintDetails.price;
-
-    cost = await inscriptionPrice(
-      _feeRate,
-      collection.collectionDetails.fileSize,
-      price,
-      collectionId
-    );
-
-    let _cost = {
-        serviceCharge: cost.serviceCharge,
-        inscriptionCost: cost.inscriptionCost,
-        sizeFee: cost.sizeFee,
-        postageFee: cost.postageFee,
-        total: cost.total,
-    }
-    
-    const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
-    const r_data = {
-      collectionName: "oldSatsWallet",
-      addrCount: 1,
-      networkName: networkName,
-    };
-    const result = await axios.post(url, r_data);
-    if (result.data.message !== "ok") {
-      return res.status(200).json({status: false, message: result.data.message});
-    }
-    paymentAddress = result.data.userResponse.data[0];
-
-    let inscription = new Inscription({
-      id: inscriptionId,
-      flag: networkName,
-      inscribed: false,
-      collectionId: collectionId,
-    
-      inscriptionDetails: {
-        payAddress: paymentAddress,
-      },
-      cost: _cost,
-      receiver: receiveAddress,
-      feeRate: _feeRate,
-      stage: "stage 1"
-    });
-
-    let _savedId = [];
-    await inscription.save();
-    _savedId.push(inscriptionId);
-    await Address.findOneAndUpdate({mintStage: collection.mintStage, address: receiveAddress}, {$push: {pendingOrders: {$each: _savedId, $position: -1}}}, {new: true})
-    userResponse = {
-      cost: {
-        serviceCharge: _cost.serviceCharge,
-        inscriptionCost: _cost.inscriptionCost + 5000,
-        sizeFee: _cost.sizeFee,
-        postageFee: _cost.postageFee,
-        total: _cost.total + 5000,
-      },
-      paymentAddress: paymentAddress,
-      inscriptionId: inscriptionId,
-      createdAt: inscription.createdAt,
-    };
-    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse, pendingOrders: pendingOrders });
-  } catch (e) {
-    if(e.request) return res.status(200).json({status: false, message: e.message});
-    if(e.response) return res.status(200).json({status: false, message: e.response.data});
-    return res.status(200).json({ status: false, message: e.message });
   }
 }
 
