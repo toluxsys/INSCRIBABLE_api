@@ -6,40 +6,66 @@ const Task = require("../model/task")
 const UserReward = require("../model/userReward")
 const Claim = require("../model/claims")
 const { v4: uuidv4 } = require("uuid");
+const moment = require("moment");
 
-module.exports.perform_task = async (address, taskId) => {
+
+//claim = reward
+const perform_task = async (address, taskId) => {
     try{
         //if address has not been added add it to user reward list
         //increase point on user reward 
         //add task to user reward array
         let task = await Task.findOne({taskId: taskId})
         let reward = await UserReward.findOne({address: address});
+        let savedReward
         if (!reward) {
-            let _taskId = [];
-            _taskId.push(task._id)
-            reward = new UserReward({address: address, totalPoints: task.taskPoints, taskIds: _taskId})
+            if(task.taskName !== "checkIn"){
+                let _taskId = [];
+                _taskId.push(task._id)
+                let newReward = new UserReward({address: address, totalPoints: task.taskPoints, taskIds: _taskId,})
+                await newReward.save()
+                savedReward = {
+                    status: true,
+                    data: newReward,
+                    message: "point claimed"
+                }
+            }else{
+                let _taskId = [];
+                _taskId.push(task._id)
+                let newReward = new UserReward({address: address, totalPoints: task.taskPoints, taskIds: _taskId, lastCheckIn: Date.now(), checkInCount: 1})
+                await newReward.save()
+                savedReward = {
+                    status: true,
+                    data: newReward,
+                    message: "point claimed"
+                }
+            }
+            
+        }else{
+            if(task.taskName === "checkIn"){
+                let validCheckIn = await canCheckIn({address})
+                if(validCheckIn.status === false){
+                    savedReward = {status: false, message: "last check was less than 24 hours",  data: reward}
+                }else{
+                    let points = reward.totalPoints + task.taskPoints;
+                    let updateReward = await UserReward.findOneAndUpdate({address: address}, {$set: {points: points, lastCheckIn: Date.now(), checkInCount: reward.checkInCount + 1}}, {$push: {taskIds: task._id}}, {new: true})
+                    savedReward = {status: true, message: "point claimed",  data: updateReward}
+                }
+            }else{
+                let points = reward.totalPoints + task.taskPoints;
+                let updateReward = await UserReward.findOneAndUpdate({address: address}, {$set: {points: points}}, {$push: {taskIds: task._id}}, {new: true})
+                savedReward = {status: true, message: "point claimed",  data: updateReward}
+            }
         };
-        let points = reward.totalPoints + task.taskPoints;
-        let savedReward = await UserReward.findOneAndUpdate({address: address}, {$set: {points: points}}, {$push: {taskIds: task._id}}, {new: true})
         return savedReward;
     }catch(e){
-        comsole.log(e.message)
-    }
-}
-
-//TODO: finish the method and import to inscribe function
-const claimReward = async (req, res) => {
-    try{
-        //this function is used by the inscription function
-        //allows user to use the reduced inscription cost claim or free sat claim
-    }catch(e){
-        comsole.log(e.message)
+        console.log(e.message)
     }
 }
 
 module.exports.addTask = async (req, res) => {
     try{
-        const {taskName, points} = req.body
+        const {taskName, points, info, description} = req.body
         if(!taskName) return res.status(200).json({status: false, message: "task name is required"})
         if(!points) return res.status(200).json({status: false, message: "points is required"})
         let tasks = await Task.find({})
@@ -48,6 +74,8 @@ module.exports.addTask = async (req, res) => {
             taskId: taskId,
             taskName: taskName,
             taskPoints: points,
+            info: info,
+            description: description,
             status: "active"
         })
         let savedTask = await task.save()
@@ -97,7 +125,7 @@ module.exports.removeClaim = async (req, res) => {
         const {claimId} = req.body
         if(!claimId) return res.status(200).json({status: false, message: "claimId is required"})
         let updateClaim = await Task.findOneAndUpdate({claimId: claimId}, {$set: {status: "inactive"}}, {new: true});
-        return res.status(200).json({status: true, message: "claim removed", userResponse: updateClaim});
+        return res.status(200).json({status: true, message: "claim removed", data: updateClaim});
     }catch(e){
         comsole.log(e.message)
         return res.status(500).json({status:false, message: e.message})
@@ -107,37 +135,101 @@ module.exports.removeClaim = async (req, res) => {
 module.exports.performTask = async (req, res) => {
     try{
         const {address, taskId} = req.body
-        let savedReward = await perform_task(address, taskId);
-        return res.status(200).json({status: true, message: "task complete", userResponse: savedReward})
+        let result = await perform_task(address, taskId);
+        if(result.status === true){
+            return res.status(200).json(result)
+        }else{
+            return res.status(200).json(result)
+        }
+        
     }catch(e){
-        comsole.log(e.message)
+        console.log(e.message)
         return res.status(500).json({status:false, message: e.message})
     }
 }
 
-module.exports.redeem = async (req, res) => {
+const canCheckIn = async ({address}) => {
     try{
-        const {address, claimId} = req.body
         let userReward = await UserReward.findOne({address: address})
-        let claim = await Claim.findOne({claimId: claimId})
+        if(!userReward){
+            return {
+                message: "valid checkIn",
+                status:true,
+                data: {
+                    totalPoints: 0,
+                    lastCheckIn: Date.now()
+                }
+            }
+        }
+        const currentTime = moment();
+        const timeDifference = currentTime.diff(userReward.lastCheckIn , 'hours');
+        const duration = 24;
+        if(timeDifference < duration){
+            return {
+                message: "last checkin was less than 24 hours",
+                status:false,
+                data: {
+                    totalPoints: userReward.totalPoints,
+                    lastCheckIn: userReward.lastCheckIn
+                }
+            }
+        }else{
+            return {
+                message: "valid checkIn",
+                status:true,
+                data: {
+                    totalPoints: userReward.totalPoints,
+                    lastCheckIn: userReward.lastCheckIn
+                }
+            }
+        }
+    }catch(e){
+        console.log(e.message)
+    }
+}
+
+module.exports.claimCheckinPoints = async (req, res) => {
+    try{
+        const {address} = req.body
+        let task = await Task.findOne({taskName: "checkIn"})
+        let validCheckIn = await canCheckIn({address: address})
+        let result
+        if(validCheckIn.status === true){
+            result = await perform_task(address, task.taskId)
+            return res.status(200).json({status: true, message: "scribe points claimed", data: {totalPoints: result.data.totalPoints, lastCheckIn:result.data.lastCheckIn}})
+        }else{
+            result = await perform_task(address, task.taskId)
+            return res.status(200).json({status: false, message: "last checkin was less than 24 hours", data: {totalPoints: result.data.totalPoints, lastCheckIn:result.data.lastCheckIn }})
+        } 
+    }catch(e){
+        console.log(e)
+        return res.status(500).json({status:false, message: e.message})
+    }
+}
+
+module.exports.redeemPoints = async (req, res) => {
+    try{
+        const {address, rewardId} = req.body
+        let userReward = await UserReward.findOne({address: address})
+        let claim = await Claim.findOne({claimId: rewardId})
         if (!claim) return res.status(200).json({status: false, message: "invalid claim id"})
         if (claim.status !== `active`) return res.status(200).json({status: false, message: `claim is inactive`})
         if (!userReward) return res.status(200).json({status: false, message: `address has no reward point`})
         if (userReward.totalPoints < claim.claimPoint) return res.status(200).json({status: false, message: `not enough points to redeem claim. n\ Total Point: ${userReward.totalPoints}`})
         //claim code: insc-claimId-uuid
-        let claimCode = `insc-${claimId}-${uuidv4()}`
+        let claimCode = `insc-${rewardId}-${uuidv4()}`
         let points = userReward.totalPoints - claim.claimPoint
         await userReward.save()
-        await UserReward.findByIdAndUpdate({address: address}, {$set: {totalPoints: points}}, {$push: {claimCode: claimCode}}, {new: true})
-        await Claim.findOneAndUpdate({claimId: claimId}, {$push: {claimCode: claimCode}}, {new: true})
+        await UserReward.findOneAndUpdate({address: address}, {$set: {totalPoints: points}}, {$push: {claimCode: claimCode}}, {new: true})
+        await Claim.findOneAndUpdate({claimId: rewardId}, {$push: {claimCode: claimCode}}, {new: true})
         return res.status(200).json({status: true, message: "claim code generated", userResponse: claimCode})
     }catch(e){
-        comsole.log(e.message)
+        console.log(e)
         return res.status(500).json({status:false, message: e.message})
     }
 }
 
-module.exports.claim = async (req, res) => {
+module.exports.redeemClaimCode= async (req, res) => {
     try{
         const {address, claimCode} = req.body
         let claimId = parseInt(claimCode.split("-")[1])
@@ -152,7 +244,7 @@ module.exports.claim = async (req, res) => {
         await Claim.findOneAndUpdate({claimId: claimId}, {$push: {usedClaimCode: claimCode}}, {new: true})
         return res.status(200).json({status: true, message: "claim successful", userResponse: true})
     }catch(e){
-        comsole.log(e.message)
+        console.log(e.message)
         return res.status(500).json({status:false, message: e.message})
     }
 }
@@ -173,7 +265,7 @@ module.exports.getClaims = async (req, res) => {
         })
         return res.status(200).json({status: true, message: "active claims", userResponse: active});
     }catch(e){
-        comsole.log(e.message)
+        console.log(e.message)
         return res.status(500).json({status:false, message: e.message})
     }
 }
@@ -194,7 +286,7 @@ module.exports.getTasks = async (req, res) => {
         })
         return res.status(200).json({status: true, message: "active tasks", userResponse: active});
     }catch(e){
-        comsole.log(e.message)
+        console.log(e.message)
         return res.status(500).json({status:false, message: e.message})
     }
 }
@@ -206,7 +298,7 @@ module.exports.getUserReward = async (req, res) => {
         if (!reward) return res.status(200).json({status: false, message: "address has no reward point"})
         return res.status(200).json({status: true, message: "address reward", userResponse: reward});
     }catch(e){
-        comsole.log(e.message)
+        console.log(e.message)
         return res.status(500).json({status:false, message: e.message})
     }
 }

@@ -6,6 +6,7 @@ const inscriptRoute = require("./routes/inscriptRoute.js");
 const collectionRoute = require("./routes/collectionRoute.js");
 const explorerRoute = require("./routes/explorerRoute.js");
 const uniInscriptionRoute = require("./routes/uniInscriptionRoute.js") 
+const rewardRoute = require("./routes/rewardRoute.js")
 const RabbitMqClient = require("./helpers/queue/rabbitMqClient.js");
 const RabbitMqConsumer = require("./helpers/queue/rabbitMqConsumer.js");
 
@@ -37,6 +38,7 @@ mongoose
 app.use(`/api/inscript`, inscriptRoute);
 app.use(`/api/collection`, collectionRoute);
 app.use(`/api/explore`, explorerRoute);
+app.use(`/api/reward`, rewardRoute);
 
 //endpoint for universal api route
 app.use(`/api`, uniInscriptionRoute);

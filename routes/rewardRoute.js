@@ -1,6 +1,7 @@
 const express = require("express");
 const controller = require("../controllers/reward");
 const path = require("path");
+const basicAuth = require('express-basic-auth')
 const router = express.Router();
 router.use(express.urlencoded({ extended: true }));
 router.use(express.json());
@@ -18,12 +19,15 @@ router.use(basicAuth({
 }))
 
 router.post("/addTask", controller.addTask);
-router.post("/addClaim", controller.addClaim);
+router.post("/addReward", controller.addClaim);
 router.post("/performTask", controller.performTask);
-router.post("/redeemPoints", controller.redeem);
-router.post("/claim", controller.claim);
+router.post("/claimCheckinPoints", controller.claimCheckinPoints);
+router.post("/redeemPoints", controller.redeemPoints);
+router.post("/redeemClaimCode", controller.redeemClaimCode);
 router.post("/removeTask", controller.removeTask);
-router.post("/removeClaim", controller.removeClaim);
+router.post("/removeReward", controller.removeClaim);
 router.post("/userReward", controller.getUserReward);
-router.get("/getClaims", controller.getClaims);
+router.get("/getAllReward", controller.getClaims);
 router.get("/getTask", controller.getTasks);
+
+module.exports = router;

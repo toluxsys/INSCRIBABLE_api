@@ -15,7 +15,7 @@ const claim = new mongoose.Schema(
         type: String
     },
     info: {
-        type: String
+        type: Array
     },
     claimPoint: {
         type: Number

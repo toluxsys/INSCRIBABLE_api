@@ -39,6 +39,7 @@ const bulkInscription = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    usePoints: {type: Boolean, default: false},
     errorMessage:{
       type: String,
       default: ""

@@ -15,7 +15,7 @@ const task = new mongoose.Schema(
       type: String
     },
     info: {
-      type: String
+      type: []
     },
     status: {
         type: String

@@ -11,6 +11,7 @@ const BulkInscription = require("../model/bulkInscription");
 const Address = require("../model/address");
 const Collection = require("../model/collection");
 const SpecialSat = require("../model/specialSats");
+const UserReward = require("../model/userReward")
 const {checkPayment} = require("../helpers/inscriptionHelper.js")
 const ObjectId = require('mongoose').Types.ObjectId; 
 const {
@@ -515,13 +516,30 @@ module.exports.upload = async (req, res) => {
     let optimize = req.body.optimize;
     let receiveAddress = req.body.receiveAddress;
     let oldSats = req.body.oldSats;
-
+    let usePoints = req.body.usePoints
+    let hasReward
+    //TOTO: Remove hard coded vale and return from ENV or DB
+    let inscriptionPoint = 1000;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
+    let userReward = await UserReward.findOne({address: receiveAddress})
+    if(!userReward) {
+      hasReward = false
+    }else {
+      if(usePoints !== undefined && usePoints === "true"){
+        if(userReward.totalPoints < inscriptionPoint) {
+          return res.status(200).json({status: false, message: "user total scribe points is less than required point"})
+        }else{
+          hasReward = true
+        }
+      }else{
+        hasReward = false
+      }
+    }
     
     if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
       return res.status(200).json({status: false, message: `cannot optimaize ${file.mimetype}`})
     }
-    const details = await init(file, feeRate, networkName, optimize, receiveAddress, oldSats);
+    const details = await init(file, feeRate, networkName, optimize, receiveAddress, oldSats, hasReward);
     if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
     if(details.resError) return res.status(200).json({status: false, message: details.resError})
     
@@ -548,14 +566,32 @@ module.exports.uploadMultiple = async (req, res) => {
     const networkName = req.body.networkName;
     let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
+    let usePoints = req.body.usePoints
+    let hasReward
+    //TOTO: Remove hard coded vale and return from ENV or DB
+    let inscriptionPoint = 1000 * files.length;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
-    if(files.length >= 100) return res.status(200).json({status: false, message: `file Upload Above Limit`});
+    let userReward = await UserReward.findOne({address: receiveAddress})
+    if(!userReward) {
+      hasReward = false
+    }else {
+      if(usePoints !== undefined && usePoints === "true"){
+        if(userReward.totalPoints < inscriptionPoint) {
+          return res.status(200).json({status: false, message: "user total scribe points is less than required point"})
+        }else{
+          hasReward = true
+        }
+      }else{
+        hasReward = false
+      }
+    }
+    if(files.length >= 20) return res.status(200).json({status: false, message: `file Upload Above Limit`});
     files.forEach((file) => {
       if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
         return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
       }
     })
-    const details = await initBulk(files, feeRate, networkName, optimize, receiveAddress);
+    const details = await initBulk(files, feeRate, networkName, optimize, receiveAddress, usePoints);
     if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
     if(details.resError) return res.status(200).json({status: false, message: details.resError})
     return res.status(200).json({
@@ -792,7 +828,27 @@ module.exports.inscriptionCalc = async (req, res) => {
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
     const oldSats = req.body.oldSats
-    const details = await getInscriptionCost(file, feeRate, optimize, oldSats);
+    let usePoints = req.body.usePoints
+    const receiveAddress = req.body.receiveAddress;
+    let hasReward
+    //TOTO: Remove hard coded vale and return from ENV or DB
+    let inscriptionPoint = 1000;
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
+    let userReward = await UserReward.findOne({address: receiveAddress})
+    if(!userReward) {
+      hasReward = false
+    }else {
+      if(usePoints !== undefined && usePoints === "true"){
+        if(userReward.totalPoints < inscriptionPoint) {
+          return res.status(200).json({status: false, message: "user total scribe points is less than required point"})
+        }else{
+          hasReward = true
+        }
+      }else{
+        hasReward = false
+      }
+    }
+    const details = await getInscriptionCost(file, feeRate, optimize, oldSats, hasReward);
     if(typeof(details) === `string`){
       return res.status(200).json({status: false, message: details});
     }
@@ -812,6 +868,27 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
     const files = req.files.unCompImage;
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
+    const receiveAddress = req.body.receiveAddress;
+
+    let usePoints = req.body.usePoints
+    let hasReward
+    //TOTO: Remove hard coded vale and return from ENV or DB
+    let inscriptionPoint = 1000 * files.length;
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
+    let userReward = await UserReward.findOne({address: receiveAddress})
+    if(!userReward) {
+      hasReward = false
+    }else {
+      if(usePoints !== undefined && usePoints === "true"){
+        if(userReward.totalPoints < inscriptionPoint) {
+          return res.status(200).json({status: false, message: "user total scribe points is less than required point"})
+        }else{
+          hasReward = true
+        }
+      }else{
+        hasReward = false
+      }
+    }
 
     if(files.length >= 100) return res.status(200).json({status: false, message: `file Upload Above Limit`});
     files.forEach((file) => {
@@ -819,7 +896,7 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
         return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
       }
     })
-    const data = await getBulkInscriptionCost(files, feeRate, optimize);
+    const data = await getBulkInscriptionCost(files, feeRate, optimize, hasReward);
     
     const details = {
       compImage: { compPercentage: "", sizeIn: "", sizeOut: "" },
@@ -1128,7 +1205,7 @@ module.exports.addSats = async (req, res) => {
   }
 };
 
-const init = async (file, feeRate, networkName, optimize, receiveAddress, satType) => {
+const init = async (file, feeRate, networkName, optimize, receiveAddress, satType, usePoints) => {
   try {
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
@@ -1223,6 +1300,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       feeRate: feeRate,
       sat: satType,
       s3: true,
+      usePoints:usePoints,
 
       inscriptionDetails: {
         imageSizeIn: file.size / 1e3,
@@ -1257,7 +1335,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
   }
 };
 
-const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) => {
+const initBulk = async (files, feeRate, networkName, optimize, receiveAddress, usePoints) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
@@ -1331,6 +1409,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress) =
       receiver: receiveAddress,
       fileNames: imageNames,
       s3: true,
+      usePoints:usePoints,
 
       inscriptionDetails: {
         largestFile: data.largestFile,
@@ -1399,7 +1478,7 @@ const getSatCost = async (type) => {
   }
 }
 
-const inscriptionPrice = async (feeRate, fileSize, satType) => {
+const inscriptionPrice = async (feeRate, fileSize, satType, usePoints) => {
   try{
     let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
     let sats = Math.ceil((fileSize / 4) * feeRate);
@@ -1411,6 +1490,11 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
     }
     if(satType !== "random"){
       satCost = await getSatCost(satType)
+    }
+
+    if(usePoints === true){
+      serviceCharge = 1000
+      //cost = cost + 1000
     }
 
     const total = serviceCharge + cost + sizeFee + satCost;
@@ -1427,7 +1511,7 @@ const inscriptionPrice = async (feeRate, fileSize, satType) => {
   }
 };
 
-const getInscriptionCost = async (file, feeRate, optimize, satType) => {
+const getInscriptionCost = async (file, feeRate, optimize, satType, usePoints) => {
   try {
     let inscriptionCost;
     let compImage;
@@ -1450,7 +1534,7 @@ const getInscriptionCost = async (file, feeRate, optimize, satType) => {
     await file.mv(savePath);
     if (optimize === "true") {
       compImage = await compressImage(fileName);
-      inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType);
+      inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, usePoints);
       sizeIn = file.size / 1e3;
       sizeOut = compImage.sizeOut / 1e3;
       compPercentage = compImage.comPercentage;
@@ -1464,7 +1548,7 @@ const getInscriptionCost = async (file, feeRate, optimize, satType) => {
         inscriptionCost: inscriptionCost,
       };
     } else if (optimize === "false") {
-      inscriptionCost = await inscriptionPrice(feeRate, file.size, satType);
+      inscriptionCost = await inscriptionPrice(feeRate, file.size, satType, usePoints);
       unlinkSync(savePath);
       return {
         compImage: {
@@ -1478,7 +1562,7 @@ const getInscriptionCost = async (file, feeRate, optimize, satType) => {
   }
 };
 
-const getBulkInscriptionCost = async (files, feeRate, optimize) => {
+const getBulkInscriptionCost = async (files, feeRate, optimize, usePoints) => {
   try {
     let id = uuidv4();
     if (!existsSync(process.cwd() + `/src/bulk/${id}`)) {
@@ -1505,7 +1589,7 @@ const getBulkInscriptionCost = async (files, feeRate, optimize) => {
     });
     const data = await compressBulk(id, optimize);
 
-    const inscriptionCost = await inscriptionPrice(feeRate, data.largestFile, "none");
+    const inscriptionCost = await inscriptionPrice(feeRate, data.largestFile, "random", usePoints);
     const total = inscriptionCost.total * files.length;
 
     return {

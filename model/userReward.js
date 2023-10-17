@@ -12,6 +12,13 @@ const userReward = new mongoose.Schema(
     claimCode: {
       type: Array
     },
+    checkInCount: {
+      type: Number,
+      default: 0
+    },
+    lastCheckIn: {
+      type: Date
+    },
     taskIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Task"}]
   },
   { timestamps: true }

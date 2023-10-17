@@ -36,6 +36,7 @@ const inscriptionSchema = new mongoose.Schema(
       type: String,
     },
     inscription: { type: Array },
+    usePoints: {type: Boolean, default: false},
     error: {
       type: Boolean,
       default: false
