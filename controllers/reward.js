@@ -15,7 +15,10 @@ const perform_task = async (address, taskId) => {
         //if address has not been added add it to user reward list
         //increase point on user reward 
         //add task to user reward array
-        let task = await Task.findOne({taskId: taskId})
+        let task = await Task.findOne({taskId:taskId})
+        if(!task) return {status: false, message: "invalid task id"}
+        if(task.status == "inactive") return {status: false, message: "task is inactive"}
+        
         let reward = await UserReward.findOne({address: address});
         let savedReward
         if (!reward) {
@@ -112,7 +115,11 @@ module.exports.removeTask = async (req, res) => {
     try{
         const {taskId} = req.body
         if(!taskId) return res.status(200).json({status: false, message: "taskId is required"})
-        let updateTask = await Task.findOneAndUpdate({taskId: taskId}, {$set: {status: "inactive"}}, {new: true});
+        let task = await Task.findOne({taskId:taskId})
+        if(!task) return res.status(200).json({status: false, message: "invalid task id"})
+        if(task.status == "inactive") return res.status(200).json({status: false, message: "task already inactive"})
+        task.status = "inactive"
+        let updateTask = await task.save()
         return res.status(200).json({status: true, message: "task removed", userResponse: updateTask});
     }catch(e){
         comsole.log(e.message)
@@ -122,12 +129,16 @@ module.exports.removeTask = async (req, res) => {
 
 module.exports.removeClaim = async (req, res) => {
     try{
-        const {claimId} = req.body
-        if(!claimId) return res.status(200).json({status: false, message: "claimId is required"})
-        let updateClaim = await Task.findOneAndUpdate({claimId: claimId}, {$set: {status: "inactive"}}, {new: true});
+        const {rewardId} = req.body
+        if(!rewardId) return res.status(200).json({status: false, message: "rewardId is required"})
+        let claim = await Claim.findOne({claimId: rewardId})
+        if(!claim) return res.status(200).json({status: false, message: "invalid reward id"})
+        if(claim.status == "inactive") return res.status(200).json({status: false, message: "reward already inactive"})
+        claim.status = "inactive"
+        let updateClaim = await claim.save()
         return res.status(200).json({status: true, message: "claim removed", data: updateClaim});
     }catch(e){
-        comsole.log(e.message)
+        console.log(e.message)
         return res.status(500).json({status:false, message: e.message})
     }
 }
@@ -143,7 +154,7 @@ module.exports.performTask = async (req, res) => {
         }
         
     }catch(e){
-        console.log(e.message)
+        console.log(e)
         return res.status(500).json({status:false, message: e.message})
     }
 }
@@ -218,10 +229,11 @@ module.exports.redeemPoints = async (req, res) => {
         if (userReward.totalPoints < claim.claimPoint) return res.status(200).json({status: false, message: `not enough points to redeem claim. n\ Total Point: ${userReward.totalPoints}`})
         //claim code: insc-claimId-uuid
         let claimCode = `insc-${rewardId}-${uuidv4()}`
-        let points = userReward.totalPoints - claim.claimPoint
+        claim.claimCode.push(claimCode)
+        userReward.claimCode.push(claimCode)
+        userReward.totalPoints = userReward.totalPoints - claim.claimPoint
+        await claim.save()
         await userReward.save()
-        await UserReward.findOneAndUpdate({address: address}, {$set: {totalPoints: points}}, {$push: {claimCode: claimCode}}, {new: true})
-        await Claim.findOneAndUpdate({claimId: rewardId}, {$push: {claimCode: claimCode}}, {new: true})
         return res.status(200).json({status: true, message: "claim code generated", userResponse: claimCode})
     }catch(e){
         console.log(e)
@@ -236,7 +248,7 @@ module.exports.redeemClaimCode= async (req, res) => {
         let userReward = await UserReward.findOne({address: address})
         let claim = await Claim.findOne({claimId: claimId})
         if (!claim) return res.status(200).json({status: false, message: "invalid code"})
-        if (claim.status !== `active`) return res.status(200).json({status: false, message: `claim is inactive`})
+        if (claim.status !== `active`) return res.status(200).json({status: false, message: `reward is inactive`})
         if (!userReward) return res.status(200).json({status: false, message: `address has no reward point`})
         if (!userReward.claimCode.includes(claimCode)) return res.status(200).json({status: false, message: "address not valid for code"})
         if (claim.usedClaimCode.includes(claimCode)) return res.status(200).json({status: false, message: "code has been used"})
