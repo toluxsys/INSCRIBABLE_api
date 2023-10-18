@@ -13,6 +13,7 @@ const Collection = require("../model/collection");
 const SelectedItems = require("../model/selectedItems");
 const ServiceFee = require("../model/serviceFee");
 const SpecialSat = require("../model/specialSats");
+const UserReward = require("../model/specialSats");
 const FeaturedCollections = require("../model/featuredCollection");
 const { getType } = require("../helpers/getType");
 const {usdToSat} = require("../helpers/btcToUsd")
