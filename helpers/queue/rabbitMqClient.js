@@ -27,7 +27,7 @@ class RabbitMqClient {
         try{
             if(this.isInitilized === false){
                 //change this 
-                const _conn = await ampq.connect("amqp://localhost:5672");
+                const _conn = await ampq.connect(options);
                 this.channel = await _conn.createChannel();
             }else{
                 return;

@@ -19,6 +19,8 @@ const perform_task = async (address, taskId) => {
         if(task.status == "inactive") return {status: false, message: "task is inactive"}
         let taskHistory = {
             taskId: task.taskId,
+            taskName: task.taskName,
+            points: task.taskPoints,
             createdAt: Date.now()
         }
         

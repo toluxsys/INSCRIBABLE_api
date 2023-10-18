@@ -44,8 +44,8 @@ app.use(`/api/reward`, rewardRoute);
 app.use(`/api`, uniInscriptionRoute);
 
 app.get("/", async(req, res) => {
-  let result = await RabbitMqClient.addToQueue({orderId:"se28c1b9d-b90f-4f6f-b914-a933cbb1ce89", networkName: "mainnet", txid:"bfe74fe8d9e70f89f1c57388de801e498e082e755c8217f9b05a12742786ab7d"}, "paymentSeen")
-  if(result.status !== true) return res.status(200).json({message: "message not added to queue"})
+  // let result = await RabbitMqClient.addToQueue({orderId:"se28c1b9d-b90f-4f6f-b914-a933cbb1ce89", networkName: "mainnet", txid:"bfe74fe8d9e70f89f1c57388de801e498e082e755c8217f9b05a12742786ab7d"}, "paymentSeen")
+  // if(result.status !== true) return res.status(200).json({message: "message not added to queue"})
   res.status(200).json({ message: "You are connected to the server", rabbitMq: result.message });
   
 });
