@@ -1111,7 +1111,7 @@ module.exports.selectItem = async (req, res) => {
 
 module.exports.calc = async (req, res) => {
   try {
-    const { collectionId, feeRate, imageNames, oldSats, usePoints, receiveAddress} = req.body;
+    let { collectionId, feeRate, imageNames, oldSats, usePoints, receiveAddress, networkName} = req.body;
     const collection = await Collection.findOne({ id: collectionId });
     const cid = collection.itemCid;
     const items = await getLinks(cid, collection.collectionDetails.totalSupply);
@@ -1126,6 +1126,7 @@ module.exports.calc = async (req, res) => {
     let userResponse;
     let cost;
     let sortedImages = [];
+    if(networkName === undefined) networkName = "mainnet"
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
 
     let hasReward
