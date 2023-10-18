@@ -12,25 +12,10 @@ const UserReward = require("../model/userReward")
 const Task = require("../model/task")
 const {checkPayment} = require("../helpers/inscriptionHelper.js")
 const ObjectId = require('mongoose').Types.ObjectId; 
-const {
-  compressImage,
-  compressAndSave,
-  compressAndSaveS3,
-  compressAndSaveBulkS3,
-  compressBulk,
-  saveFile,
-  saveFileS3,
-} = require("../helpers/imageHelper");
-const {
-  addWalletToOrd,
-  verifyAddress,
-} = require("../helpers/walletHelper");
-const {
-  getRecomendedFee,
-  getWalletBalance,
-  getSpendUtxo
-} = require("../helpers/sendBitcoin");
-
+const {inscribe} = require("../helpers/inscriptionHelper")
+const { compressImage, compressAndSave, compressAndSaveS3, compressAndSaveBulkS3, compressBulk, saveFile, saveFileS3 } = require("../helpers/imageHelper");
+const { addWalletToOrd, verifyAddress } = require("../helpers/walletHelper");
+const { getRecomendedFee } = require("../helpers/sendBitcoin");
 const { getType } = require("../helpers/getType");
 const { btcToUsd, usdToSat } = require("../helpers/btcToUsd");
 const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/webp`];
@@ -620,145 +605,16 @@ module.exports.uploadMultiple = async (req, res) => {
   }
 };
 
-module.exports.inscribe = async (req, res) => {
+module.exports.inscribe1 = async (req, res) => {
   try {
     req.setTimeout(450000);
-    const inscriptionId = req.body.id;
-    const networkName = req.body.networkName;
-    let changeAddress = req.body.changeAddress
-
-    console.log("Id:", inscriptionId)
-
-    const type = getType(inscriptionId);
-    let inscription;
-    let instance;
-    let newInscription ;
-    let imageName;
-    let n_inscriptions;
-    let details = [];
-    let balance = 0;
-    let ORD_API_URL;
-    let receiverAddress;
-
-    if (networkName === "mainnet"){
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-      if(!changeAddress) changeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
-    }
-      
-    if (networkName === "testnet"){
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-      if(!changeAddress) changeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
-    }
-    
-    if (type === "single") {
-      inscription = await Inscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
-      imageName = instance.inscriptionDetails.fileName;
-      receiverAddress = instance.receiver;
-      let cost = instance.cost.inscriptionCost;
-      if (balance < cost) {
-        return res.status(200).json({
-          status: false,
-          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-        });
-      }
-      
-    } else if (type === "bulk") {
-      inscription = await BulkInscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-
-      balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
-      
-      receiverAddress = instance.receiver;
-      let cost = instance.cost.cardinal;
-      if (balance < cost) {
-        return res.status(200).json({
-          status: false,
-          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-        });
-      }
-    }
-    if(instance.sat && instance.sat !=="random"){ 
-      let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
-      if(instance.s3 === true){
-        newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
-          feeRate: instance.feeRate,
-          receiverAddress: receiverAddress,
-          type: instance.sat,
-          imageName: imageName,
-          networkName: "mainnet",
-          spendUtxo: spendUtxo,
-          changeAddress: changeAddress,
-          walletName: "oldSatsWallet",
-          storageType: "AWS",
-        });
-      }else{
-        newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
-          feeRate: instance.feeRate,
-          receiverAddress: receiverAddress,
-          cid: instance.inscriptionDetails.cid,
-          inscriptionId: inscriptionId,
-          type: instance.sat,
-          imageName: imageName,
-          networkName: "mainnet",
-          spendUtxo: spendUtxo,
-          changeAddress: changeAddress,
-          walletName: "oldSatsWallet",
-          storageType: "IPFS",
-        });
-      }
-    }else {
-      if(instance.s3 === true){
-        newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/changeS3`, {
-          feeRate: instance.feeRate,
-          receiverAddress: receiverAddress,
-          cid: instance.inscriptionDetails.cid,
-          inscriptionId: inscriptionId,
-          type: type,
-          imageName: imageName,
-          networkName: networkName,
-          changeAddress: changeAddress,
-          imageNames: instance.fileNames,
-        });
-      } else {
-        newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/change`, {
-          feeRate: instance.feeRate,
-          receiverAddress: receiverAddress,
-          cid: instance.inscriptionDetails.cid,
-          inscriptionId: inscriptionId,
-          type: type,
-          imageName: imageName,
-          networkName: networkName,
-          changeAddress: changeAddress,
-        });
-      }   
-    }
-    if (newInscription.data.message !== "ok") {
-      return res
-        .status(200)
-        .json({ status: false, message: newInscription.data.message });
-    }
-    n_inscriptions = newInscription.data.userResponse.data;
-    if(newInscription.data.userResponse.data.length === 0) return res.status(200).json({status: false, message: "file not inscribed"})
-    n_inscriptions.forEach((item) => {
-      const data = {
-        inscription: item,
-      };
-      details.push(data);
-    });
-    
-    instance.inscription = details;
-    instance.sent = true;
-    instance.inscribed = true;
-    instance.stage = "stage 3";
-    instance.receiver = receiverAddress;
-    await instance.save();
-    return res.status(200).json({
-      status: true,
-      message: `ok`,
-      userResponse: details,
-    });
+    const {inscriptionId, networkName} = req.body;
+    let result = await inscribe({inscriptionId:inscriptionId, networkName:networkName})
+    if(result.status === false){
+      return res.status(200).json({status:result.status, message:result.message, userResponse: []})
+    }else{
+      return res.status(200).json({status:result.status, message:result.message, userResponse: result.ids})
+    } 
   } catch (e) {
     console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
@@ -823,7 +679,7 @@ module.exports.getRecFee = async (req, res) => {
 
 module.exports.inscriptionCalc = async (req, res) => {
   try {
-    const file = req.files.unCompImage;
+    const file = req.files;
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
     const oldSats = req.body.oldSats
@@ -866,10 +722,11 @@ module.exports.inscriptionCalc = async (req, res) => {
 
 module.exports.bulkInscriptionCalc = async (req, res) => {
   try {
-    const files = req.files.unCompImage;
+    const files = req.files;
     const feeRate = parseInt(req.body.feeRate);
     const optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
+    const networkName = req.body.networkName;
 
     let usePoints = req.body.usePoints
     let hasReward
@@ -1477,27 +1334,18 @@ const getInscriptionCost = async (file, feeRate, optimize, satType, usePoints) =
     let sizeIn;
     let sizeOut;
     let compPercentage;
-    
-    if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
-      return `cannot optimaize ${file.mimetype}`;
+    let optData
+    if(optimize === "true"){
+      optData = true
+    }else{
+      optData = false
     }
-
-    const fileName = new Date().getTime().toString() + path.extname(file.name);
-    const savePath = path.join(
-      process.cwd(),
-      "src",
-      "img",
-      "uncompressed",
-      fileName
-    );
-    await file.mv(savePath);
-    if (optimize === "true") {
-      compImage = await compressImage(fileName);
+    
+      compImage = await compressImage(file, optData);
       inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, usePoints);
-      sizeIn = file.size / 1e3;
+      sizeIn = compImage.sizeIn / 1e3;
       sizeOut = compImage.sizeOut / 1e3;
       compPercentage = compImage.comPercentage;
-      unlinkSync(compImage.outPath);
       return {
         compImage: {
           sizeIn,
@@ -1506,16 +1354,6 @@ const getInscriptionCost = async (file, feeRate, optimize, satType, usePoints) =
         },
         inscriptionCost: inscriptionCost,
       };
-    } else if (optimize === "false") {
-      inscriptionCost = await inscriptionPrice(feeRate, file.size, satType, usePoints);
-      unlinkSync(savePath);
-      return {
-        compImage: {
-          sizeOut: file.size / 1e3,
-        },
-        inscriptionCost: inscriptionCost,
-      };
-    }
   } catch (e) {
     console.log(e);
   }
@@ -1523,38 +1361,22 @@ const getInscriptionCost = async (file, feeRate, optimize, satType, usePoints) =
 
 const getBulkInscriptionCost = async (files, feeRate, optimize, usePoints) => {
   try {
-    let id = uuidv4();
-    if (!existsSync(process.cwd() + `/src/bulk/${id}`)) {
-      mkdirSync(
-        process.cwd() + `./src/bulk/${id}`,
-        { recursive: true },
-        (err) => {
-          console.log(err);
-        }
-      );
-    }
-
-    files.forEach(async (file, index) => {
-      ext = path.extname(file.name);
-      const fileName = `${index + 1}` + path.extname(file.name);
-      const savePath = path.join(
-        process.cwd(),
-        "src",
-        "bulk",
-        `${id}`,
-        fileName
-      );
-      await file.mv(savePath);
-    });
-    const data = await compressBulk(id, optimize);
-
+    const data = await compressBulk(files, optimize);
     const inscriptionCost = await inscriptionPrice(feeRate, data.largestFile, "random", usePoints);
     const total = inscriptionCost.total * files.length;
-
+    
+    let compData = data.compData.map(x => {
+      return{
+        sizeIn:x.sizeIn,
+        sizeOut:x.sizeOut,
+        compPercentage:x.comPercentage
+      }
+    })
     return {
       fileSize: data.largestFile / 1e3,
       total: total,
       costPerInscription: inscriptionCost,
+      compData: compData
     };
   } catch (e) {
     console.log(e.message);

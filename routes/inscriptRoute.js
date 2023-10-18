@@ -24,14 +24,6 @@ router.use(basicAuth({
   authorizeAsync: true,
 }))
 
-// router.use(
-//   fileUpload({
-//     useTempFiles: true,
-//     tempFileDir: path.join(process.cwd(), `tmp`),
-//     createParentPath: true,
-//   })
-// );
-
 const storage = multer.diskStorage({
   destination: async function (req, file, cb) {
     const directory = process.cwd()+`/src/img/uncompressed/`;
@@ -65,10 +57,10 @@ const upload = multer({
 
 router.post("/upload", upload ,controller.upload);
 router.post("/upload/multiple", upload, controller.uploadMultiple);
-router.post("/inscribe", controller.inscribe);
+router.post("/inscribe", controller.inscribe1);
 router.post("/sendInscription", controller.sendInscription);
-router.post("/inscription/calc", controller.inscriptionCalc);
-router.post("/bulkInscription/calc", controller.bulkInscriptionCalc);
+router.post("/inscription/calc", upload, controller.inscriptionCalc);
+router.post("/bulkInscription/calc", upload, controller.bulkInscriptionCalc);
 router.post("/checkPayment", controller.checkPayments);
 router.post("/addNetwork", controller.addNetwork);
 router.post("/changeNetwork", controller.toogleNetwork);

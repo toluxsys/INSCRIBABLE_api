@@ -198,19 +198,12 @@ const compressImage = async (file, optimize) => {
   try {
     let fileSize = [];
     let optData
-    if(optimize === "true"){
-      optData = true
-    }else{
-      optData = false
-    }
-    let compData = await resizeFile({file: file, optimize:optData})
+    let compData = await resizeFile({file: file, optimize:optimize})
     compData.map(async (x) => {
       fileSize.push(x.sizeOut);
       fs.unlinkSync(x.outPath)
     })
-    return {
-      compData: compData[0]
-    };
+    return compData[0]
   } catch (e) {
     console.log(e.message);
   }

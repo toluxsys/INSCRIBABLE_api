@@ -21,14 +21,7 @@ const {
   verifyAddress,
 } = require("../helpers/walletHelper");
 const { compressAndSaveBulk, uploadToS3, downloadAddressFile,downloadAllAddressFile } = require("../helpers/imageHelper");
-const {
-  createCollectionLegacyAddress,
-} = require("../helpers/sendBitcoin2");
-
-const {
-  getWalletBalance,
-  getSpendUtxo
-} = require("../helpers/sendBitcoin");
+const {createCollectionLegacyAddress} = require("../helpers/sendBitcoin2");
 const {getSats} = require("../helpers/satHelper")
 const MintDetails = require("../model/mintDetails");
 const {inscribe} = require("../helpers/inscriptionHelper")
@@ -1348,130 +1341,16 @@ module.exports.getImages = async(req, res) => {
   }
 }
 
-module.exports.inscribe = async (req, res) => {
+module.exports.inscribe1 = async (req, res) => {
   try{
     req.setTimeout(450000);
-    const {collectionId, inscriptionId, networkName} = req.body;
-    const type = getType(inscriptionId);
-    let inscription;
-    let instance;
-    let newInscription;
-    let imageNames;
-    let n_inscriptions;
-    let details = [];
-    let ORD_API_URL;
-    let receiveAddress;
-    let balance = 0;
-
-    const collection = await Collection.findOne({id: collectionId});
-    const changeAddress = collection.collectionAddress;
-
-    if (networkName === "mainnet")
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    if (networkName === "testnet")
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-
-    if (type === "single") {
-      inscription = await Inscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
-      imageNames = instance.fileNames;
-      receiveAddress = instance.receiver;
-      let cost = instance.cost.inscriptionCost;
-      if (balance < cost) {
-        return res.status(200).json({
-          status: false,
-          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-        });
-      }
-    } else if (type === "bulk") {
-      inscription = await BulkInscription.where("id").equals(inscriptionId);
-      instance = inscription[0];
-      balance = await getWalletBalance(instance.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
-      imageNames = instance.fileNames;
-      receiveAddress = instance.receiver;
-      let cost = instance.cost.cardinal;
-      if (balance < cost) {
-        return res.status(200).json({
-          status: false,
-          message: `not enough cardinal utxo for inscription. Available: ${balance}`,
-        });
-      }
-    }
-
-    if(instance.sat !== "random"){ 
-      let spendUtxo = await getSpendUtxo(instance.inscriptionDetails.payAddress, networkName)
-      if(spendUtxo === "no sats") return res.status(200).json({status:false, message: "payment not received or spent"})
-      newInscription = await axios.post(process.env.ORD_SAT_API_URL + `/ord/inscribe/oldSats`, {
-        feeRate: instance.feeRate,
-        receiverAddress: receiveAddress,
-        collectionId: collectionId,
-        cid: collection.itemCid,
-        imageNames: imageNames,
-        type: instance.sat,
-        networkName: "mainnet",
-        spendUtxo: spendUtxo,
-        changeAddress: changeAddress,
-        inscriptionId: inscriptionId,
-        walletName: "oldSatsWallet",
-        storageType: "IPFS",
-        paymentAddress: instance.inscriptionDetails.payAddress
-      });
+    const {inscriptionId, networkName} = req.body;
+    let result = await inscribe({inscriptionId:inscriptionId, networkName:networkName})
+    if(result.status === false){
+      return res.status(200).json({status:result.status, message:result.message, userResponse: []})
     }else{
-      newInscription = await axios.post(ORD_API_URL + `/ord/inscribe/change`, {
-        feeRate: instance.feeRate,
-        receiverAddress: receiveAddress,
-        cid: collection.itemCid,
-        inscriptionId: inscriptionId,
-        networkName: networkName,
-        collectionId: collectionId,
-        imageNames: imageNames,
-        changeAddress: changeAddress
-      });
-    }
-
-    if (newInscription.data.message !== "ok") {
-      return res
-        .status(200)
-        .json({ status: false, message: newInscription.data.message });
-    }
-
-    if(newInscription.data.status === false) return res.status(200).json({status: false, message: newInscription.data.message})
-
-    n_inscriptions = newInscription.data.userResponse.data;
-    if(n_inscriptions.length === 0) return res.status(200).json({status: false, message: "file not inscribed"})
-    
-    n_inscriptions.forEach((item) => {
-      details.push({
-        inscription: item,
-      });
-    });
-
-    await Address.findOneAndUpdate({mintStage: collection.mintStage, address: instance.receiver}, {$inc: {mintCount: instance.fileNames.length}}, {new: true});
-    await Collection.findOneAndUpdate({id: collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: instance.selected}}}, { new: true }); 
-    if (!receiveAddress) {
-      instance.inscription = details;
-      instance.inscribed = true;
-      instance.stage = "stage 3";
-      await instance.save();
-      return res.status(200).json({
-        status: true,
-        message: `ok`,
-        userResponse: details,
-      });
-    } else {
-      instance.inscription = details;
-      instance.sent = true;
-      instance.inscribed = true;
-      instance.stage = "stage 3";
-      instance.receiver = receiveAddress;
-      await instance.save();
-      return res.status(200).json({
-        status: true,
-        message: `ok`,
-        userResponse: details,
-      });
-    }
+      return res.status(200).json({status:result.status, message:result.message, userResponse: result.ids})
+    } 
   } catch(e) {
     console.log(e);
     if(e.request) return res.status(200).json({status: false, message: e.message});

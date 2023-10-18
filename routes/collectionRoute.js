@@ -58,7 +58,7 @@ router.post("/upload", controller.addCollectionItems);
 router.post("/seleteItem", controller.selectItem);
 router.post("/undoSelection/:inscriptionId", controller.undoSelection);
 router.post("/getImages", controller.getImages);
-router.post("/inscribe", controller.inscribe);
+router.post("/inscribe", controller.inscribe1);
 router.post("/getInscriptions", controller.getCollectionInscription);
 router.post("/inscribedImages", controller.getInscribedImages);
 router.post("/getCollection", controller.getCollection);
