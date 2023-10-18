@@ -1,12 +1,12 @@
 const { compress } = require("compress-images/promise");
 const { Web3Storage, getFilesFromPath } = require("web3.storage");
-const { sort } = require("./sort");
 const fs = require("fs");
 const {Blob} = require("buffer")
 const { cwd } = require("process");
 const dotenv = require("dotenv").config();
 const aws = require("aws-sdk");
 const { collection } = require("../model/inscription");
+const sharp = require("sharp");
 require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 aws.config.update({
@@ -194,182 +194,73 @@ const initStorage = async () => {
   return new Web3Storage({ token: process.env.WEB3_STORAGE_KEY });
 };
 
-const compressImage = async (fileName, optimize) => {
-  let fromPath = `./src/img/uncompressed/${fileName}`;
-  let toPath = `./build/img/`;
+const compressImage = async (file, optimize) => {
   try {
-    const result = await compress({
-      source: fromPath,
-      destination: toPath,
-      enginesSetup: {
-        jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
-        png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
-        svg: { engine: "svgo", command: "--multipass" },
-
-        gif: {
-          engine: "gifsicle",
-          command: ["--colors", "64", "--use-col=web"],
-        },
-      },
-    });
-    const { statistics, errors } = result;
-    const stats = statistics[0];
-    const newData = {
-      sizeIn: await stats.size_in,
-      sizeOut: await stats.size_output,
-      comPercentage: await stats.percent,
-      outPath: await stats.path_out_new,
-      formatedOutPath: await stats.path_out_new.replace(/\//g, "\\"),
-      input: stats.input,
+    let fileSize = [];
+    let optData
+    if(optimize === "true"){
+      optData = true
+    }else{
+      optData = false
+    }
+    let compData = await resizeFile({file: file, optimize:optData})
+    compData.map(async (x) => {
+      fileSize.push(x.sizeOut);
+      fs.unlinkSync(x.outPath)
+    })
+    return {
+      compData: compData[0]
     };
-    fs.unlinkSync(stats.input);
-    return newData;
   } catch (e) {
     console.log(e.message);
   }
 };
 
-const compressBulk = async (id, optimize) => {
-  let fileSize = [];
+const compressBulk = async (file, optimize) => {
   try {
-    if (optimize === "true") {
-      if (!fs.existsSync(__dirname + `/build/bulk/${id}/`)) {
-        fs.mkdirSync(
-          __dirname + `/build/bulk/${id}/`,
-          { recursive: true },
-          (err) => {
-            console.log(err);
-          }
-        );
-      }
-
-      const fileNames = fs.readdirSync(`./src/bulk/${id}`);
-
-      for (const fileName of fileNames) {
-        let fromPath = `./src/bulk/${id}/${fileName}`;
-        let toPath = `./build/bulk/${id}/`;
-
-        const result = await compress({
-          source: fromPath,
-          destination: toPath,
-          enginesSetup: {
-            jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
-            png: { engine: "pngquant", command: ["--quality=10-50", "-o"] },
-            svg: { engine: "svgo", command: "--multipass" },
-
-            gif: {
-              engine: "gifsicle",
-              command: ["--colors", "64", "--use-col=web"],
-            },
-          },
-        });
-
-        const { statistics, errors } = result;
-        const stats = statistics[0];
-        const imageFile = await getFilesFromPath(stats.path_out_new);
-        console.log(imageFile)
-        fileSize.push(imageFile[0].size);
-      }
-      const sortFileSize = fileSize.sort((a, b) => a - b);
-      const newData = {
-        largestFile: sortFileSize[sortFileSize.length - 1],
-      };
-      fs.rmSync(`./src/bulk/${id}`, { recursive: true });
-      //fs.rmSync(`./build/bulk/${id}`, { recursive: true });
-      return newData;
-    } else if (optimize === "false") {
-      const fileNames = fs.readdirSync(`./src/bulk/${id}`);
-
-      for (const fileName of fileNames) {
-        const imageFile = await getFilesFromPath(
-          `./src/bulk/${id}/${fileName}`
-        );
-        fileSize.push(imageFile[0].size);
-      }
-
-      const sortFileSize = fileSize.sort((a, b) => a - b);
-      const newData = {
-        largestFile: sortFileSize[sortFileSize.length - 1],
-      };
-      fs.rmSync(`./src/bulk/${id}`, { recursive: true });
-      return newData;
+    let fileSize = [];
+    let optData
+    if(optimize === "true"){
+      optData = true
+    }else{
+      optData = false
     }
+    let compData = await resizeFile({file:file, optimize:optData})
+    compData.map(async (x) => {
+      fileSize.push(x.sizeOut);
+      fs.unlinkSync(x.outPath)
+    })
+    const sortFileSize = fileSize.sort((a, b) => a - b);
+    return {
+      largestFile: sortFileSize[sortFileSize.length - 1],
+      compData: compData
+    };
   } catch (e) {
     console.log(e.message);
   }
 };
 
-const compressAndSaveBulk = async (inscriptionId, optimize) => {
-  const storage = await initStorage();
-  let files = [];
-  let fileSize = [];
+const compressAndSaveBulk = async (file, inscriptionId, optimize) => {
   try {
-    if (optimize === true) {
-      if (!fs.existsSync(process.cwd() + `/build/bulk/${inscriptionId}/`)) {
-        fs.mkdirSync(
-          process.cwd() + `/build/bulk/${inscriptionId}/`,
-          { recursive: true },
-          (err) => {
-            console.log(err);
-          }
-        );
-      }
+    const storage = await initStorage();
+    let files = [];
+    let fileSize = [];
 
-      const fileNames = fs.readdirSync(`./src/bulk/${inscriptionId}`);
-      for (const fileName of fileNames) {
-        let fromPath = `./src/bulk/${inscriptionId}/${fileName}`;
-        let toPath = `./build/bulk/${inscriptionId}/`;
-
-        const result = await compress({
-          source: fromPath,
-          destination: toPath,
-          enginesSetup: {
-            jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
-            png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
-            svg: { engine: "svgo", command: "--multipass" },
-
-            gif: {
-              engine: "gifsicle",
-              command: ["--colors", "64", "--use-col=web"],
-            },
-          },
-        });
-
-        const { statistics, errors } = result;
-        const stats = statistics[0];
-        const imageFile = await getFilesFromPath(stats.path_out_new);
-        files.push(imageFile[0]);
-        fileSize.push(imageFile[0].size);
-      }
-      const sortFileSize = fileSize.sort((a, b) => a - b);
-
-      const rootCid = await storage.put(files);
-      const newData = {
-        cid: rootCid,
-        largestFile: sortFileSize[sortFileSize.length - 1],
-      };
-      fs.rmSync(`./src/bulk/${inscriptionId}`, { recursive: true });
-      fs.rmSync(`./build/bulk/${inscriptionId}`, { recursive: true });
-      return newData;
-    } else {
-      const fileNames = fs.readdirSync(`./src/bulk/${inscriptionId}`);
-      for (const fileName of fileNames) {
-        const imageFile = await getFilesFromPath(
-          `./src/bulk/${inscriptionId}/${fileName}`
-        );
-        files.push(imageFile[0]);
-        fileSize.push(imageFile[0].size);
-      }
-
-      const sortFileSize = fileSize.sort((a, b) => a - b);
-      const rootCid = await storage.put(files);
-      const newData = {
-        cid: rootCid,
-        largestFile: sortFileSize[sortFileSize.length - 1],
-      };
-      fs.rmSync(`./src/bulk/${inscriptionId}`, { recursive: true });
-      return newData;
-    }
+    const compData = await resizeFile({file:file, inscriptionId:inscriptionId, optimize:optimize})
+    compData.map(async (x) => {
+      const imageFile = await getFilesFromPath(stats.path_out_new);
+      let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
+      const file = {name: fileName, buffer: imageFile, outPath: x.outPath}
+      files.push(imageFile[0]);
+      fileSize.push(imageFile.length);
+    })
+    const sortFileSize = fileSize.sort((a, b) => a - b);
+    const rootCid = await storage.put(files);    
+    return {
+      cid: rootCid,
+      largestFile: sortFileSize[sortFileSize.length - 1],
+      compData: compData
+    };
   } catch (e) {
     console.log(e.message);
   }
@@ -426,199 +317,272 @@ const saveFileS3 = async (fileName, collectionId) => {
   }
 }
 
-const compressAndSave = async (fileName, optimize) => {
-  let fromPath = `./src/img/uncompressed/${fileName}`;
-  let toPath = `./build/img/`;
-  const storage = await initStorage();
+const compressAndSave = async (file, optimize) => { 
   try {
-    if (optimize === true) {
-      const result = await compress({
-        source: fromPath,
-        destination: toPath,
-        enginesSetup: {
-          jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
-          png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
-          svg: { engine: "svgo", command: "--multipass" },
+    const storage = await initStorage();
+    let files = [];
+    let fileSize = [];
 
-          gif: {
-            engine: "gifsicle",
-            command: ["--colors", "64", "--use-col=web"],
-          },
-        },
-      });
-      const { statistics, errors } = result;
-      const stats = statistics[0];
-      fs.unlinkSync(stats.input);
-      const compdImg = await getFilesFromPath(stats.path_out_new);
-      const rootCid = await storage.put(compdImg);
-      fs.unlinkSync(stats.path_out_new);
-      const newData = {
-        sizeIn: await stats.size_in,
-        sizeOut: await stats.size_output,
-        comPercentage: await stats.percent,
-        outPath: await stats.path_out_new,
-        input: stats.input,
-        cid: rootCid,
-      };
-      return newData;
-    } else if (optimize === false) {
-      const compdImg = await getFilesFromPath(fromPath);
-      const rootCid = await storage.put(compdImg);
-      fs.unlinkSync(fromPath);
-      const newData = {
-        cid: rootCid,
-      };
-      return newData;
-    }
-  } catch (e) {
-    console.log(e);
-  }
-};
+    const compData = await resizeFile({file:file, optimize:optimize})
+    compData.map(async (x) => {
+      const compdImg = await getFilesFromPath(x.outPath);
+      let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
+      const file = {name: fileName, buffer: compdImg, outPath: x.outPath, sizeIn: x.sizeIn, sizeOut:x.sizeOut, comPercentage:x.comPercentage}
+      files.push(file);
+      fileSize.push(imageFile.length);
+    })
 
-const compressAndSaveS3 = async (fileName, optimize) => {
-  let fromPath = `./src/img/uncompressed/${fileName}`;
-  let toPath = `./build/img/`;
-  try {
-    if (optimize === true) {
-      const result = await compress({
-        source: fromPath,
-        destination: toPath,
-        enginesSetup: {
-          jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
-          png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
-          svg: { engine: "svgo", command: "--multipass" },
-
-          gif: {
-            engine: "gifsicle",
-            command: ["--colors", "64", "--use-col=web"],
-          },
-        },
-      });
-      const { statistics, errors } = result;
-      const stats = await statistics[0];
-      fs.unlinkSync(stats.input);
-      const compdImg = fs.readFileSync(stats.path_out_new);
-      let data = await uploadToS3(fileName, compdImg);
-      fs.unlinkSync(stats.path_out_new);
-      const newData = {
-        sizeIn: stats.size_in,
-        sizeOut: stats.size_output,
-        comPercentage: stats.percent,
-        outPath: stats.path_out_new,
-        input: stats.input,
-        cid: data.location,
-      };
-      return newData;
-    } else if (optimize === false) {
-      const compdImg = fs.readFileSync(fromPath);
-      let data = await uploadToS3(fileName, compdImg);
-      fs.unlinkSync(fromPath);
-      const newData = {
-        cid: data.location,
-      };
-      return newData;
-    }
-  } catch (e) {
-    console.log(e);
-  }
-};
-
-const compressAndSaveBulkS3 = async (inscriptionId, optimize) => {
-  const storage = await initStorage();
-  let files = [];
-  let fileSize = [];
-  try {
-    if (optimize === true) {
-      if (!fs.existsSync(process.cwd() + `/build/bulk/${inscriptionId}/`)) {
-        fs.mkdirSync(
-          process.cwd() + `/build/bulk/${inscriptionId}/`,
-          { recursive: true },
-          (err) => {
-            console.log(err);
-          }
-        );
+    return await Promise.all(files.map(async (item) => {
+      let itemBuffer = item.buffer;
+      const rootCid = await storage.put(itemBuffer);
+      fs.unlinkSync(item.outPath)
+     return {
+        sizeIn: item.sizeIn,
+        sizeOut: item.sizeOut,
+        comPercentage: item.comPercentage,
+        outPath: item.outPath,
+        cid: rootCid
       }
+    }))[0];
+  } catch (e) {
+    console.log(e);
+  }
+};
 
-      const fileNames = await Promise.all(fs.readdirSync(`./src/bulk/${inscriptionId}`));
-      console.log(fileNames)
-      await Promise.all(fileNames.map(async (fileName) => {
-        let fromPath = `./src/bulk/${inscriptionId}/${fileName}`;
-        let toPath = `./build/bulk/${inscriptionId}/`;
+const compressAndSaveS3 = async (file, optimize) => {
+  try {
+      let files = [];
+      let fileSize = [];
 
-        const result = await compress({
-        source: fromPath,
-        destination: toPath,
-        enginesSetup: {
-          jpg: { engine: "mozjpeg", command: ["-quality", "60"] },
-          png: { engine: "pngquant", command: ["--quality=20-50", "-o"] },
-          svg: { engine: "svgo", command: "--multipass" },
-
-          gif: {
-            engine: "gifsicle",
-            command: ["--colors", "64", "--use-col=web"],
-          },
-        },
-        });
-
-        const { statistics, errors } = result;
-        const stats = statistics[0];
-        const imageFile = fs.readFileSync(stats.path_out_new);
-        const file = {name: fileName, buffer: imageFile}
-
+      const compData = await resizeFile({file:file, optimize:optimize})
+      compData.map(x => {
+        const imageFile = fs.readFileSync(x.outPath);
+        let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
+        const file = {name: fileName, buffer: imageFile, outPath: x.outPath, sizeIn: x.sizeIn, sizeOut:x.sizeOut, comPercentage:x.comPercentage}
         files.push(file);
         fileSize.push(imageFile.length);
+      })
+
+      let data = await Promise.all(files.map(async (item) => {
+        let fileName = item.name;
+        let itemBuffer = item.buffer;
+        let data = await uploadToS3(fileName, itemBuffer);
+        fs.unlinkSync(item.outPath)
+       return {
+          sizeIn: item.sizeIn,
+          sizeOut: item.sizeOut,
+          comPercentage: item.comPercentage,
+          outPath: item.outPath,
+          cid: data.Location,
+        }
       }));
-        
+      return data[0]
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+const compressAndSaveBulkS3 = async (file, inscriptionId, optimize) => {
+  try {
+      const storage = await initStorage();
+      let files = [];
+      let fileSize = [];
+
+      const compData = await resizeFile({file:file, inscriptionId:inscriptionId, optimize:optimize})
+      compData.map(x => {
+        const imageFile = fs.readFileSync(x.outPath);
+        let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
+        const file = {name: fileName, buffer: imageFile, outPath: x.outPath}
+        files.push(file);
+        fileSize.push(imageFile.length);
+      })
+
+
       const sortFileSize = fileSize.sort((a, b) => a - b);
       let responseData = [];
+
 
       await Promise.all(files.map(async (item) => {
         let fileName = item.name;
         let itemBuffer = item.buffer;
         let data = await uploadToS3(fileName, itemBuffer);
         responseData.push(data.Location);
+        fs.unlinkSync(item.outPath)
       }));
-
-      fs.rmSync(`./src/bulk/${inscriptionId}`, { recursive: true });
-      fs.rmSync(`./build/bulk/${inscriptionId}`, { recursive: true });
+      
       return {
-        cid: responseData,
+        cid: responseData[0],
         largestFile: sortFileSize[sortFileSize.length - 1],
+        compData: compData
       };
-    } else {
-      const fileNames = fs.readdirSync(`./src/bulk/${inscriptionId}`);
-      fileNames.forEach(fileName => {
-        const imageFile = fs.readFileSync(`./src/bulk/${inscriptionId}/${fileName}`)
-        let file = {name: fileName, buffer: imageFile}
-        files.push(file);
-        fileSize.push(imageFile.length);
-      })
-      const sortFileSize = fileSize.sort((a, b) => a - b);
-      let params = [];
-
-      files.forEach(item => {
-        let fileName = item.name;
-        let itemBuffer = item.buffer;
-        let _param = {
-          Bucket: process.env.S3_BUCKET_NAME,
-          Key: fileName,
-          Body: itemBuffer,
-        }
-        params.push(_param);
-      })
-      let data = await uploadToS3Bulk(params);
-      data = data.map(item => item.Location);
-
-      fs.rmSync(`./src/bulk/${inscriptionId}`, { recursive: true });
-      return {
-        cid: data,
-        largestFile: sortFileSize[sortFileSize.length - 1],
-      };
-    }
+    
   } catch (e) {
     console.log(e.message);
   }
 };
+
+const resizeFile = async ({file, inscriptionId, optimize}) => {
+  try{
+    let compData = []
+    if(optimize == true) {
+      if(file.length == 1){
+        let toPath = process.cwd()+`/build/img/`
+        if (!fs.existsSync(toPath)) {
+          fs.mkdirSync(
+            toPath,
+            { recursive: true },
+            (err) => {
+              console.log(err);
+            }
+          );
+        }
+
+        let mimetype = file[0].mimetype
+        //let newFilePath = 
+        switch (mimetype) {
+          case "image/png":
+            let compPng = await sharp(file[0].path).resize().png({ quality: 70 }).toFile(toPath+file[0].filename);
+            fs.unlinkSync(file[0].path);
+            compData.push({
+              sizeIn: file[0].size,
+              sizeOut: compPng.size,
+              comPercentage: percentageDiff(file[0].size, compPng.size),
+              inPath: file[0].path,
+              outPath: toPath+file[0].filename
+            })
+            break;
+          case "image/jpeg":
+            let compJpeg = await sharp(file[0].path).resize().jpeg({ quality: 70 }).toFile(toPath+file[0].filename);
+            fs.unlinkSync(file[0].path);
+            compData.push({
+              sizeIn: file[0].size,
+              sizeOut: compJpeg.size,
+              comPercentage: percentageDiff(file[0].size, compJpeg.size),
+              inPath: file[0].path,
+              outPath: toPath+file[0].filename
+            })
+            break;
+          case "image/gif":
+            let compGif = await sharp(file[0].path).resize().gif({ quality: 70 }).toFile(toPath+file[0].filename);
+            fs.unlinkSync(file[0].path);
+            compData.push({
+              sizeIn: file[0].size,
+              sizeOut: compGif.size,
+              comPercentage: percentageDiff(file[0].size, compGif.size),
+              inPath: file[0].path,
+              outPath: toPath+file[0].filename
+            })
+            break;
+          case "image/webp":
+            let compWeb = await sharp(file[0].path).resize().webp({ quality: 70 }).toFile(toPath+file[0].filename);
+            fs.unlinkSync(file[0].path);
+            compData.push({
+              sizeIn: file[0].size,
+              sizeOut: compWeb.size,
+              comPercentage: percentageDiff(file[0].size, compWeb.size),
+              inPath: file[0].path,
+              outPath: toPath+file[0].filename
+            })
+            break;
+          default: 
+            `file with type of ${mimetype} cannot be optimized`;
+        }
+      }else{
+        await Promise.all(file.map(async(x)=> {
+          let toPath = process.cwd()+`/build/bulk/${inscriptionId}/`
+          if (!fs.existsSync(toPath)) {
+            fs.mkdirSync(
+                toPath,
+              { recursive: true },
+              (err) => {
+                console.log(err);
+              }
+            );
+          }
+  
+          let mimetype = x.mimetype
+          switch (mimetype) {
+            case "image/png":
+              let compPng = await sharp(x.path).resize().png({ quality: 70 }).toFile(toPath+x.filename);
+              fs.unlinkSync(x.path);
+              compData.push({
+                sizeIn: x.size,
+                sizeOut: compPng.size,
+                comPercentage: percentageDiff(x.size, compPng.size),
+                inPath: x.path,
+                outPath: toPath+x.filename
+              })
+              break;
+            case "image/jpeg":
+              let compJpeg = await sharp(x.path).resize().jpeg({ quality: 70 }).toFile(toPath+x.filename);
+              fs.unlinkSync(x.path);
+              compData.push({
+                sizeIn: x.size,
+                sizeOut: compJpeg.size,
+                comPercentage: percentageDiff(x.size, compJpeg.size),
+                inPath: x.path,
+                outPath: toPath+x.filename
+              })
+              break;
+            case "image/gif":
+              let compGif = await sharp(x.path).resize().gif({ quality: 70 }).toFile(toPath+x.filename);
+              fs.unlinkSync(x.path);
+              compData.push({
+                sizeIn: x.size,
+                sizeOut: compGif.size,
+                comPercentage: percentageDiff(x.size, compGif.size),
+                inPath: x.path,
+                outPath: toPath+x.filename
+              })
+              break;
+            case "image/png":
+              let compWeb = await sharp(x.path).resize().webp({ quality: 70 }).toFile(toPath+x.filename);
+              fs.unlinkSync(x.path);
+              compData.push({
+                sizeIn: x.size,
+                sizeOut: compWeb.size,
+                comPercentage: percentageDiff(x.size, compWeb.size),
+                inPath: x.path,
+                outPath: toPath+x.filename
+              })
+              break;
+            default: 
+              `file with type of ${mimetype} cannot be optimized`;
+          }
+        }))
+      }
+    }else{
+      file.map((x)=> {
+        compData.push({
+          sizeIn: x.size,
+          sizeOut: x.size,
+          inPath: x.path,
+          outPath: x.path,
+          comPercentage: 0
+        })
+      })
+    }
+    return compData
+  }catch(e){
+    console.log(e.message)
+  }
+}
+
+const percentageDiff = (value1, value2) => {
+  try{
+   
+    if (typeof value1 !== 'number' || typeof value2 !== 'number') {
+        throw new Error('Both values must be numbers');
+    }
+    const larger = Math.max(value1, value2);
+    const smaller = Math.min(value1, value2);
+    const difference = larger - smaller;
+    const percentageDifference = (difference / larger) * 100;
+    return percentageDifference;
+  }catch(e){
+    console.log(e.message)
+  }
+}
 
 module.exports = {
   compressImage,

@@ -709,7 +709,7 @@ module.exports.getMintDetails = async (req,res) => {
 module.exports.addMintAddress = async (req, res) => {
   try{
     const {collectionId, name} = req.body;
-    const addressFile = req.files.address;
+    const addressFile = req.files;
     const mintDetails = await MintDetails.find({collectionId: collectionId});
     let mappedObjectId = mintDetails.map(val => val)
     let n_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
@@ -733,7 +733,7 @@ module.exports.addMintAddress = async (req, res) => {
     }
     
     let _name = `addr-`+collectionId+`-`+name;
-    let fileName = _name + path.extname(addressFile.name);
+    let fileName = _name + path.extname(addressFile.fileName);
 
     
     const savePath = path.join(

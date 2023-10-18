@@ -6,12 +6,10 @@ const { v4: uuidv4 } = require("uuid");
 const dotenv = require("dotenv").config();
 const Inscription = require("../model/inscription");
 const Network = require("../model/network");
-const SelectedItems = require("../model/selectedItems");
 const BulkInscription = require("../model/bulkInscription");
-const Address = require("../model/address");
-const Collection = require("../model/collection");
 const SpecialSat = require("../model/specialSats");
 const UserReward = require("../model/userReward")
+const Task = require("../model/task")
 const {checkPayment} = require("../helpers/inscriptionHelper.js")
 const ObjectId = require('mongoose').Types.ObjectId; 
 const {
@@ -35,7 +33,7 @@ const {
 
 const { getType } = require("../helpers/getType");
 const { btcToUsd, usdToSat } = require("../helpers/btcToUsd");
-const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/svg`, `image/svg+xml`];
+const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/webp`];
 
 const writeFile = (path, data) => {
   try {
@@ -510,16 +508,19 @@ module.exports.brc1155 = async (req, res) => {
 
 module.exports.upload = async (req, res) => {
   try {
-    const file = req.files.unCompImage;
+    const file = req.files;
     let feeRate = parseInt(req.body.feeRate);
-    const networkName = req.body.networkName;
+    let networkName = req.body.networkName;
     let optimize = req.body.optimize;
     let receiveAddress = req.body.receiveAddress;
     let oldSats = req.body.oldSats;
     let usePoints = req.body.usePoints
+    let compData = []
     let hasReward
+
     //TOTO: Remove hard coded vale and return from ENV or DB
-    let inscriptionPoint = 1000;
+    let task = await Task.findOne({taskName: "inscribe"})
+    let inscriptionPoint = task.taskPoints;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
     let userReward = await UserReward.findOne({address: receiveAddress})
     if(!userReward) {
@@ -535,10 +536,7 @@ module.exports.upload = async (req, res) => {
         hasReward = false
       }
     }
-    
-    if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
-      return res.status(200).json({status: false, message: `cannot optimaize ${file.mimetype}`})
-    }
+  
     const details = await init(file, feeRate, networkName, optimize, receiveAddress, oldSats, hasReward);
     if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
     if(details.resError) return res.status(200).json({status: false, message: details.resError})
@@ -554,22 +552,23 @@ module.exports.upload = async (req, res) => {
       },
     });
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
     return res.status(200).json({ status: false, message: e.message });
   }
 };
 
 module.exports.uploadMultiple = async (req, res) => {
   try {
-    const files = req.files.unCompImage;
+    const files = req.files;
     const feeRate = parseInt(req.body.feeRate);
     const networkName = req.body.networkName;
     let optimize = req.body.optimize;
     const receiveAddress = req.body.receiveAddress;
     let usePoints = req.body.usePoints
     let hasReward
-    //TOTO: Remove hard coded vale and return from ENV or DB
-    let inscriptionPoint = 1000 * files.length;
+    //TODO: Remove hard coded vale and return from ENV or DB
+    let task = await Task.findOne({taskName: "inscribe"})
+    let inscriptionPoint = task.taskPoints;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
     let userReward = await UserReward.findOne({address: receiveAddress})
     if(!userReward) {
@@ -591,7 +590,7 @@ module.exports.uploadMultiple = async (req, res) => {
         return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
       }
     })
-    const details = await initBulk(files, feeRate, networkName, optimize, receiveAddress, usePoints);
+    const details = await initBulk(files, feeRate, networkName, optimize, receiveAddress, hasReward);
     if (details.reqError) return res.status(200).json({status: false, message: details.reqError});
     if(details.resError) return res.status(200).json({status: false, message: details.resError})
     return res.status(200).json({
@@ -829,10 +828,12 @@ module.exports.inscriptionCalc = async (req, res) => {
     const optimize = req.body.optimize;
     const oldSats = req.body.oldSats
     let usePoints = req.body.usePoints
+    let networkName = req.body.networkName
     const receiveAddress = req.body.receiveAddress;
     let hasReward
     //TOTO: Remove hard coded vale and return from ENV or DB
-    let inscriptionPoint = 1000;
+    let task = await Task.findOne({taskName: "inscribe"})
+    let inscriptionPoint = task.taskPoints;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
     let userReward = await UserReward.findOne({address: receiveAddress})
     if(!userReward) {
@@ -873,7 +874,8 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
     let usePoints = req.body.usePoints
     let hasReward
     //TOTO: Remove hard coded vale and return from ENV or DB
-    let inscriptionPoint = 1000 * files.length;
+    let task = await Task.findOne({taskName: "inscribe"})
+    let inscriptionPoint = task.taskPoints * files.length;
     if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
     let userReward = await UserReward.findOne({address: receiveAddress})
     if(!userReward) {
@@ -1226,79 +1228,44 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     if (networkName === "testnet")
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
-    const fileName = inscriptionId +`_`+new Date().getTime().toString() + path.extname(file.name);
-      const savePath = path.join(
-        process.cwd(),
-        "src",
-        "img",
-        "uncompressed",
-        fileName
-      );
-    await file.mv(savePath);
-    
-    if (optimize === `true`) {
-      compImage = await compressAndSaveS3(fileName, true);
-      console.log(compImage)
-      if(satType !== "random"){
-        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
-        const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
-        const data = {
-          collectionName: "oldSatsWallet",
-          addrCount: 1,
-          networkName: networkName,
-        };
-        const result = await axios.post(url, data);
-        if (result.data.message !== "ok") {
-          return res.status(200).json({status: false, message: result.data.message});
-        }
-        paymentAddress = result.data.userResponse.data[0];
-      }else {
-        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
-        walletKey = await addWalletToOrd(inscriptionId, networkName);
-        const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
-        const data = {
-          collectionName: inscriptionId,
-          addrCount: 1,
-          networkName: networkName,
-        };
-        const result = await axios.post(url, data);
-        if (result.data.message !== "ok") {
-          return res.status(200).json({status: false, message: result.data.message});
-        }
-        paymentAddress = result.data.userResponse.data[0];
-      }
-    } else if (optimize === `false`) {
-      compImage = await compressAndSaveS3(fileName, false);
-      
-      if(satType !== "random"){
-        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType, _usePoints);
-        const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
-        const data = {
-          collectionName: "oldSatsWallet",
-          addrCount: 1,
-          networkName: networkName,
-        };
-        const result = await axios.post(url, data);
-        if (result.data.message !== "ok") {
-          return res.status(200).json({status: false, message: result.data.message});
-        }
-        paymentAddress = result.data.userResponse.data[0];
-      }else {
-        inscriptionCost = await inscriptionPrice(feeRate, file.size, satType, _usePoints);
-        walletKey = await addWalletToOrd(inscriptionId, networkName);
-        const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
-        const data = {
-          collectionName: inscriptionId,
-          addrCount: 1,
-          networkName: networkName,
-        };
-        const result = await axios.post(url, data);
-        if (result.data.message !== "ok") {
-          return res.status(200).json({status: false, message: result.data.message});
-        }
-        paymentAddress = result.data.userResponse.data[0];
-      }
+    let optData
+    if(optimize === `true`){
+      optData = true
+    }else{
+      optData = false
     }
+
+    const fileName = file[0].filname;
+      compImage = await compressAndSaveS3(file, optData);
+      if(satType !== "random"){
+        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
+        const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
+        const data = {
+          collectionName: "oldSatsWallet",
+          addrCount: 1,
+          networkName: networkName,
+        };
+        const result = await axios.post(url, data);
+        if (result.data.message !== "ok") {
+          return res.status(200).json({status: false, message: result.data.message});
+        }
+        paymentAddress = result.data.userResponse.data[0];
+      }else {
+        inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
+        walletKey = await addWalletToOrd(inscriptionId, networkName);
+        const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+        const data = {
+          collectionName: inscriptionId,
+          addrCount: 1,
+          networkName: networkName,
+        };
+        const result = await axios.post(url, data);
+        if (result.data.message !== "ok") {
+          return res.status(200).json({status: false, message: result.data.message});
+        }
+        paymentAddress = result.data.userResponse.data[0];
+      }
+  
 
     const inscription = new Inscription({
       id: inscriptionId,
@@ -1336,20 +1303,19 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       inscriptionId,
     };
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
     if(e.request) return {reqError: e.message};
     if(e.response) return {resError: e.response.data};
   }
 };
 
-const initBulk = async (files, feeRate, networkName, optimize, receiveAddress, usePoints) => {
+const initBulk = async (file, feeRate, networkName, optimize, receiveAddress, usePoints) => {
   try {
     const id = await import("nanoid");
     const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `b${uuidv4()}`;
-    const serviceCharge = parseInt(process.env.SERVICE_CHARGE) * files.length;
+    const serviceCharge = parseInt(process.env.SERVICE_CHARGE) * file.length;
     let optimized;
-    let imageNames = [];
 
     let ORD_API_URL;
 
@@ -1372,37 +1338,15 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress, u
       _usePoints = false
     }
 
-    if (!existsSync(process.cwd() + `/src/bulk/${inscriptionId}`)) {
-      mkdirSync(
-        process.cwd() + `./src/bulk/${inscriptionId}`,
-        { recursive: true },
-        (err) => {
-          console.log(err);
-        }
-      );
-    }
-
-    await Promise.all(
-      files.map(async (file, index) => {
-        ext = path.extname(file.name);
-        const fileName = new Date().getTime().toString() + index.toString() + path.extname(file.name);
-        imageNames.push(fileName);
-        const savePath = path.join(
-          process.cwd(),
-          "src",
-          "bulk",
-          `${inscriptionId}`,
-          fileName
-        );
-      await file.mv(savePath);
-      })
-    );
-
-    const data = await compressAndSaveBulkS3(inscriptionId, optimized);
+    const data = await compressAndSaveBulkS3(file, inscriptionId, optimized);
+    let fileNames = data.compData.map(x => {
+      return x.outPath.split("/")[x.outPath.split("/").length - 1]
+    })
+    
     const costPerInscription = await inscriptionPrice(feeRate, data.largestFile, "random", _usePoints);
-    const totalCost = costPerInscription.total * files.length;
+    const totalCost = costPerInscription.total * file.length;
     const cardinals = costPerInscription.inscriptionCost;
-    const sizeFee = costPerInscription.sizeFee * files.length;
+    const sizeFee = costPerInscription.sizeFee * file.length;
 
     const walletKey = await addWalletToOrd(inscriptionId, networkName);
     const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -1422,20 +1366,20 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress, u
       inscribed: false,
       feeRate: feeRate,
       receiver: receiveAddress,
-      fileNames: imageNames,
+      fileNames: fileNames,
       s3: true,
       usePoints:usePoints,
 
       inscriptionDetails: {
         largestFile: data.largestFile,
-        totalAmount: files.length,
+        totalAmount: file.length,
         payAddress: paymentAddress,
         cid: data.cid,
       },
       cost: {
         costPerInscription: costPerInscription,
         total: totalCost,
-        cardinal: cardinals * files.length,
+        cardinal: cardinals * file.length,
       },
       walletDetails: {
         keyPhrase: walletKey,
@@ -1448,7 +1392,7 @@ const initBulk = async (files, feeRate, networkName, optimize, receiveAddress, u
 
     return {
       data: data,
-      cardinals: cardinals * files.length,
+      cardinals: cardinals * file.length,
       totalCost: totalCost,
       sizeFee: sizeFee,
       serviceCharge: serviceCharge,
@@ -1616,5 +1560,3 @@ const getBulkInscriptionCost = async (files, feeRate, optimize, usePoints) => {
     console.log(e.message);
   }
 };
-
-

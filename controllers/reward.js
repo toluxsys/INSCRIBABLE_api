@@ -8,7 +8,6 @@ const Claim = require("../model/claims")
 const { v4: uuidv4 } = require("uuid");
 const moment = require("moment");
 
-
 //claim = reward
 const perform_task = async (address, taskId) => {
     try{
