@@ -178,7 +178,7 @@ const addMintDetails = async (collectionId, details) => {
           collectionId: collectionId,
           name: detail.name,
           mintLimit: detail.mintLimit,
-          price: detail.price,
+          price: detail.price * 1e8,
           duration: duration,
         })
     });
@@ -532,7 +532,6 @@ module.exports.updateMintStage = async (req, res) => {
 
 module.exports.addCollection = async (req, res) => {
   try {
-    let files = [];
     let b_ext;
     let f_ext;
     const {
@@ -555,49 +554,17 @@ module.exports.addCollection = async (req, res) => {
       startAt,
     } = req.body;
 
+    let files = req.files
+
     if(!mintDetails) return res.status(200).json({status: false, message: "mint details required"});
-    const banner = req.files.banner;
-    const featuredImage = req.files.featuredImage;
     const collectionId = `c${uuidv4()}`;
     if(verifyAddress(creatorsAddress, networkName) === false) return res.status(200).json({status: false, message: `crestors address not valid for ${networkName}`});
-    files.push(banner);
-    files.push(featuredImage);
     const count = await Collection.find({}, { _id: 0 });
     const alias = `${collectionName.replace(/\s/g, "")}_${count.length}`;
 
     const collactionAddressDetails = await createCollectionLegacyAddress(networkName, count.length);
     let collectionAddress = collactionAddressDetails.p2pkh_addr;
     let collectionAddressId = count.length;
-
-    if (!existsSync(process.cwd() + `/src/bulk/${collectionId}`)) {
-      mkdirSync(
-        process.cwd() + `./src/bulk/${collectionId}`,
-        { recursive: true },
-        (err) => {
-          console.log(err);
-        }
-      );
-    }
-
-    files.forEach(async (file, index) => {
-      let fileName;
-      if (index === 0) {
-        fileName = `banner` + path.extname(file.name);
-        b_ext = path.extname(file.name);
-      } else if (index === 1) {
-        fileName = `featuredImage` + path.extname(file.name);
-        f_ext = path.extname(file.name);
-      }
-
-      const savePath = path.join(
-        process.cwd(),
-        "src",
-        "bulk",
-        `${collectionId}`,
-        fileName
-      );
-      await file.mv(savePath);
-    });
 
     let collectionDetails = {
       creatorName: creatorName,
@@ -612,7 +579,8 @@ module.exports.addCollection = async (req, res) => {
       totalSupply: totalSupply,
     };
 
-    const data = await compressAndSaveBulk(collectionId, false); //let startTime = new Date(startAt).getTime();
+    const data = await compressAndSaveBulk(files, "" , false); //let startTime = new Date(startAt).getTime();
+    
     let ids = await addMintDetails(collectionId, JSON.parse(mintDetails));
     const collection = new Collection({
       id: collectionId,
@@ -620,7 +588,7 @@ module.exports.addCollection = async (req, res) => {
       name: collectionName,
       alias: alias,
       flag: networkName,
-      price: price,
+      price: price * 1e8,
       userSelect: userSelect,
       specialSat: specialSat,
       collectionDetails: collectionDetails,
@@ -631,9 +599,9 @@ module.exports.addCollection = async (req, res) => {
       category: category,
       featuredCid: data.cid,
       startAt: startAt,
-      banner: process.env.IPFS_IMAGE_URL + data.cid + `/banner${b_ext}`,
+      banner: process.env.IPFS_IMAGE_URL + data.cid + `/banner`,
       featuredImage:
-        process.env.IPFS_IMAGE_URL + data.cid + `/featuredImage${f_ext}`,
+        process.env.IPFS_IMAGE_URL + data.cid + `/featuredImage`,
     });
     await collection.save();
     return res

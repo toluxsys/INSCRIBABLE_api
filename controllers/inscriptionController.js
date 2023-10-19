@@ -783,9 +783,9 @@ module.exports.checkPayments = async (req, res) => {
     const { inscriptionId, networkName } = req.body;
     let result = await checkPayment({inscriptionId: inscriptionId, networkName: networkName})
     if(result.status === true){
-      return res.status(200).json({status:true, message: result.message, userResponse: result.data.ids})
+      return res.status(200).json({status:true, message: result.message, userResponse: {ids: result.data.ids, txid: result.data.txid}})
     }else{
-      return res.status(200).json({status:false, message: result.message, userResponse: result.data.ids})
+      return res.status(200).json({status:false, message: result.message, key: result.key, userResponse: {ids: result.data.ids, txid: result.data.txid}})
     }
   } catch (e) {
     console.log(e.message);

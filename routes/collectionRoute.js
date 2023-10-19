@@ -4,7 +4,7 @@ const path = require("path");
 const router = express.Router();
 const basicAuth = require('express-basic-auth')
 const dotenv = require("dotenv").config();
-const multer = require("multer");
+const { addressFileUpload, collectionFileUpload } = require("../middleware/fileUpload")
 router.use(express.urlencoded({ extended: false }));
 router.use(express.json());
 
@@ -20,40 +20,45 @@ router.use(basicAuth({
   authorizeAsync: true,
 }))
 
-const fileStorage = multer.diskStorage({
-  destination: async function (req, file, cb) {
-    const directory = process.cwd()+`/src/address/${req.body.collectionId}`;
-    if (!fs.existsSync(directory)) {
-      fs.mkdirSync(directory, { recursive: true });
-    }
-    cb(null, directory);
-  },
-  filename: async function (req, file, cb) {
-    let _name = `addr-`+req.body.collectionId+`-`+req.body.name;
-    let fileName = _name + file.mimetype;
-    const filename = Date.now().toString()+"-"+fileName;
-    cb(null, filename);
-  },
-});
+const collectionUploadFields = [
+  { name: "banner", maxCount: 1 }, 
+  { name: 'featuredImage', maxCount: 1 },
+];
 
-const fileUpload = multer({
-  storage: fileStorage,
-  limits: { fileSize: 60 * 1024 * 1024 }, // 60MB
-  fileFilter: (req, file, cb) => {
-        if (file.mimetype == "text/plain") {
-            console.log(file.buffer)
-            cb(null, true);
-        } else {
-            cb(null, false);
-            const err = new Error('Only .txt file format allowed!')
-            err.name = 'ExtensionError'
-            return cb(err);
-        }
-    },
-}).array("address", 1);
+// const fileStorage = multer.diskStorage({
+//   destination: async function (req, file, cb) {
+//     const directory = process.cwd()+`/src/address/${req.body.collectionId}`;
+//     if (!fs.existsSync(directory)) {
+//       fs.mkdirSync(directory, { recursive: true });
+//     }
+//     cb(null, directory);
+//   },
+//   filename: async function (req, file, cb) {
+//     let _name = `addr-`+req.body.collectionId+`-`+req.body.name;
+//     let fileName = _name + file.mimetype;
+//     const filename = Date.now().toString()+"-"+fileName;
+//     cb(null, filename);
+//   },
+// });
 
-router.post("/add", controller.addCollection);
-router.post("/addMintAddress",fileUpload, controller.addMintAddress);
+// const fileUpload = multer({
+//   storage: fileStorage,
+//   limits: { fileSize: 60 * 1024 * 1024 }, // 60MB
+//   fileFilter: (req, file, cb) => {
+//         if (file.mimetype == "text/plain") {
+//             console.log(file.buffer)
+//             cb(null, true);
+//         } else {
+//             cb(null, false);
+//             const err = new Error('Only .txt file format allowed!')
+//             err.name = 'ExtensionError'
+//             return cb(err);
+//         }
+//     },
+// }).array("address", 1);
+
+router.post("/add", collectionFileUpload.fields(collectionUploadFields), controller.addCollection);
+router.post("/addMintAddress",addressFileUpload, controller.addMintAddress);
 router.post("/upload", controller.addCollectionItems);
 router.post("/seleteItem", controller.selectItem);
 router.post("/undoSelection/:inscriptionId", controller.undoSelection);

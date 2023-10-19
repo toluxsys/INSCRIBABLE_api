@@ -267,11 +267,11 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             cost = inscription.cost.total;
         }
         
-        if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false};
-        if(inscription.inscribed === true) return {message: "order complete", data: {txid: txid, ids: inscription.inscription}, status: true}
-        if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: null, ids: []}, status: false}
-        if(balance.totalAmountAvailable < cost) return {message: " available balance in paymentAddress is less than total amount for inscription", data: {txid: null, ids: []}, status: false}
-        if(balance.status === undefined) return {message: "waiting for payment on mempool", data:{txid: null, ids: []}, status: false};
+        if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false, key: "inscription_not_found"};
+        if(inscription.inscribed === true) return {message: "order complete", data: {txid: "", ids: inscription.inscription}, status: true}
+        if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: null, ids: []}, status: false, key: "payment_address_is_empty"}
+        if(balance.totalAmountAvailable < cost) return {message: "available balance in paymentAddress is less than total amount for inscription", data: {txid: null, ids: []}, status: false, key: "available_balance_less_than_total_amount_for_inscription"}
+        if(balance.status === undefined) return {message: "waiting for payment on mempool", data:{txid: null, ids: []}, status: false, key: "waiting_for_payment_on_mempool"};
         let collection = await Collection.findOne({id: inscription.collectionId});
         
         if(balance.status[0].confirmed === false){
@@ -306,6 +306,7 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
                     status: true
                 };
             }
+            if(collection.collectionDetails.totalSupply === mintCount) await Collection.findOneAndUpdate({id: inscription.collectionId}, {ended: true}, {new: true});   
         }else if (balance.status[0].confirmed === true){
             _txid = balance.txid[0].split(`:`)[0];
             txid = `https://mempool.space/tx/${_txid}`
@@ -341,8 +342,8 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
                     status: false
                 };
             }
+          if(collection.collectionDetails.totalSupply === mintCount) await Collection.findOneAndUpdate({id: inscription.collectionId}, {ended: true}, {new: true});   
         }
-        if(collection.collectionDetails.totalSupply === mintCount) await Collection.findOneAndUpdate({id: inscription.collectionId}, {ended: true}, {new: true});   
     }catch(e){
         console.log(e.message);
     }
@@ -373,12 +374,12 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
             cost = inscription.cost.total;
         }
 
-        if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false};
-        if(inscription.inscribed === true) return {message: "order complete", data: {txid: null, ids: inscription.inscription}, status: true}
-        if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: null, ids: []}, status: false}
-        if(balance.totalAmountAvailable < cost) return {message: " available balance in paymentAddress is less than total amount for inscription", data: {txid: null, ids: []}, status: false}
+        if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false, key: "inscription_not_found"};
+        if(inscription.inscribed === true) return {message: "order complete", data: {txid: "", ids: inscription.inscription}, status: true}
+        if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: null, ids: []}, status: false, key: "payment_address_is_empty"}
+        if(balance.totalAmountAvailable < cost) return {message: "available balance in paymentAddress is less than total amount for inscription", data: {txid: null, ids: []}, status: false, key: "available_balance_less_than_total_amount_for_inscription"}
+        if(balance.status === undefined) return {message: "waiting for payment on mempool", data:{txid: null, ids: []}, status: false, key: "waiting_for_payment_on_mempool"};
 
-        if (balance.status === undefined) return { message: `waiting for payment on mempool`, data:{ txid: null, ids: []}, status: false};
         if (balance.status[0].confirmed === false) {
             _txid = balance.txid[0].split(`:`)[0];
             txid = `https://mempool.space/tx/${_txid}`
@@ -487,7 +488,7 @@ const inscribe = async ({inscriptionId, networkName}) => {
     }
 };
 
-const checkPayment = async ({ inscriptionId, networkName }) => {
+const checkPayment = async ({inscriptionId, networkName}) => {
     try {
         const type = getType(inscriptionId);
         let inscription
