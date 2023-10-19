@@ -241,12 +241,14 @@ const compressAndSaveBulk = async (file, inscriptionId, optimize) => {
 
     const compData = await resizeFile({file:file, inscriptionId:inscriptionId, optimize:optimize})
     compData.map(async (x) => {
-      const imageFile = await getFilesFromPath(stats.path_out_new);
+      const imageFile = await getFilesFromPath(x.outPath);
+      console.log(imageFile)
       let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
       const file = {name: fileName, buffer: imageFile, outPath: x.outPath}
       files.push(imageFile[0]);
       fileSize.push(imageFile.length);
     })
+    console.log(files)
     const sortFileSize = fileSize.sort((a, b) => a - b);
     const rootCid = await storage.put(files);    
     return {
@@ -255,7 +257,7 @@ const compressAndSaveBulk = async (file, inscriptionId, optimize) => {
       compData: compData
     };
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
   }
 };
 
@@ -545,6 +547,7 @@ const resizeFile = async ({file, inscriptionId, optimize}) => {
         }))
       }
     }else{
+      console.log(file)
       file.map((x)=> {
         compData.push({
           sizeIn: x.size,
@@ -557,7 +560,7 @@ const resizeFile = async ({file, inscriptionId, optimize}) => {
     }
     return compData
   }catch(e){
-    console.log(e.message)
+    console.log(e)
   }
 }
 

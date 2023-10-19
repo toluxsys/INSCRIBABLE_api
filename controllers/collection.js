@@ -532,6 +532,7 @@ module.exports.updateMintStage = async (req, res) => {
 
 module.exports.addCollection = async (req, res) => {
   try {
+    let files = []
     let b_ext;
     let f_ext;
     const {
@@ -554,7 +555,9 @@ module.exports.addCollection = async (req, res) => {
       startAt,
     } = req.body;
 
-    let files = req.files
+    let file = req.files
+    files.push(file.banner[0], file.featuredImage[0])
+    console.log(files)
 
     if(!mintDetails) return res.status(200).json({status: false, message: "mint details required"});
     const collectionId = `c${uuidv4()}`;
@@ -580,7 +583,7 @@ module.exports.addCollection = async (req, res) => {
     };
 
     const data = await compressAndSaveBulk(files, "" , false); //let startTime = new Date(startAt).getTime();
-    
+
     let ids = await addMintDetails(collectionId, JSON.parse(mintDetails));
     const collection = new Collection({
       id: collectionId,
