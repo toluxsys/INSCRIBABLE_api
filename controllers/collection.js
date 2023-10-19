@@ -21,7 +21,7 @@ const {
   addWalletToOrd,
   verifyAddress,
 } = require("../helpers/walletHelper");
-const { compressAndSaveBulk, uploadToS3, downloadAddressFile,downloadAllAddressFile } = require("../helpers/imageHelper");
+const { compressAndSaveBulk, uploadToS3, downloadAddressFile,downloadAllAddressFile , compressAndSave} = require("../helpers/imageHelper");
 const {createCollectionLegacyAddress} = require("../helpers/sendBitcoin2");
 const {getSats} = require("../helpers/satHelper")
 const MintDetails = require("../model/mintDetails");
@@ -557,7 +557,6 @@ module.exports.addCollection = async (req, res) => {
 
     let file = req.files
     files.push(file.banner[0], file.featuredImage[0])
-    console.log(files)
 
     if(!mintDetails) return res.status(200).json({status: false, message: "mint details required"});
     const collectionId = `c${uuidv4()}`;
@@ -582,7 +581,16 @@ module.exports.addCollection = async (req, res) => {
       totalSupply: totalSupply,
     };
 
-    const data = await compressAndSaveBulk(files, "" , false); //let startTime = new Date(startAt).getTime();
+    const data = await compressAndSaveBulk(files,"", false); //let startTime = new Date(startAt).getTime();
+    let bannerName
+    let featuredName
+    files.map(x=> {
+      if(x.fieldname === "banner"){
+        bannerName = x.filename
+      }else{
+        featuredName = x.filename
+      }
+    })
 
     let ids = await addMintDetails(collectionId, JSON.parse(mintDetails));
     const collection = new Collection({
@@ -602,9 +610,9 @@ module.exports.addCollection = async (req, res) => {
       category: category,
       featuredCid: data.cid,
       startAt: startAt,
-      banner: process.env.IPFS_IMAGE_URL + data.cid + `/banner`,
+      banner: process.env.IPFS_IMAGE_URL + data.cid + `/${bannerName}`,
       featuredImage:
-        process.env.IPFS_IMAGE_URL + data.cid + `/featuredImage`,
+        process.env.IPFS_IMAGE_URL + data.cid + `/${bannerName}`,
     });
     await collection.save();
     return res

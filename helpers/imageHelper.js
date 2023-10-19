@@ -7,6 +7,7 @@ const dotenv = require("dotenv").config();
 const aws = require("aws-sdk");
 const { collection } = require("../model/inscription");
 const sharp = require("sharp");
+const { promises } = require("dns");
 require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 aws.config.update({
@@ -236,21 +237,25 @@ const compressBulk = async (file, optimize) => {
 const compressAndSaveBulk = async (file, inscriptionId, optimize) => {
   try {
     const storage = await initStorage();
-    let files = [];
     let fileSize = [];
+    let _file = []
 
     const compData = await resizeFile({file:file, inscriptionId:inscriptionId, optimize:optimize})
-    compData.map(async (x) => {
+    let files = await Promise.all(compData.map(async (x) => {
       const imageFile = await getFilesFromPath(x.outPath);
-      console.log(imageFile)
       let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
-      const file = {name: fileName, buffer: imageFile, outPath: x.outPath}
-      files.push(imageFile[0]);
-      fileSize.push(imageFile.length);
-    })
-    console.log(files)
+      const file = {name: fileName, buffer: imageFile[0], outPath: x.outPath}
+      _file.push(file)
+      fileSize.push(imageFile.size);
+      return  imageFile[0];
+    }))
     const sortFileSize = fileSize.sort((a, b) => a - b);
-    const rootCid = await storage.put(files);    
+    const rootCid = await storage.put(files);  
+    
+    await Promise.all(_file.map(x=>{
+      fs.unlinkSync(x.outPath)
+    }))
+
     return {
       cid: rootCid,
       largestFile: sortFileSize[sortFileSize.length - 1],
@@ -324,7 +329,7 @@ const compressAndSave = async (file, optimize) => {
       let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
       const file = {name: fileName, buffer: compdImg, outPath: x.outPath, sizeIn: x.sizeIn, sizeOut:x.sizeOut, comPercentage:x.comPercentage}
       files.push(file);
-      fileSize.push(imageFile.length);
+      fileSize.push(compdImg[0].size);
     })
 
     return await Promise.all(files.map(async (item) => {
@@ -547,7 +552,6 @@ const resizeFile = async ({file, inscriptionId, optimize}) => {
         }))
       }
     }else{
-      console.log(file)
       file.map((x)=> {
         compData.push({
           sizeIn: x.size,

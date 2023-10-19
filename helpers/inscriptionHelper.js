@@ -247,7 +247,7 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
         let inscription;
         let balance;
         let cost = 0;
-        let txid = "/img/dc0f386c-4d0b-41c4-86ef-16ff83c7a1b9";;
+        let txid = "";
         let _txid;
         let mintCount;
     
@@ -267,11 +267,11 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             cost = inscription.cost.total;
         }
         
-        if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false, key: "inscription_not_found"};
+        if(!inscription) return {message: "inscription not found", data: {txid: txid, ids: []}, status: false, key: "inscription_not_found"};
         if(inscription.inscribed === true) return {message: "order complete", data: {txid: txid, ids: inscription.inscription}, status: true}
-        if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: null, ids: []}, status: false, key: "payment_address_is_empty"}
-        if(balance.totalAmountAvailable < cost) return {message: "available balance in paymentAddress is less than total amount for inscription", data: {txid: null, ids: []}, status: false, key: "available_balance_less_than_total_amount_for_inscription"}
-        if(balance.status === undefined) return {message: "waiting for payment on mempool", data:{txid: null, ids: []}, status: false, key: "waiting_for_payment_on_mempool"};
+        if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: txid, ids: []}, status: false, key: "payment_address_is_empty"}
+        if(balance.totalAmountAvailable < cost) return {message: "available balance in paymentAddress is less than total amount for inscription", data: {txid: txid, ids: []}, status: false, key: "available_balance_less_than_total_amount_for_inscription"}
+        if(balance.status === undefined) return {message: "waiting for payment on mempool", data:{txid: txid, ids: []}, status: false, key: "waiting_for_payment_on_mempool"};
         let collection = await Collection.findOne({id: inscription.collectionId});
         
         if(balance.status[0].confirmed === false){
@@ -355,7 +355,7 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
         let inscription;
         let balance;
         let cost = 0;
-        let txid = "/img/dc0f386c-4d0b-41c4-86ef-16ff83c7a1b9";
+        let txid = "";
         let _txid;
     
         if (type === `single`) {

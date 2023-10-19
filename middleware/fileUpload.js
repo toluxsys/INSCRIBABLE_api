@@ -35,16 +35,16 @@ fileFilter: (req, file, cb) => {
 }).array("address", 1);
 
 const collectionStorage = multer.diskStorage({
-destination: async function (req, file, cb) {
-    let id = uuidv4()
-    const directory = process.cwd()+`/src/img/${id}`;
+destination: async function (req, file, cb) { 
+    const directory = process.cwd()+`/src/img/`;
     if (!fs.existsSync(directory)) {
     fs.mkdirSync(directory, { recursive: true });
     }
     cb(null, directory);
 },
 filename: async function (req, file, cb) {
-    const filename = file.originalname;
+    let id = uuidv4()
+    const filename = id+"-"+file.originalname;
     cb(null, filename);
 },
 });
