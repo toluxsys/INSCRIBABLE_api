@@ -533,8 +533,6 @@ module.exports.updateMintStage = async (req, res) => {
 module.exports.addCollection = async (req, res) => {
   try {
     let files = []
-    let b_ext;
-    let f_ext;
     const {
       collectionName,
       category,
