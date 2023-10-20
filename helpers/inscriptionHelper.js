@@ -333,7 +333,6 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
                 await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
                 await SelectedItems.deleteOne({_id: inscription.selected});
               }
-
                 let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
                 if(addToQueue !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false}
                 
