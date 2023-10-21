@@ -1323,8 +1323,9 @@ module.exports.getImages = async(req, res) => {
 module.exports.inscribe1 = async (req, res) => {
   try{
     req.setTimeout(450000);
-    const {inscriptionId, networkName} = req.body;
-    let result = await inscribe({inscriptionId:inscriptionId, networkName:networkName})
+    const {id, networkName} = req.body;
+    let result = await inscribe({inscriptionId:id, networkName:networkName})
+    if(!result) return res.status(200).json({status:result.status, message:"inscription not complete", userResponse: []})
     if(result.status === false){
       return res.status(200).json({status:result.status, message:result.message, userResponse: []})
     }else{

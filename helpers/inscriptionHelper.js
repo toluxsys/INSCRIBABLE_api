@@ -52,6 +52,7 @@ const defaultInscribe = async ({inscriptionId, networkName}) => {
       
       if (type === "single") {
         inscription = await Inscription.findOne({id: inscriptionId});
+        if(!inscription) return {message: "inscription not found", data: {ids: []}, status: false, key: "inscription_not_found"};
         balance = await getWalletBalance(inscription.inscriptionDetails.payAddress, networkName).totalAmountAvailable;
         imageName = inscription.inscriptionDetails.fileName;
         receiverAddress = inscription.receiver;
@@ -59,6 +60,7 @@ const defaultInscribe = async ({inscriptionId, networkName}) => {
         
       } else if (type === "bulk") {
         inscription = await BulkInscription.findOne({id: inscriptionId});
+        if(!inscription) return {message: "inscription not found", data: {ids: []}, status: false, key: "inscription_not_found"};
         balance = await getWalletBalance(inscription.inscriptionDetails.payAddress, networkName).totalAmountAvailable;  
         receiverAddress = inscription.receiver;
         cost = inscription.cost.cardinal;
@@ -261,9 +263,11 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
         let txid = "";
         let _txid;
         let mintCount;
+        let result;
     
         if (type === `single`) {
             inscription = await Inscription.findOne({ id: inscriptionId });
+            if(!inscription) return {message: "inscription not found", data: {txid: txid, ids: []}, status: false, key: "inscription_not_found"};
             balance = await getWalletBalance(
             inscription.inscriptionDetails.payAddress,
             networkName
@@ -271,6 +275,7 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             cost = inscription.cost.total;
         } else if (type === `bulk`) {
             inscription = await BulkInscription.findOne({ id: inscriptionId });
+            if(!inscription) return {message: "inscription not found", data: {txid: txid, ids: []}, status: false, key: "inscription_not_found"};
             balance = await getWalletBalance(
             inscription.inscriptionDetails.payAddress,
             networkName
@@ -278,40 +283,42 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             cost = inscription.cost.total;
         }
         
-        if(!inscription) return {message: "inscription not found", data: {txid: txid, ids: []}, status: false, key: "inscription_not_found"};
+        
         if(inscription.inscribed === true) return {message: "order complete", data: {txid: txid, ids: inscription.inscription}, status: true}
         if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: txid, ids: []}, status: false, key: "payment_address_is_empty"}
         if(balance.totalAmountAvailable < cost) return {message: "available balance in paymentAddress is less than total amount for inscription", data: {txid: txid, ids: []}, status: false, key: "available_balance_less_than_total_amount_for_inscription"}
         if(balance.status === undefined) return {message: "waiting for payment on mempool", data:{txid: txid, ids: []}, status: false, key: "waiting_for_payment_on_mempool"};
         let collection = await Collection.findOne({id: inscription.collectionId});
+        let minted = collection.minted
+        
+        let exists = verifyList(minted, inscription.fileNames)
+        let _savedCollection
         
         if(balance.status[0].confirmed === false){
+            //let result
+            if(exists === false){
+              _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+              await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
+              await SelectedItems.deleteOne({_id: inscription.selected});
+            }
             _txid = balance.txid[0].split(`:`)[0];
             txid = `https://mempool.space/tx/${_txid}`
             if(inscription.collectionPayment === "waiting"){
-                let minted = collection.minted
-                let exists = verifyList(minted, inscription.fileNames)
-                let _savedCollection
-                if(exists === false){
-                  _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
-                  await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
-                  await SelectedItems.deleteOne({_id: inscription.selected});
-                }
-                let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
-                if(addToQueue !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false}
-                inscription.collectionPayment = "received";
-                await inscription.save();
-                mintCount = _savedCollection.minted.length;
-                return {
-                    message: `waiting for payment confirmation`,
-                    data: {
-                        txid: txid,
-                        ids: []
-                    },
-                    status: true
-                };
+              let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
+              if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false}
+              inscription.collectionPayment = "received";
+              await inscription.save();
+              mintCount = _savedCollection.minted.length;
+              result = {
+                  message: `waiting for payment confirmation`,
+                  data: {
+                      txid: txid,
+                      ids: []
+                  },
+                  status: true
+              };
             }else if (inscription.collectionPayment === "received"){
-              return {
+              result = {
                     message: `Waiting for payment confirmation`,
                     data:{ 
                         txid: txid,
@@ -319,49 +326,62 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
                     },
                     status: true
                 };
-            }
-            if(collection.collectionDetails.totalSupply === mintCount) await Collection.findOneAndUpdate({id: inscription.collectionId}, {ended: true}, {new: true});   
+            }  
         }else if (balance.status[0].confirmed === true){
-            _txid = balance.txid[0].split(`:`)[0];
-            txid = `https://mempool.space/tx/${_txid}`
-            if(inscription.collectionPayment === "waiting"){
-              let minted = collection.minted
-              let exists = verifyList(minted, inscription.fileNames)
-              let _savedCollection
-              if(exists === false){
-                _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
-                await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
-                await SelectedItems.deleteOne({_id: inscription.selected});
-              }
+          if(exists === false){
+            _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
+            await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
+            await SelectedItems.deleteOne({_id: inscription.selected});
+          }
+          _txid = balance.txid[0].split(`:`)[0];
+          txid = `https://mempool.space/tx/${_txid}`
+          if(inscription.collectionPayment === "waiting"){
+            let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
+            if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false} 
+            inscription.collectionPayment = "received";
+            await inscription.save();
+            mintCount = _savedCollection.mintCount;
+              result = {
+                  message: `payment received`,
+                  data:{
+                      txid: txid,
+                      ids: []
+                  },
+                  status: false
+              };
+          }else if(inscription.collectionPayment === "received" && inscription.inscribed !== true){
+              inscription.spendTxid = balance.txid[0];
+              await inscription.save();
+              if(inscription.inscribed === false){
                 let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
-                if(addToQueue !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false}
-                
-                inscription.collectionPayment = "received";
-                await inscription.save();
-                mintCount = _savedInscription.mintCount;
-                return {
-                    message: `payment received`,
-                    data:{
-                        txid: txid,
-                        ids: []
-                    },
-                    status: false
-                };
-            }else if(inscription.collectionPayment === "received"){
-                inscription.collectionPayment = "paid";
-                inscription.spendTxid = balance.txid[0];
-                await inscription.save();
-                return {
-                    message: `payment received`,
-                    data:{
-                        txid: txid,
-                        ids: []
-                    },
-                    status: false
-                };
-            }
-          if(collection.collectionDetails.totalSupply === mintCount) await Collection.findOneAndUpdate({id: inscription.collectionId}, {ended: true}, {new: true});   
+                if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false}
+              }
+              result = {
+                  message: `payment received`,
+                  data:{
+                      txid: txid,
+                      ids: []
+                  },
+                  status: true
+              };
+          }else{
+            inscription.spendTxid = balance.txid[0];
+            await inscription.save();
+            result = {
+                message: `payment received`,
+                data:{
+                    txid: txid,
+                    ids: []
+                },
+                status: true
+            };
+          }
         }
+        if(collection.collectionDetails.totalSupply === mintCount) {
+          await Collection.findOneAndUpdate({id: inscription.collectionId}, {ended: true}, {new: true})
+          return {message: "collection mint complete", data:{txid: txid, ids: []}, status: false, key: "collection_mint_complete"};
+        }
+        return result
     }catch(e){
         console.log(e.message);
     }
@@ -378,6 +398,7 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
     
         if (type === `single`) {
             inscription = await Inscription.findOne({ id: inscriptionId });
+            if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false, key: "inscription_not_found"};
             balance = await getWalletBalance(
               inscription.inscriptionDetails.payAddress,
               networkName
@@ -385,6 +406,7 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
             cost = inscription.cost.total;
         } else if (type === `bulk`) {
             inscription = await BulkInscription.findOne({ id: inscriptionId });
+            if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false, key: "inscription_not_found"};
             balance = await getWalletBalance(
               inscription.inscriptionDetails.payAddress,
               networkName
@@ -392,7 +414,6 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
             cost = inscription.cost.total;
         }
 
-        if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false, key: "inscription_not_found"};
         if(inscription.inscribed === true) return {message: "order complete", data: {txid: txid, ids: inscription.inscription}, status: true}
         if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: null, ids: []}, status: false, key: "payment_address_is_empty"}
         if(balance.totalAmountAvailable < cost) return {message: "available balance in paymentAddress is less than total amount for inscription", data: {txid: null, ids: []}, status: false, key: "available_balance_less_than_total_amount_for_inscription"}
@@ -443,8 +464,9 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
                     },
                     status: false
                 };
-            }else if(inscription.collectionPayment === "received"){
-                inscription.collectionPayment = "paid";
+            }else if(inscription.collectionPayment === "received" && inscription.inscribed !== true){
+              let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
+              if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false}
                 inscription.spendTxid = balance.txid[0];
                 await inscription.save();
                 return {
@@ -455,6 +477,17 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
                     },
                     status: false
                 };
+            }else{
+              inscription.spendTxid = balance.txid[0];
+              await inscription.save();
+              result = {
+                  message: `payment received`,
+                  data:{
+                      txid: txid,
+                      ids: []
+                  },
+                  status: true
+              };
             }
         }
     }catch(e){
@@ -467,13 +500,16 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
 //Exported Method
 const inscribe = async ({inscriptionId, networkName}) => {
     try {
+      console.log("id:",inscriptionId)
       const type = getType(inscriptionId);
       let inscription;
       let scribePoints
       if (type === 'single') {
         inscription = await Inscription.findOne({ id: inscriptionId });
+        if(!inscription) return {message: "inscription not found", data: {ids: []}, status: false};
       } else if (type === 'bulk') {
         inscription = BulkInscription.findOne({ id: inscriptionId });
+        if(!inscription) return {message: "inscription not found", data: {ids: []}, status: false};
       }
       
       let inscResult;
@@ -511,33 +547,52 @@ const checkPayment = async ({inscriptionId, networkName}) => {
         const type = getType(inscriptionId);
         let inscription
         let result 
-        let fileCount
+        let fileCount = 0
 
         if (type === `single`) {
             inscription = await Inscription.findOne({ id: inscriptionId });
             fileCount = 1
+            if(!inscription) {
+              result = {
+                message: "order not found",
+                data: {
+                  ids: [],
+                  txid: ""
+                },
+                status: false,
+                key: "order_not_found"
+              }
+          }else{
             if(inscription.collectionId) {
-                result = await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
+              result = await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
             }else{
-                result = await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName})
+              result = await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName}) 
             }
+          }
+            
         } else if (type === `bulk`) {
             inscription = await BulkInscription.findOne({ id: inscriptionId });
             fileCount = inscription.fileNames.length
-            if(inscription.collectionId) {
-                result = await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
+            if(!inscription) {
+              result = {
+                message: "order not found",
+                data: {
+                  ids: [],
+                  txid: ""
+                },
+                status: false,
+                key: "order_not_found"
+              }
             }else{
-                result = await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName})
+              if(inscription.collectionId) {
+                result = await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
+                console.log("check1:",result)
+              }else{
+                result = await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName}) 
+              }
             }
         }
         
-        if(result.status === true){
-          let usePoints = inscription.usePoints;
-          if(usePoints !== undefined && usePoints === true){
-            let res = await redeemPointsForInscription({address: inscription.receiver, count: fileCount})
-            if(res.status === false) result = {status:false, message: res.message, data: {txid: txid, ids: []}}
-          }
-        }
         return result;
     } catch (e) {
       console.log(e.message);

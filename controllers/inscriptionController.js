@@ -607,9 +607,9 @@ module.exports.uploadMultiple = async (req, res) => {
 
 module.exports.inscribe1 = async (req, res) => {
   try {
-    req.setTimeout(450000);
-    const {inscriptionId, networkName} = req.body;
-    let result = await inscribe({inscriptionId:inscriptionId, networkName:networkName})
+    req.setTimeout(20000);
+    const {id, networkName} = req.body;
+    let result = await inscribe({inscriptionId:id, networkName:networkName})
     if(result.status === false){
       return res.status(200).json({status:result.status, message:result.message, userResponse: []})
     }else{
@@ -785,10 +785,10 @@ module.exports.checkPayments = async (req, res) => {
     if(result.status === true){
       return res.status(200).json({status:true, message: result.message, userResponse: {ids: result.data.ids, txid: result.data.txid}})
     }else{
-      return res.status(200).json({status:false, message: result.message, key: result.key, userResponse: {ids: result.data.ids, txid: result.data.txid}})
+      return res.status(200).json({status:false, message: result.message, key: result.key, userResponse: {ids: [], txid: result.data.txid}})
     }
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
     return res.status(200).json({ status: false, message: e.message });
   }
 };

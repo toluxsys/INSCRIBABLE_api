@@ -70,7 +70,6 @@ class Consumer {
             return  tx.status.confirmed;   
         }catch(e){
             console.log(e.message)
-            throw new Error(e.message)
         }
      };
     
@@ -109,8 +108,11 @@ class Consumer {
                         this.channel.ack(msg)
                     }else{
                         let res = await inscribe({inscriptionId: content.orderId, networkName: content.networkName})
-                        if(res.message !== "inscription complete"){
-                            await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
+                        if(!res) {
+                            await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: "inscription did not complete"})))
+                            this.channel.ack(msg)
+                        }else if(res.message !== "inscription complete"){
+                            await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.data})))
                             this.channel.ack(msg)
                         }else{
                             this.channel.ack(msg)

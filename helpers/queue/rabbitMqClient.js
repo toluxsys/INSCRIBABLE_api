@@ -58,9 +58,11 @@ class RabbitMqClient {
             let message = Buffer.from(JSON.stringify(data))
             let exchangeName = process.env.EXCHANGE_NAME || "inscriptions" 
             await this.channel.assertExchange(exchangeName);
-            return {message: "message added to queue", status: await this.channel.publish(exchangeName, routingKey ,message)};
+            let pub = await this.channel.publish(exchangeName, routingKey ,message)
+            console.log(pub)
+            return {message: "message added to queue", status: pub};
         }catch(e){
-            console.log(e.message)
+            console.log(e)
         }
     }
 
