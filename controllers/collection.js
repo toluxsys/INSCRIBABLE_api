@@ -129,6 +129,7 @@ const updateMintStage1 = async (collectionId) => {
     }else{
       if(timeDifference >= duration){
         collection.startMint = false;
+        collection.ended = true;
         await collection.save();
         return "mint stage updated";
       }else{

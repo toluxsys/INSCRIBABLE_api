@@ -377,7 +377,7 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
                       txid: txid,
                       ids: []
                   },
-                  status: false
+                  status: true
               };
           }else if(inscription.collectionPayment === "received" && inscription.inscribed !== true){
               inscription.spendTxid = balance.txid[0];
