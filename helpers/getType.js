@@ -8,9 +8,8 @@ const getType = (inscriptionId) => {
   } else if (arr[0] === `p`) {
     type = `payLink`;
   } else {
-    throw new Error(`Invalid inscription id`);
+   type = `Invalid inscription id`;
   }
-
   return type;
 };
 

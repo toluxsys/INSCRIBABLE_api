@@ -64,6 +64,16 @@ const defaultInscribe = async ({inscriptionId, networkName}) => {
         balance = await getWalletBalance(inscription.inscriptionDetails.payAddress, networkName).totalAmountAvailable;  
         receiverAddress = inscription.receiver;
         cost = inscription.cost.cardinal;
+      }else{
+        return {
+          message: "invalid Id",
+          data: {
+            ids: [],
+            txid: ""
+          },
+          status: false,
+          key: "Invalid_id"
+        }
       }
       
       if (balance < cost) {
@@ -184,6 +194,16 @@ const collectionInscribe = async ({inscriptionId, networkName}) => {
         imageNames = inscription.fileNames;
         receiveAddress = inscription.receiver;
         cost = inscription.cost.cardinal;
+      }else{
+        return {
+          message: "invalid Id",
+          data: {
+            ids: [],
+            txid: ""
+          },
+          status: false,
+          key: "Invalid_id"
+        }
       }
 
       const collection = await Collection.findOne({id: inscription.collectionId});
@@ -281,6 +301,16 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             networkName
             );
             cost = inscription.cost.total;
+        }else{
+          return {
+            message: "invalid Id",
+            data: {
+              ids: [],
+              txid: ""
+            },
+            status: false,
+            key: "Invalid_id"
+          }
         }
         
         
@@ -398,7 +428,7 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
     
         if (type === `single`) {
             inscription = await Inscription.findOne({ id: inscriptionId });
-            if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false, key: "inscription_not_found"};
+            if(!inscription) return {message: "inscription not found", data: {txid: "", ids: []}, status: false, key: "inscription_not_found"};
             balance = await getWalletBalance(
               inscription.inscriptionDetails.payAddress,
               networkName
@@ -406,12 +436,22 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
             cost = inscription.cost.total;
         } else if (type === `bulk`) {
             inscription = await BulkInscription.findOne({ id: inscriptionId });
-            if(!inscription) return {message: "inscription not found", data: {txid: null, ids: []}, status: false, key: "inscription_not_found"};
+            if(!inscription) return {message: "inscription not found", data: {txid: "", ids: []}, status: false, key: "inscription_not_found"};
             balance = await getWalletBalance(
               inscription.inscriptionDetails.payAddress,
               networkName
             );
             cost = inscription.cost.total;
+        }else{
+          return {
+            message: "invalid Id",
+            data: {
+              ids: [],
+              txid: ""
+            },
+            status: false,
+            key: "Invalid_id"
+          }
         }
 
         if(inscription.inscribed === true) return {message: "order complete", data: {txid: txid, ids: inscription.inscription}, status: true}
@@ -509,6 +549,14 @@ const inscribe = async ({inscriptionId, networkName}) => {
       } else if (type === 'bulk') {
         inscription = BulkInscription.findOne({ id: inscriptionId });
         if(!inscription) return {message: "inscription not found", data: {ids: []}, status: false};
+      }else{
+        return {
+          message: "invalid Id",
+          data: {
+            ids: [],
+          },
+          status: false,
+        }
       }
       
       let inscResult;
@@ -543,7 +591,7 @@ const inscribe = async ({inscriptionId, networkName}) => {
 
 const checkPayment = async ({inscriptionId, networkName}) => {
     try {
-        const type = getType(inscriptionId);
+        let type = getType(inscriptionId);
         let inscription
         let result 
         let fileCount = 0
@@ -552,7 +600,7 @@ const checkPayment = async ({inscriptionId, networkName}) => {
             inscription = await Inscription.findOne({ id: inscriptionId });
             fileCount = 1
             if(!inscription) {
-              result = {
+              return {
                 message: "order not found",
                 data: {
                   ids: [],
@@ -573,7 +621,7 @@ const checkPayment = async ({inscriptionId, networkName}) => {
             inscription = await BulkInscription.findOne({ id: inscriptionId });
             fileCount = inscription.fileNames.length
             if(!inscription) {
-              result = {
+              return {
                 message: "order not found",
                 data: {
                   ids: [],
@@ -585,13 +633,21 @@ const checkPayment = async ({inscriptionId, networkName}) => {
             }else{
               if(inscription.collectionId) {
                 result = await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
-                console.log("check1:",result)
               }else{
                 result = await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName}) 
               }
             }
+        }else{
+          return {
+            message: "invalid Id",
+            data: {
+              ids: [],
+              txid: ""
+            },
+            status: false,
+            key: "Invalid_id"
+          }
         }
-        
         return result;
     } catch (e) {
       console.log(e.message);

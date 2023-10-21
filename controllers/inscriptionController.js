@@ -862,6 +862,16 @@ module.exports.getStage = async (req, res) => {
       inscription = await Inscription.findOne({ id: inscriptionId });
     } else if (type === "bulk") {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
+    }else{
+      return {
+        message: "invalid Id",
+        data: {
+          ids: [],
+          txid: ""
+        },
+        status: false,
+        key: "Invalid_id"
+      }
     }
 
     if (inscription.stage === "stage 1"){
@@ -962,8 +972,17 @@ module.exports.getInscriptions = async (req, res) => {
       inscription = await Inscription.findOne({ id: inscriptionId });
     } else if (type === "bulk") {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
+    }else{
+      return {
+        message: "invalid Id",
+        data: {
+          ids: [],
+          txid: ""
+        },
+        status: false,
+        key: "Invalid_id"
+      }
     }
-
     let allInscriptions = inscription.inscription;
     return res.status(200).json({status: true, message: `ok`, userResponse: allInscriptions});
   }catch(e){
@@ -1005,9 +1024,7 @@ module.exports.getOrderDetails = async (req, res) => {
         receiverAddress: inscription.receiver,
         stage: inscription.stage,
       };
-    }
-
-    if (type === "bulk") {
+    }else if (type === "bulk") {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
       const totalAmount = inscription.inscriptionDetails.totalAmount;
       const costPerInscription = inscription.cost.costPerInscription;
@@ -1025,6 +1042,15 @@ module.exports.getOrderDetails = async (req, res) => {
         receiverAddress: inscription.receiver,
         stage: inscription.stage,
       };
+    }else{
+      return {
+        message: "invalid Id",
+        data: {
+          ids: [],
+        },
+        status: false,
+        key: "Invalid_id"
+      }
     }
 
     return res
