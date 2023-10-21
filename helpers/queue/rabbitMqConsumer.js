@@ -112,7 +112,7 @@ class Consumer {
                             await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: "inscription did not complete"})))
                             this.channel.ack(msg)
                         }else if(res.message !== "inscription complete"){
-                            await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.data})))
+                            await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
                             this.channel.ack(msg)
                         }else{
                             this.channel.ack(msg)

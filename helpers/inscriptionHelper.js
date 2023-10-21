@@ -224,7 +224,7 @@ const collectionInscribe = async ({inscriptionId, networkName}) => {
       }
 
       if (typeof newInscription.data.userResponse.data === 'string') {
-        return {message: `error inscribing item`, status:false, data:{ids: []}}
+        return {message: newInscription.data.userResponse.data, status:false, data:{ids: []}}
       }else{
         if(newInscription.data.status === false) return {message: `${newInscription.data.message}`, status:false, data:{ids: []}}
         n_inscriptions = newInscription.data.userResponse.data;
@@ -500,7 +500,6 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
 //Exported Method
 const inscribe = async ({inscriptionId, networkName}) => {
     try {
-      console.log("id:",inscriptionId)
       const type = getType(inscriptionId);
       let inscription;
       let scribePoints
