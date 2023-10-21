@@ -110,7 +110,7 @@ module.exports.getOrder = async (req, res) => {
                 updatedAt: inscription.updatedAt
             }
         }
-        return res.status(200).json({status: false, message: "ok", data: data})
+        return res.status(200).json({status: true, message: "ok", data: data})
     }catch(e){
         return res.status(200).json({status:false, message: e.message})
     }
