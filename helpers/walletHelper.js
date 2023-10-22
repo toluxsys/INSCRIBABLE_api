@@ -16,6 +16,7 @@ const getNetwork = (networkName) => {
     throw new Error(`invalid network: ${networkName}, was provided`);
   }
   return network;
+  
 };
 
 const createWallet = (networkName) => {
