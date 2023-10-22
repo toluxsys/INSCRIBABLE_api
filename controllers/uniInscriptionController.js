@@ -1,8 +1,6 @@
 const {checkPayment, inscribe} = require("../helpers/inscriptionHelper")
 const Inscription = require("../model/inscription");
 const BulkInscription = require("../model/bulkInscription");
-const Address = require("../model/address");
-const Collection = require("../model/collection");
 const { getType } = require("../helpers/getType");
 
 
@@ -88,6 +86,8 @@ module.exports.getOrder = async (req, res) => {
             inscription = await Inscription.findOne({ id: inscriptionId , flag: networkName});
         } else if (type === 'bulk') {
             inscription = await BulkInscription.findOne({ id: inscriptionId , flag: networkName});
+        }else{
+            return res.status(200).json({status: false, message: "invalid Id", data: {}})
         }
 
         if(!inscription) return res.status(200).json({status: false, message: "order not found", data: {}})

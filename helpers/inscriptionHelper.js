@@ -594,7 +594,6 @@ const checkPayment = async ({inscriptionId, networkName}) => {
         let type = getType(inscriptionId);
         let inscription
         let result 
-        let fileCount = 0
 
         if (type === `single`) {
             inscription = await Inscription.findOne({ id: inscriptionId });
