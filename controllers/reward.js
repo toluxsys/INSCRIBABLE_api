@@ -311,7 +311,11 @@ module.exports.getTasks = async (req, res) => {
                 info: task.info,
                 taskPoints: task.taskPoints
             }
-            if (task.status == "active") active.push(data)
+            if (task.status == "active" && task.taskId !==1 ) {
+                active.push(data);
+            }else if(task.status == "active" && task.taskId !==2){
+                active.push(data);
+            }
         })
         return res.status(200).json({status: true, message: "active tasks", userResponse: active});
     }catch(e){
