@@ -116,41 +116,45 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType,
 const updateMintStage1 = async (collectionId) => {
   try{
     const collection = await Collection.findOne({id: collectionId});
-    const mintStage = await MintDetails.findOne({_id: collection.mintStage});
-    const stages = collection.mintDetails;
-    let nextStageIndex = stages.indexOf(collection.mintStage) - 1;
-    const currentTime = moment();
-    const startTime = collection.startAt;
-    const timeDifference = currentTime.diff(startTime , 'seconds');
-    const duration = mintStage.duration;
-   if(nextStageIndex < 0){
-    if(collection.startMint === false) {
-      return "mint stage updated";
+    if(!collection) {
+      return "collection not found"
     }else{
-      if(timeDifference >= duration){
-        collection.startMint = false;
-        collection.ended = true;
-        await collection.save();
-        return "mint stage updated";
+        const mintStage = await MintDetails.findOne({_id: collection.mintStage});
+        const stages = collection.mintDetails;
+        let nextStageIndex = stages.indexOf(collection.mintStage) - 1;
+        const currentTime = moment();
+        const startTime = collection.startAt;
+        const timeDifference = currentTime.diff(startTime , 'seconds');
+        const duration = mintStage.duration;
+      if(nextStageIndex < 0){
+        if(collection.startMint === false) {
+          return "mint stage updated";
+        }else{
+          if(timeDifference >= duration){
+            collection.startMint = false;
+            collection.ended = true;
+            await collection.save();
+            return "mint stage updated";
+          }else{
+            return "stage mint not complete";
+          } 
+        }
       }else{
-        return "stage mint not complete";
-      } 
+        if(collection.startMint === false) {
+          return "mint stage updated";
+        }else{
+          let nextStage = stages[nextStageIndex];
+          if(timeDifference >= duration){
+            collection.mintStage = nextStage;
+            collection.startAt = new Date();
+            await collection.save();
+            return "mint stage updated";
+          }else{
+            return "stage mint not complete";
+          }
+        }
+      };
     }
-   }else{
-    if(collection.startMint === false) {
-      return "mint stage updated";
-    }else{
-      let nextStage = stages[nextStageIndex];
-      if(timeDifference >= duration){
-        collection.mintStage = nextStage;
-        collection.startAt = new Date();
-        await collection.save();
-        return "mint stage updated";
-      }else{
-        return "stage mint not complete";
-      }
-    }
-   };
   }catch(e){
     console.log(e);
     return "error updating mint stage";
@@ -1311,12 +1315,13 @@ module.exports.getCollection = async (req, res) => {
     if(!collectionId && !alias) return res.status(200).json({status: false, message: "collectionId or alias is required"});
     if(alias){
       collection = await Collection.findOne({alias: alias});
+      if(!collection) return res.satus(200).json({status: false, message: "collection not found"})
       await updateMintStage1(collection.id);
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
     }else if(collectionId){
-      await updateMintStage1(collectionId);
       collection = await Collection.findOne({id: collectionId});
+      await updateMintStage1(collectionId);
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
     }
