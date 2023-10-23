@@ -102,9 +102,13 @@ class Consumer {
                       inscription = await Inscription.findOne({ id: content.orderId });
                     } else if (type === `bulk`) {
                       inscription = await BulkInscription.findOne({ id: content.orderId });
+                    }else{
+                        inscription = ""
                     }
 
-                    if(inscription.inscribed === true) {
+                    if(inscription === ""){
+                        this.channel.ack(msg)
+                    }else if(inscription.inscribed === true) {
                         this.channel.ack(msg)
                     }else{
                         let res = await inscribe({inscriptionId: content.orderId, networkName: content.networkName})
