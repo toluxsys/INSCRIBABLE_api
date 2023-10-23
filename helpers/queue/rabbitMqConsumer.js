@@ -13,7 +13,7 @@ const options = {
     protocol: "amqp",
     hostname: process.env.RMQ_HOST,
     port: 5672,
-    username: "admin",
+    username: "oplgvzoc",
     password: process.env.RMQ_PASSWORD,
     vhost: "/",
     authMechnisim: ["PLAIN","AMQPLAIN", "EXTERNAL"]
@@ -32,7 +32,7 @@ class Consumer {
     initilize = async () => {
         try{
             if(this.isInitilized === false){
-                this.conn = await ampq.connect(options);
+                this.conn = await ampq.connect(process.env.RMQ_HOST);
                 this.channel = await this.conn.createChannel();
             }else{
                 return;
@@ -102,9 +102,13 @@ class Consumer {
                       inscription = await Inscription.findOne({ id: content.orderId });
                     } else if (type === `bulk`) {
                       inscription = await BulkInscription.findOne({ id: content.orderId });
+                    }else{
+                        inscription = ""
                     }
 
-                    if(inscription.inscribed === true) {
+                    if(inscription === ""){
+                        this.channel.ack(msg)
+                    }else if(inscription.inscribed === true) {
                         this.channel.ack(msg)
                     }else{
                         let res = await inscribe({inscriptionId: content.orderId, networkName: content.networkName})

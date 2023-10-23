@@ -27,7 +27,7 @@ class RabbitMqClient {
         try{
             if(this.isInitilized === false){
                 //change this 
-                const _conn = await ampq.connect(options);
+                const _conn = await ampq.connect(process.env.RMQ_HOST);
                 this.channel = await _conn.createChannel();
             }else{
                 return;
@@ -82,11 +82,18 @@ class RabbitMqClient {
                     inscription = await Inscription.findOne({ id: inscriptionId });
                 } else if (type === 'bulk') {
                     inscription = await BulkInscription.findOne({ id: inscriptionId });
+                }else{
+                    inscription = ""
                 }
-                inscription.error = true;
-                inscription.errorMessage = errorMessage,
-                await inscription.save()
-                this.channel.ack(msg)
+
+                if(inscription != ""){
+                    inscription.error = true;
+                    inscription.errorMessage = errorMessage,
+                    await inscription.save()
+                    this.channel.ack(msg)
+                }else{
+                    this.channel.ack(msg)
+                }
             })
         }catch(e){
             console.log(e.message)
