@@ -13,7 +13,7 @@ const options = {
     protocol: "amqp",
     hostname: process.env.RMQ_HOST,
     port: 5672,
-    username: "oplgvzoc",
+    username: "admin",
     password: process.env.RMQ_PASSWORD,
     vhost: "/",
     authMechnisim: ["PLAIN","AMQPLAIN", "EXTERNAL"]
@@ -32,7 +32,7 @@ class Consumer {
     initilize = async () => {
         try{
             if(this.isInitilized === false){
-                this.conn = await ampq.connect(process.env.RMQ_HOST);
+                this.conn = await ampq.connect(options);
                 this.channel = await this.conn.createChannel();
             }else{
                 return;
