@@ -13,7 +13,7 @@ const Task = require("../model/task")
 const {checkPayment} = require("../helpers/inscriptionHelper.js")
 const ObjectId = require('mongoose').Types.ObjectId; 
 const {inscribe} = require("../helpers/inscriptionHelper")
-const { compressImage, compressAndSave, compressAndSaveS3, compressAndSaveBulkS3, compressBulk, saveFile, saveFileS3 } = require("../helpers/imageHelper");
+const { compressImage, compressAndSave, compressAndSaveS3, compressAndSaveBulkS3, compressAndSaveBulk, compressBulk, saveFile, saveFileS3 } = require("../helpers/imageHelper");
 const { addWalletToOrd, verifyAddress } = require("../helpers/walletHelper");
 const { getRecomendedFee } = require("../helpers/sendBitcoin");
 const { getType } = require("../helpers/getType");
@@ -1119,7 +1119,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     }
 
     const fileName = file[0].filname;
-      compImage = await compressAndSaveS3(file, optData);
+      compImage = await compressAndSave(file, optData);
       if(satType !== "random"){
         inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
         const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
@@ -1156,7 +1156,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       inscribed: false,
       feeRate: feeRate,
       sat: satType,
-      s3: true,
+      s3: false,
       usePoints:_usePoints,
 
       inscriptionDetails: {
@@ -1221,7 +1221,7 @@ const initBulk = async (file, feeRate, networkName, optimize, receiveAddress, us
       _usePoints = false
     }
 
-    const data = await compressAndSaveBulkS3(file, inscriptionId, optimized);
+    const data = await compressAndSaveBulk(file, inscriptionId, optimized);
     let fileNames = data.compData.map(x => {
       return x.outPath.split("/")[x.outPath.split("/").length - 1]
     })
@@ -1250,7 +1250,7 @@ const initBulk = async (file, feeRate, networkName, optimize, receiveAddress, us
       feeRate: feeRate,
       receiver: receiveAddress,
       fileNames: fileNames,
-      s3: true,
+      s3: false,
       usePoints:usePoints,
 
       inscriptionDetails: {

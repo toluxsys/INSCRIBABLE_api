@@ -239,18 +239,20 @@ const compressAndSaveBulk = async (file, inscriptionId, optimize) => {
     const storage = await initStorage();
     let fileSize = [];
     let _file = []
+    let imageFiles = []
 
     const compData = await resizeFile({file:file, inscriptionId:inscriptionId, optimize:optimize})
-    let files = await Promise.all(compData.map(async (x) => {
+    for(const x of compData){
       const imageFile = await getFilesFromPath(x.outPath);
       let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
       const file = {name: fileName, buffer: imageFile[0], outPath: x.outPath}
       _file.push(file)
-      fileSize.push(imageFile.size);
-      return  imageFile[0];
-    }))
+      fileSize.push(imageFile[0].size);
+      imageFiles.push(imageFile[0]);
+    }
+       
     const sortFileSize = fileSize.sort((a, b) => a - b);
-    const rootCid = await storage.put(files);  
+    const rootCid = await storage.put(imageFiles);  
     
     await Promise.all(_file.map(x=>{
       fs.unlinkSync(x.outPath)
@@ -323,27 +325,30 @@ const compressAndSave = async (file, optimize) => {
     let files = [];
     let fileSize = [];
 
-    const compData = await resizeFile({file:file, optimize:optimize})
-    compData.map(async (x) => {
-      const compdImg = await getFilesFromPath(x.outPath);
-      let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
-      const file = {name: fileName, buffer: compdImg, outPath: x.outPath, sizeIn: x.sizeIn, sizeOut:x.sizeOut, comPercentage:x.comPercentage}
-      files.push(file);
-      fileSize.push(compdImg[0].size);
-    })
+    const compData = await resizeFile({ file: file, optimize: optimize });
 
-    return await Promise.all(files.map(async (item) => {
+    for (const x of compData) {
+      const compdImg = await getFilesFromPath(x.outPath);
+      let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1];
+      let _file = { name: fileName, buffer: compdImg, outPath: x.outPath, sizeIn: x.sizeIn, sizeOut: x.sizeOut, comPercentage: x.comPercentage };
+      files.push(_file);
+      fileSize.push(compdImg[0].size);
+    }
+
+    let res = await Promise.all(files.map(async (item) => {
       let itemBuffer = item.buffer;
       const rootCid = await storage.put(itemBuffer);
-      fs.unlinkSync(item.outPath)
-     return {
+      fs.unlinkSync(item.outPath);
+      return {
         sizeIn: item.sizeIn,
         sizeOut: item.sizeOut,
         comPercentage: item.comPercentage,
         outPath: item.outPath,
         cid: rootCid
-      }
-    }))[0];
+      };
+    }));
+
+    return res[0];
   } catch (e) {
     console.log(e);
   }
@@ -355,13 +360,13 @@ const compressAndSaveS3 = async (file, optimize) => {
       let fileSize = [];
 
       const compData = await resizeFile({file:file, optimize:optimize})
-      compData.map(x => {
+      for (const x of compData) {
         const imageFile = fs.readFileSync(x.outPath);
         let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
         const file = {name: fileName, buffer: imageFile, outPath: x.outPath, sizeIn: x.sizeIn, sizeOut:x.sizeOut, comPercentage:x.comPercentage}
         files.push(file);
         fileSize.push(imageFile.length);
-      })
+      }
 
       let data = await Promise.all(files.map(async (item) => {
         let fileName = item.name;
@@ -389,13 +394,13 @@ const compressAndSaveBulkS3 = async (file, inscriptionId, optimize) => {
       let fileSize = [];
 
       const compData = await resizeFile({file:file, inscriptionId:inscriptionId, optimize:optimize})
-      compData.map(x => {
+      for (const x of compData) {
         const imageFile = fs.readFileSync(x.outPath);
         let fileName = x.outPath.split("/")[x.outPath.split("/").length - 1]
         const file = {name: fileName, buffer: imageFile, outPath: x.outPath}
         files.push(file);
         fileSize.push(imageFile.length);
-      })
+      }
 
 
       const sortFileSize = fileSize.sort((a, b) => a - b);
