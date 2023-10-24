@@ -1268,6 +1268,12 @@ module.exports.getCollections = async (req, res) => {
     _collections.forEach((element, index) => {
       //filter the collection by collectionId and create an object that the collectionDetails including the type
       let collection = collections.filter((collection) => collection.id === element.collectionId);
+      let ended
+      if(collection[0].minted.length >= collection[0].collectionDetails.totalSupply){
+        ended = true
+      }else{
+        ended = collection[0].ended
+      }
       let price;
       mintDetail.forEach((mintStage) => {
         if(mintStage.collectionId === collection[0].id){
@@ -1291,7 +1297,7 @@ module.exports.getCollections = async (req, res) => {
         createdAt: collection[0].createdAt,
         updatedAt: collection[0].updatedAt,
         type: element.type,
-        ended: collection[0].ended,
+        ended: ended,
       });
     });
 
@@ -1326,6 +1332,12 @@ module.exports.getCollection = async (req, res) => {
       mintDetails = collection.mintDetails;
     }
     let totalSupply = collection.collectionDetails.totalSupply;
+    if(collection.minted.length >= totalSupply){
+      collection.ended = true
+      collection.started = false
+      collection = await collection.save()
+    }
+    
     let mappedObjectId = mintDetails.map(val => val.toString())
     let s_mintDetails = await MintDetails.find({_id: {$in: mappedObjectId}});
     s_mintDetails.forEach((item, index) => {
