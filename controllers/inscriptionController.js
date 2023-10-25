@@ -991,7 +991,6 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
     }
 
     const fileName = file[0].filename;
-    console.log(fileName);
       compImage = await compressAndSave(file, optData);
       if(satType !== "random"){
         inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
