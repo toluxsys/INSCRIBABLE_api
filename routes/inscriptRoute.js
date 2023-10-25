@@ -73,7 +73,6 @@ router.post("/addSats", controller.addSats);
 router.post("/brc20", controller.brc20);
 router.post("/text", controller.inscribeText);
 router.post("/satNames", controller.satNames);
-router.post("/brc1155", controller.brc1155);
 router.get("/getRecFee", controller.getRecFee);
 router.get("/getNetwork", controller.getNetwork);
 
