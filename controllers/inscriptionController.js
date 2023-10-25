@@ -1197,8 +1197,8 @@ const inscriptionPrice = async (feeRate, fileSize, satType, usePoints) => {
   try{
     let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
     let sats = Math.ceil((fileSize / 4) * feeRate);
-    let cost = sats + 1500 + 550 + 5000;
-    let sizeFee = parseInt(Math.ceil(cost / 7));
+    let cost = sats + 1500 + 550 + 1000;
+    let sizeFee = parseInt(Math.ceil(cost / 8));
     let satCost = 0
     if(sizeFee < 1024){
       sizeFee = 1024

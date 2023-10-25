@@ -382,10 +382,9 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
           }else if(inscription.collectionPayment === "received" && inscription.inscribed !== true){
               inscription.spendTxid = balance.txid[0];
               await inscription.save();
-              if(inscription.inscribed === false){
-                let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
-                if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false}
-              }
+              let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
+              if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false}
+              
               result = {
                   message: `payment received`,
                   data:{

@@ -87,8 +87,8 @@ const getSatCost = async (type) => {
 const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType, usePoints) => {
   const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 4) * feeRate);
-  const cost = sats + 1500 + 550 + 5000;
-  let sizeFee = parseInt(Math.ceil(cost / 7));
+  const cost = sats + 1500 + 550 + 1000;
+  let sizeFee = parseInt(Math.ceil(cost / 8));
   let satCost = 0
   if(sizeFee < 1024){
     sizeFee = 1024
