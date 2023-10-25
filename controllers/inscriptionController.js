@@ -79,9 +79,8 @@ module.exports.inscribeText = async (req, res) => {
       }
       paymentAddress = result.data.userResponse.data[0];
     }else {
-      fileDetail = await saveFileS3(fileName);
+      fileDetail = await saveFile(fileName);
       inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
-      s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -196,9 +195,8 @@ module.exports.brc20 = async (req, res) => {
       }
       paymentAddress = result.data.userResponse.data[0];
     }else {
-      fileDetail = await saveFileS3(fileName);
+      fileDetail = await saveFile(fileName);
       inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
-      s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -307,9 +305,8 @@ module.exports.satNames = async (req, res) => {
       }
       paymentAddress = result.data.userResponse.data[0];
     }else {
-      fileDetail = await saveFileS3(fileName);
+      fileDetail = await saveFile(fileName);
       inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
-      s3 = true;
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -360,131 +357,6 @@ module.exports.satNames = async (req, res) => {
     });
   } catch (e){
     console.log(e);
-    if(e.request) return res.status(200).json({status: false, message: e.message});
-    if(e.response) return res.status(200).json({status: false, message: e.response.data});
-    return res.status(200).json({ status: false, message: e.message });
-  }
-}
-
-module.exports.brc1155 = async (req, res) => {
-
-  // BRC1155 Spec
-  /**
-   * {
-   *    p: "brc-1155",
-   *    op: "mint",
-   *    content: https://ipfs.io/cid/fileName,
-   * }
-   */
-
-  try {
-    const file = req.files.file;
-    const {networkName, receiveAddress, oldSats } = req.body;
-    let feeRate = parseInt(req.body.feeRate);
-    
-    const id = await import("nanoid");
-    const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
-    const inscriptionId = `s${uuidv4()}`;
-    let ORD_API_URL;
-    let walletKey = "";
-    let paymentAddress;
-    let s3 = false;
-    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"})
-
-    if (networkName === "mainnet")
-      ORD_API_URL = process.env.ORD_MAINNET_API_URL;
-    if (networkName === "testnet")
-      ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-
-    const s_fileName = inscriptionId +`_`+ new Date().getTime().toString() + path.extname(file.name);
-      const savePath = path.join(
-        process.cwd(),
-        "src",
-        "img",
-        "uncompressed",
-        s_fileName
-      );
-      await file.mv(savePath);
-      const saved_file = await compressAndSave(s_fileName, false);
-      
-      let data = {
-        p: "brc-1155",
-        op: "mint",
-        content: process.env.IPFS_IMAGE_URL + `${saved_file.cid}/${s_fileName}`
-      }
-      let s_path = `./build/files/${fileName}`;
-      let s_data = JSON.stringify(data).toString();
-      writeFile(s_path, s_data);
-      let fileDetail;
-      let inscriptionCost;
-
-      if(oldSats !== "random"){
-        fileDetail = await saveFile(fileName);
-        inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
-        const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
-        const data = {
-          collectionName: "oldSatsWallet",
-          addrCount: 1,
-          networkName: networkName,
-        };
-        const result = await axios.post(url, data);
-        if (result.data.message !== "ok") {
-          return res.status(200).json({status: false, message: result.data.message});
-        }
-        paymentAddress = result.data.userResponse.data[0];
-      }else{
-        fileDetail = await saveFileS3(fileName);
-        inscriptionCost = await inscriptionPrice(feeRate, fileDetail.size, oldSats);
-        s3 = true;
-        walletKey = await addWalletToOrd(inscriptionId, networkName);
-        const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
-        const data = {
-          collectionName: inscriptionId,
-          addrCount: 1,
-          networkName: networkName,
-        };
-        const result = await axios.post(url, data);
-        if (result.data.message !== "ok") {
-          return res.status(200).json({status: false, message: result.data.message});
-        }
-        paymentAddress = result.data.userResponse.data[0];
-      }
-      const inscription = new Inscription({
-        id: inscriptionId,
-        flag: networkName,
-        inscribed: false,
-        feeRate: feeRate,
-        receiver: receiveAddress,
-        inscriptionType: "brc1155",
-        sat: oldSats,
-        s3: s3,
-
-        inscriptionDetails: {
-          fileName: fileName,
-          payAddress: paymentAddress,
-          cid: fileDetail.cid,
-        },
-        walletDetails: {
-          keyPhrase: walletKey,
-          walletName: inscriptionId,
-        },
-        cost: inscriptionCost,
-        feeRate: feeRate,
-        stage: "stage 1",
-      });
-
-      await inscription.save();
-      res.status(200).json({
-        status: true,
-        message: "ok",
-        userResponse: {
-          cost: inscriptionCost,
-          paymentAddress: paymentAddress,
-          inscriptionId: inscriptionId,
-        },
-      });
-  } catch (e) {
-    console.log(e.message);
     if(e.request) return res.status(200).json({status: false, message: e.message});
     if(e.response) return res.status(200).json({status: false, message: e.response.data});
     return res.status(200).json({ status: false, message: e.message });
@@ -1118,7 +990,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       optData = false
     }
 
-    const fileName = file[0].filname;
+    const fileName = file[0].filename;
       compImage = await compressAndSave(file, optData);
       if(satType !== "random"){
         inscriptionCost = await inscriptionPrice(feeRate, compImage.sizeOut, satType, _usePoints);
@@ -1160,7 +1032,7 @@ const init = async (file, feeRate, networkName, optimize, receiveAddress, satTyp
       usePoints:_usePoints,
 
       inscriptionDetails: {
-        imageSizeIn: file.size / 1e3,
+        imageSizeIn: file[0].size / 1e3,
         imageSizeOut: compImage.sizeOut / 1e3,
         fileName: fileName,
         comPercentage: compImage.comPercentage,
@@ -1313,8 +1185,9 @@ const getSatCost = async (type) => {
         price = x.price
       }
     })
+    let res = await usdToSat(price)
     //convert usd to sat
-    return (await usdToSat(price)).satoshi
+    return res.satoshi
   }catch(e){
     console.log(e.message)
   }
