@@ -32,7 +32,7 @@ class Consumer {
     initilize = async () => {
         try{
             if(this.isInitilized === false){
-                this.conn = await ampq.connect(process.env.RMQ_HOST);
+                this.conn = await ampq.connect(options);
                 this.channel = await this.conn.createChannel();
             }else{
                 return;

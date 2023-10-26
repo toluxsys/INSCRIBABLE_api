@@ -16,15 +16,12 @@ aws.config.update({
   region: process.env.S3_BUCKET_REGION,
 });
 
-let ep = new aws.Endpoint(process.env.STORAGE_ENDPOINT)
-
 const uploadToS3 = async (fileName, fileBuffer) => {
   let s3bucket = new aws.S3({
     ACL :'public-read',
     accessKeyId: process.env.AWS_ACCESS_KEY,
     secretAccessKey: process.env.AWS_SECRET_KEY,
     Bucket: process.env.S3_BUCKET_NAME,
-    endpoint: ep
   });
   const uploadParams = {
     Bucket: process.env.S3_BUCKET_NAME,
@@ -51,7 +48,6 @@ const uploadToS3Bulk = async (params) => {
     accessKeyId: process.env.AWS_ACCESS_KEY,
     secretAccessKey: process.env.AWS_SECRET_KEY,
     Bucket: process.env.S3_BUCKET_NAME,
-    endpoint: ep
   });
  
   const responses = await Promise.all(
@@ -69,7 +65,6 @@ const downloadFromS3 = async (fileName, inscriptionId) => {
     accessKeyId: process.env.AWS_ACCESS_KEY,
     secretAccessKey: process.env.AWS_SECRET_KEY,
     Bucket: process.env.S3_BUCKET_NAME,
-    endpoint: ep
   });
 
   const downloadParams = {
@@ -104,7 +99,6 @@ const downloadAddressFile = async (fileName, collectionId) => {
     secretAccessKey: process.env.AWS_SECRET_KEY,
     Bucket: process.env.S3_BUCKET_NAME,
     region: process.env.S3_BUCKET_REGION,
-    endpoint: ep
   });
 
   const downloadParams = {
@@ -139,7 +133,6 @@ const downloadAllAddressFile = async (params, collectionId) => {
     secretAccessKey: process.env.AWS_SECRET_KEY,
     Bucket: process.env.S3_BUCKET_NAME,
     region: process.env.S3_BUCKET_REGION,
-    endpoint: ep
   });
 
   if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}`)){
@@ -173,7 +166,6 @@ const downloadBulkFromS3 = async (params, inscriptionId) => {
       accessKeyId: process.env.AWS_ACCESS_KEY,
       secretAccessKey: process.env.AWS_SECRET_KEY,
       Bucket: process.env.S3_BUCKET_NAME,
-      endpoint: ep
     });
 
     if (!fs.existsSync(process.cwd() + `/src/bulk/${inscriptionId}`)) {
