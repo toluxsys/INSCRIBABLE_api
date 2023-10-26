@@ -120,6 +120,7 @@ const updateMintStage1 = async (collectionId) => {
       return "collection not found"
     }else{
         const mintStage = await MintDetails.findOne({_id: collection.mintStage});
+      if(!mintStage) return "mint stage not found"
         const stages = collection.mintDetails;
         let nextStageIndex = stages.indexOf(collection.mintStage) - 1;
         const currentTime = moment();
@@ -438,7 +439,7 @@ module.exports.updateMintStage = async (req, res) => {
 module.exports.addCollection = async (req, res) => {
   try {
     let files = []
-    const {
+    let {
       collectionName,
       category,
       creatorName,
@@ -451,15 +452,17 @@ module.exports.addCollection = async (req, res) => {
       discord,
       networkName,
       mintDetails,
-      userSelect,
       fileSize,
       specialSat,
       totalSupply,
       startAt,
+      template
     } = req.body;
 
     let file = req.files
     files.push(file.banner[0], file.featuredImage[0])
+
+    if(!template) template = "1"
 
     if(!mintDetails) return res.status(200).json({status: false, message: "mint details required"});
     const collectionId = `c${uuidv4()}`;
@@ -503,7 +506,7 @@ module.exports.addCollection = async (req, res) => {
       alias: alias,
       flag: networkName,
       price: price * 1e8,
-      userSelect: userSelect,
+      template: parseInt(template),
       specialSat: specialSat,
       collectionDetails: collectionDetails,
       collectionAddress: collectionAddress,
@@ -1327,6 +1330,7 @@ module.exports.getCollection = async (req, res) => {
       mintDetails = collection.mintDetails;
     }else if(collectionId){
       collection = await Collection.findOne({id: collectionId});
+      if(!collection) return res.satus(200).json({status: false, message: "collection not found"})
       await updateMintStage1(collectionId);
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
@@ -1362,24 +1366,21 @@ module.exports.getCollection = async (req, res) => {
         })
       }
     });
-    let type;
 
-    let mintedItems = collection.minted;
-    let mintedCount = mintedItems.length;
+    let mintedCount = collection.minted.length;
 
-    if(collection.ended === true && collection.minted.length === 0){
+    if(collection.ended === true && mintedCount === 0){
       mintedCount = collection.collectionDetails.totalSupply
     }
-
-    if (collection.userSelect === "false" && !collection.specialSat) {
-      type = "single";
-    }else if(collection.userSelect === "true" && !collection.specialSat){
-      type = "multiple";
-    }else if(collection.specialSat){
-      type = "sat";
-    }
-    let startedAt = collection.startAt;
     
+    let allSat = await getSats()
+    let available = allSat.map(x => x.satType)
+    let collectionSat = []
+    if(available.includes(collection.specialSat)){
+      let approvedSat = await SpecialSat.findOne({satType: collection.specialSat})
+      collectionSat.push({satType: collection.specialSat, description: approvedSat.description})
+    }  
+
     let collectionData = {
         collectionId: collection.id,
         collectionName: collection.name,
@@ -1398,12 +1399,14 @@ module.exports.getCollection = async (req, res) => {
         discord: collection.collectionDetails.discord,
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,
-        type: type,
         ended: collection.ended,
         mintStarted: collection.startMint,
         mintStage: _mintStage,
-        startedAt: startedAt,
-        stages: details,    
+        startedAt: collection.startAt,
+        stages: details, 
+        satType: collection.specialSat,
+        template: collection.template, 
+        activeSatType: collectionSat,
     }
     return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
   }catch(e){
@@ -1686,7 +1689,23 @@ module.exports.getFeaturedCollections = async (req,res)=> {
 module.exports.getAvailableSat = async (req,res) => {
   try{
     let sats = await getSats()
-    return res.status(200).json({status: true, message: "ok", userResponse: sats})
+    let allowedSats = await SpecialSat.find({publicAvailable: true})
+    let allowedSatNames = allowedSats.map(x => x.satType)
+    let publicAvailable = []
+    sats.forEach(x => {
+      if(x.satType === "random"){
+        publicAvailable.push({
+          satType: "random",
+          description: "inscribe on random sats"
+        })
+      }else if(allowedSatNames.includes(x.satType)){
+        publicAvailable.push({
+          satType: x.satType,
+          description: allowedSats.find(y => y.satType === x.satType).description
+        })
+      }
+    })
+    return res.status(200).json({status: true, message: "ok", userResponse: publicAvailable})
   }catch(e){
     console.log(e.message);
     return res.status(200).json({status: false, message: e.message});
@@ -1714,20 +1733,39 @@ module.exports.updateSatCost = async (req,res)=> {
         }
       })
       await SpecialSat.insertMany(uniqueSat)
-      
-      await SpecialSat.bulkWrite(available.map((sat) => {
-        return {
-          updateOne: {
-            filter: {satType: sat.satType},
-            update: {price: sat.price},
-            upsert: true,
+
+      let writeOperation = available.map((sat) => {
+        if(sat.description){
+          return {
+            updateOne: {
+              filter: {satType: sat.satType},
+              update: {description: sat.description},
+              upsert: true,
+            }
+          }
+        }else if(sat.publicAvailable !== undefined){
+          return {
+            updateOne: {
+              filter: {satType: sat.satType},
+              update: {publicAvailable: sat.publicAvailable},
+              upsert: true,
+            }
+          }
+        }else if(sat.price){
+          return {
+            updateOne: {
+              filter: {satType: sat.satType},
+              update: {price: sat.price},
+              upsert: true,
+            }
           }
         }
-      }))
+      })
+      await SpecialSat.bulkWrite(writeOperation)
     }
     return res.status(200).json({status: true, message: "sat price added"})
   }catch(e){
-    console.log(e.message);
+    console.log(e);
     return res.status(200).json({status: false, message: e.message});
   }
 }

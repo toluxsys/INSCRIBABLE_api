@@ -22,7 +22,7 @@ router.use(basicAuth({
 
 const collectionUploadFields = [
   { name: "banner", maxCount: 1 }, 
-  { name: 'featuredImage', maxCount: 1 },
+  { name: "featuredImage", maxCount: 1 },
 ];
 
 // const fileStorage = multer.diskStorage({

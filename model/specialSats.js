@@ -7,6 +7,12 @@ const specialSat = new mongoose.Schema(
    },
    price: {
     type: Number
+   },
+   description: {
+    type: String
+   },
+   publicAvailable:{
+    type: Boolean
    }
   },
   { timestamps: true }
