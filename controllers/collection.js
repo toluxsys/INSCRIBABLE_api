@@ -1405,7 +1405,7 @@ module.exports.getCollection = async (req, res) => {
         startedAt: collection.startAt,
         stages: details, 
         satType: collection.specialSat,
-        template: collection.template, 
+        template: collection.template || 1, 
         activeSatType: collectionSat,
     }
     return res.status(200).json({status: true, message: "ok", userResponse: collectionData});
