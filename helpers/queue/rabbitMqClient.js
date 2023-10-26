@@ -26,7 +26,7 @@ class RabbitMqClient {
     initilize = async () => {
         try{
             if(this.isInitilized === false){
-                const _conn = await ampq.connect(process.env.RMQ_HOST);
+                const _conn = await ampq.connect(options);
                 this.channel = await _conn.createChannel();
             }else{
                 return;

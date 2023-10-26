@@ -247,6 +247,12 @@ const checkWallet = async (collectionId, address) => {
 const verifyMint = async (collectionId, address, amount) => {
   try{
     const collection = await Collection.findOne({id: collectionId});
+    if (!collection) return data = {
+      valid: false,
+      price: 0,
+      mintCount: 0,
+      message: "collection not found"
+    }
     const mintStage = await MintDetails.findOne({_id: collection.mintStage});
     if(!mintStage) return data = {
       valid: false,
@@ -274,6 +280,17 @@ const verifyMint = async (collectionId, address, amount) => {
           }
         }else{
           c_address = s_address;   
+        }
+        let selected = await SelectedItems.find({address: c_address.address, collectionId: c_address.collectionId})
+        let itemCount = 0
+        selected.forEach(x => itemCount = itemCount + x.items.length)
+        if (itemCount >= mintStage.mintLimit){
+          return data = {
+            valid: false,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "complete previous order or wait fifteen(15) min for item to be made available"
+          }
         }
         
         if (c_address.mintCount >= mintStage.mintLimit){
@@ -357,6 +374,19 @@ const verifyMint = async (collectionId, address, amount) => {
         }else{
           c_address = s_address;   
         }
+        let selected = await SelectedItems.find({address: c_address.address, collectionId: c_address.collectionId})
+        let itemCount = 0
+        selected.forEach(x => itemCount = itemCount + x.items.length)
+        
+        if (itemCount >= mintStage.mintLimit){
+          return data = {
+            valid: false,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "complete previous order or wait fifteen(15) min for item to be made available"
+          }
+        }
+        
         if (c_address.mintCount >= mintStage.mintLimit){
           return data = {
             valid: false,
@@ -872,7 +902,9 @@ module.exports.selectItem = async (req, res) => {
       paymentAddress = result.data.userResponse.data[0];
       const selectedItems = new SelectedItems({
         collectionId : collectionId,
-        items: imageNames
+        items: imageNames,
+        address: receiveAddress,
+        orderId: inscriptionId
       })
       savedSelected = await selectedItems.save();
       await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
@@ -914,7 +946,9 @@ module.exports.selectItem = async (req, res) => {
           paymentAddress = result.data.userResponse.data[0];
           const selectedItems = new SelectedItems({
             collectionId : collectionId,
-            items: imageNames
+            items: imageNames,
+            address: receiveAddress,
+            orderId: inscriptionId
           })
           savedSelected = await selectedItems.save();
           await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
@@ -934,7 +968,9 @@ module.exports.selectItem = async (req, res) => {
           paymentAddress = result.data.userResponse.data[0];
           const selectedItems = new SelectedItems({
             collectionId : collectionId,
-            items: imageNames
+            items: imageNames,
+            address: receiveAddress,
+            orderId: inscriptionId
           })
           savedSelected = await selectedItems.save();
           await Collection.findOneAndUpdate({id: collectionId}, {$push: {selected: savedSelected._id}}, {new: true});
@@ -966,8 +1002,8 @@ module.exports.selectItem = async (req, res) => {
       await inscription.save();
     }
 
-    let _savedId = [];
-    _savedId.push(inscriptionId);
+    //let _savedId = [];
+    //_savedId.push(inscriptionId);
     //await Address.findOneAndUpdate({mintStage: collection.mintStage, address: receiveAddress}, {$push: {pendingOrders: {$each: _savedId, $position: -1}}}, {new: true})
 
     userResponse = {
@@ -1368,7 +1404,6 @@ module.exports.getCollection = async (req, res) => {
     });
 
     let mintedCount = collection.minted.length;
-
     if(collection.ended === true && mintedCount === 0){
       mintedCount = collection.collectionDetails.totalSupply
     }
@@ -1376,11 +1411,12 @@ module.exports.getCollection = async (req, res) => {
     let allSat = await getSats()
     let available = allSat.map(x => x.satType)
     let collectionSat = []
-    if(available.includes(collection.specialSat)){
+    if(collection.specialSat === "random" || !available.includes(collection.specialSat)){
+      collectionSat = await _getAvailableSat()
+    }else if(available.includes(collection.specialSat)){
       let approvedSat = await SpecialSat.findOne({satType: collection.specialSat})
       collectionSat.push({satType: collection.specialSat, description: approvedSat.description})
-    }  
-
+    }
     let collectionData = {
         collectionId: collection.id,
         collectionName: collection.name,
@@ -1443,30 +1479,47 @@ module.exports.getPendingOrders = async (req,res)=> {
   try{
     const {address, collectionId} = req.body;
     let collection = await Collection.findOne({id: collectionId});
+    if(!collection)return res.status(200).json({status: false, message: "collection not found"})
     let mintDetails = collection.mintDetails;
     let _mappedObjectId = mintDetails.map(val => val.toString());
     let _address = await Address.find({mintStage:{$in: _mappedObjectId}, address: address});
     if(_address.length === 0)return res.status(200).json({status: false, message: "address not found for mint stage"})
-    let newPendingOrder = [];
-    _address.forEach((item) => {
-      newPendingOrder = newPendingOrder.concat(item.pendingOrders);
+    let selected = await SelectedItems.find({collectionId: collectionId, address:address})
+    let bulkOrderIds = []
+    let singleOrderIds = []
+    let pending = []
+    selected.forEach(async (x) => {
+      let type = getType(x.orderId)
+      if(type === "single"){
+        singleOrderIds.push(x.orderId)
+      }else if(type === "bulk"){
+        bulkOrderIds.push(x.orderId)
+      }
     })
-    let pendingOrders = [];
-    let ids = newPendingOrder.map(val => val.toString())
-    let _pendingOrders = await Inscription.find({id: {$in: ids}});
-    _pendingOrders.forEach((item)=>{
-      if(item.inscribed !== true && item.collectionPayment === "paid"){
-        pendingOrders.push({
-          orderId: item.id,
-          paymentStatus: "waiting",
-          inscriptionStatus: item.inscribed,
-        })
-      }else{
-        pendingOrders.push({
-          orderId: item.id,
-          paymentStatus: item.collectionPayment,
-          inscriptionStatus: item.inscribed,
-        })
+
+    let bulkOrders = await BulkInscription.find({id: {$in: bulkOrderIds}});
+    let singleOrders = await Inscription.find({id: {$in: singleOrderIds}});
+    pending = pending.concat(bulkOrders, singleOrders);
+
+    let pendingOrders = pending.map(inscription => {
+      return   {
+        id: inscription.id,
+        satType: inscription.sat,
+        isInscribed: inscription.inscribed,
+        paymentStatus: inscription.collectionPayment,
+        totalCost: {
+            sat: inscription.cost.total,
+            btc: inscription.cost.total/1e8
+        },
+        payAddress: inscription.inscriptionDetails.payAddress,
+        collectionId: inscription.collectionId,
+        error: inscription.error,
+        errorMessage: inscription.errorMessage,
+        ids: inscription.inscription,
+        timeStamp: {
+            createdAt: inscription.createdAt,
+            updatedAt: inscription.updatedAt
+        }
       }
     })
     return res.status(200).json({ status:true, message: "ok", userResponse: {pendingOrders: pendingOrders} });
@@ -1686,7 +1739,8 @@ module.exports.getFeaturedCollections = async (req,res)=> {
 }
 
 ///special sat
-module.exports.getAvailableSat = async (req,res) => {
+
+const _getAvailableSat = async () => {
   try{
     let sats = await getSats()
     let allowedSats = await SpecialSat.find({publicAvailable: true})
@@ -1705,6 +1759,17 @@ module.exports.getAvailableSat = async (req,res) => {
         })
       }
     })
+    return  publicAvailable
+  }catch(e){
+    console.log(e.message);
+  }
+}
+
+
+module.exports.getAvailableSat = async (req,res) => {
+  try{
+    let publicAvailable = await _getAvailableSat()
+    if(publicAvailable === undefined) return res.status(200).json({status:false, message:"error getting available sats"})
     return res.status(200).json({status: true, message: "ok", userResponse: publicAvailable})
   }catch(e){
     console.log(e.message);

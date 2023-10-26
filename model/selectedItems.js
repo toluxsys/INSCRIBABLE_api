@@ -8,6 +8,12 @@ const selectedItems = new mongoose.Schema(
     items: {
       type: Array,
     },
+    address: {
+      type: String
+    },
+    orderId: {
+      type: String
+    }
   },
   { timestamps: true }
 );

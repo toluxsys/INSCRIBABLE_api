@@ -101,7 +101,7 @@ module.exports.getOrder = async (req, res) => {
                 btc: inscription.cost.total/1e8
             },
             payAddress: inscription.inscriptionDetails.payAddress,
-            collectionId: inscription.collectionId,
+            collectionId: inscription.collectionId || "",
             error: inscription.error,
             errorMessage: inscription.errorMessage,
             ids: inscription.inscription,
