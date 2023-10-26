@@ -1337,13 +1337,13 @@ module.exports.getCollection = async (req, res) => {
     if(!collectionId && !alias) return res.status(200).json({status: false, message: "collectionId or alias is required"});
     if(alias){
       collection = await Collection.findOne({alias: alias});
-      if(!collection) return res.satus(200).json({status: false, message: "collection not found"})
+      if(!collection) return res.status(200).json({status: false, message: "collection not found"})
       await updateMintStage1(collection.id);
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
     }else if(collectionId){
       collection = await Collection.findOne({id: collectionId});
-      if(!collection) return res.satus(200).json({status: false, message: "collection not found"})
+      if(!collection) return res.status(200).json({status: false, message: "collection not found"})
       await updateMintStage1(collectionId);
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
