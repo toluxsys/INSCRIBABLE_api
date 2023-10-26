@@ -630,30 +630,7 @@ module.exports.addMintAddress = async (req, res) => {
     })
 
     if(!details.includes(name)) return res.status(200).json({status: false, message: "Invalid mint stage name"});
-
-    if (!existsSync(process.cwd() + `/src/address/${collectionId}`)) {
-      mkdirSync(
-        process.cwd() + `./src/address/${collectionId}`,
-        { recursive: true },
-        (err) => {
-          console.log(err);
-        }
-      );
-    }
-    
-    let _name = `addr-`+collectionId+`-`+name;
-    let fileName = _name + path.extname(addressFile.fileName);
-
-    
-    const savePath = path.join(
-      process.cwd(),
-      "src",
-      "address",
-      `${collectionId}`,
-      fileName
-    );
-    await addressFile.mv(savePath);
-
+    let fileName = addressFile[0].filename;
     let _data = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${fileName}`);
     await uploadToS3(fileName, _data);
 

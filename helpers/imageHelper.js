@@ -93,7 +93,8 @@ const downloadFromS3 = async (fileName, inscriptionId) => {
 };
 
 const downloadAddressFile = async (fileName, collectionId) => {
-  try{let s3bucket = new aws.S3({
+  try{
+    let s3bucket = new aws.S3({
     accessKeyId: process.env.AWS_ACCESS_KEY,
     secretAccessKey: process.env.AWS_SECRET_KEY,
     Bucket: process.env.S3_BUCKET_NAME,
@@ -126,7 +127,8 @@ const downloadAddressFile = async (fileName, collectionId) => {
 };
 
 const downloadAllAddressFile = async (params, collectionId) => {
-  try{let s3bucket = new aws.S3({
+  try{
+    let s3bucket = new aws.S3({
     accessKeyId: process.env.AWS_ACCESS_KEY,
     secretAccessKey: process.env.AWS_SECRET_KEY,
     Bucket: process.env.S3_BUCKET_NAME,

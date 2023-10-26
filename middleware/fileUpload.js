@@ -11,9 +11,8 @@ const addressFileStorage = multer.diskStorage({
       cb(null, directory);
     },
     filename: async function (req, file, cb) {
-      let _name = `addr-`+req.body.collectionId+`-`+req.body.name;
-      let fileName = _name + file.mimetype;
-      const filename = Date.now().toString()+"-"+fileName;
+      let name = `addr-`+req.body.collectionId+`-`+req.body.name+".txt";
+      const filename = name;
       cb(null, filename);
     },
 });
@@ -23,7 +22,6 @@ storage: addressFileStorage,
 limits: { fileSize: 60 * 1024 * 1024 }, // 60MB
 fileFilter: (req, file, cb) => {
         if (file.mimetype == "text/plain") {
-            console.log(file.buffer)
             cb(null, true);
         } else {
             cb(null, false);
