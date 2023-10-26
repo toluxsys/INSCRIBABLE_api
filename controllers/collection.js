@@ -213,10 +213,12 @@ const checkWallet = async (collectionId, address) => {
     });
    
     await downloadAllAddressFile(params, collectionId);
+
+    let regex = /[^,\r\n]+/g;
     fs.readdirSync(process.cwd()+`/src/address/${collectionId}`).forEach((file) => {
-      fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${file}`, { encoding: 'utf8'}).split("\r\n").forEach((address) => {
-        addresses.push(address);
-      });
+      let _addr = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${file}`, { encoding: 'utf8'})
+      let allowedAddr = _addr.match(regex)
+      addresses = addresses.concat(allowedAddr);
     });
 
    //filter the addresses array to remove items that appear more than once
