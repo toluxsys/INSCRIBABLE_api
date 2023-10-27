@@ -202,11 +202,13 @@ const checkWallet = async (collectionId, address) => {
     let params = [];
     let addresses = [];
     mintStages.forEach(async (stage) => {
-      if(stage.name !== "public" || stage.name !== "Public"){
+      if(stage.name === "public" || stage.name === "Public"){
+        stagNames.push(`addr-`+collectionId+`-`+stage.name+`.txt`);
+      }else{
         stagNames.push(`addr-`+collectionId+`-`+stage.name+`.txt`);
         params.push({
-            Bucket: process.env.S3_BUCKET_NAME,
-            Key: `addr-`+collectionId+`-`+stage.name+`.txt`,
+          Bucket: process.env.S3_BUCKET_NAME,
+          Key: `addr-`+collectionId+`-`+stage.name+`.txt`,
         });
       }
     });
@@ -220,6 +222,8 @@ const checkWallet = async (collectionId, address) => {
         message: `collection addresses not found`
       }
     }
+
+    
 
     let regex = /[^,\r\n]+/g;
     fs.readdirSync(process.cwd()+`/src/address/${collectionId}`).forEach((file) => {
