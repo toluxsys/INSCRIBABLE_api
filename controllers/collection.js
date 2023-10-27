@@ -212,7 +212,15 @@ const checkWallet = async (collectionId, address) => {
       }
     });
    
-    await downloadAllAddressFile(params, collectionId);
+    let res = await downloadAllAddressFile(params, collectionId);
+    if(res === false) {
+      return data = {
+        valid: false,
+        price: 0,
+        mintCount: 0,
+        message: `collection addresses not found`
+      }
+    }
 
     let regex = /[^,\r\n]+/g;
     fs.readdirSync(process.cwd()+`/src/address/${collectionId}`).forEach((file) => {
@@ -1513,6 +1521,7 @@ module.exports.checkWhitelist = async (req, res) => {
   try{
     const {collectionId, address} = req.body;
     const collection = await Collection.findOne({id: collectionId});
+    if(!collection) return res.status(200).json({status: false, message: "collection not found"});
     if(verifyAddress(address, collection.flag) === false) return res.status(200).json({status: false, message: "Invalid address"});
     if(collection.ended == true) {
       return res.status(200).json({status: false, message: "collection mint ended"});

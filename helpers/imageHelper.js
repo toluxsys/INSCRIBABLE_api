@@ -17,29 +17,33 @@ aws.config.update({
 });
 
 const uploadToS3 = async (fileName, fileBuffer) => {
-  let s3bucket = new aws.S3({
-    ACL :'public-read',
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_KEY,
-    Bucket: process.env.S3_BUCKET_NAME,
-  });
-  const uploadParams = {
-    Bucket: process.env.S3_BUCKET_NAME,
-    Key: fileName,
-    Body: fileBuffer,
-  };
+  try{
+      let s3bucket = new aws.S3({
+      ACL :'public-read',
+      accessKeyId: process.env.AWS_ACCESS_KEY,
+      secretAccessKey: process.env.AWS_SECRET_KEY,
+      Bucket: process.env.S3_BUCKET_NAME,
+    });
+    const uploadParams = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: fileName,
+      Body: fileBuffer,
+    };
 
-  return new Promise((resolve, reject) => {
-    s3bucket.createBucket(() => {
-      s3bucket.upload(uploadParams, (err, data) => {
-        if (err) {
-          reject(new Error("Error occurred while trying to upload to S3 bucket", err));
-        } else {
-          resolve(data);
-        }
+    return new Promise((resolve, reject) => {
+      s3bucket.createBucket(() => {
+        s3bucket.upload(uploadParams, (err, data) => {
+          if (err) {
+            reject(new Error("Error occurred while trying to upload to S3 bucket", err));
+          } else {
+            resolve(data);
+          }
+        });
       });
     });
-  });
+  }catch(e){
+    console.log(e.message)
+  }
 }
 
 const uploadToS3Bulk = async (params) => {
@@ -61,7 +65,8 @@ const uploadToS3Bulk = async (params) => {
 }
 
 const downloadFromS3 = async (fileName, inscriptionId) => {
-  try{let s3bucket = new aws.S3({
+  try{
+    let s3bucket = new aws.S3({
     accessKeyId: process.env.AWS_ACCESS_KEY,
     secretAccessKey: process.env.AWS_SECRET_KEY,
     Bucket: process.env.S3_BUCKET_NAME,
@@ -140,7 +145,23 @@ const downloadAllAddressFile = async (params, collectionId) => {
       console.log(err);
     });
   }
+  const checkKeyPromises = params.map((param) => {
+    return new Promise((resolve, reject) => {
+      s3bucket.headObject(param, (err, data) => {
+        if (err) {
+          // The key does not exist
+          reject(`Download addresses: Key does not exist.`);
+        } else {
+          // The key exists
+          resolve();
+        }
+      });
+    });
+  });
 
+  // Use Promise.all to check if all keys exist
+  await Promise.all(checkKeyPromises);
+  
   const downloadPromises = params.map((param) => {
     const file = fs.createWriteStream(process.cwd()+`/src/address/${collectionId}/${param.Key}`);
     return new Promise((resolve, reject) => {
@@ -155,8 +176,7 @@ const downloadAllAddressFile = async (params, collectionId) => {
   return true;
 }catch(error){
   console.log(error);
-  console.log('Error occurred during file downloads:', error.message);
-    return false;
+  return false;
  }
 };
 
