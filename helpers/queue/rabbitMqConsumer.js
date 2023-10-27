@@ -127,7 +127,7 @@ class Consumer {
                 }
             })
         }catch(e){
-            console.log(e.message)
+            console.log(e)
         }
     }
 } 

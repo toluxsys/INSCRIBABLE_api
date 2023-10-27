@@ -482,7 +482,7 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
             txid = `https://mempool.space/tx/${_txid}`
             if(inscription.collectionPayment === "waiting"){
                 let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
-                if(addToQueue !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false, key: "error_adding_order_to_queue"}
+                if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false, key: "error_adding_order_to_queue"}
                 
                 inscription.collectionPayment = "received";
                 await inscription.save();
@@ -510,7 +510,7 @@ const checkDefaultPayment = async ({inscriptionId, networkName}) => {
             
             if(inscription.collectionPayment === "waiting"){
                 let addToQueue = await RabbitMqClient.addToQueue({orderId: inscriptionId, networkName: networkName, txid: _txid}, "paymentSeen")
-                if(addToQueue !== true) return {message: "error adding order to queue", data:{txid: txid, ids: []}, status: false, key: "error_adding_order_to_queue"}
+                if(addToQueue.status !== true) return {message: "error adding order to queue", data:{txid: txid, ids: []}, status: false, key: "error_adding_order_to_queue"}
                 
                 inscription.collectionPayment = "received";
                 await inscription.save();

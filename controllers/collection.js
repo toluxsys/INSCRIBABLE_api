@@ -85,32 +85,36 @@ const getSatCost = async (type) => {
 }
 
 const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType, usePoints) => {
-  const serviceCharge = parseInt(await getServiceFee(collectionId));
-  const sats = Math.ceil((fileSize / 4) * feeRate);
-  const cost = sats + 1500 + 550 + 2000;
-  let sizeFee = parseInt(Math.ceil(cost / 7));
-  let satCost = 0
-  if(sizeFee < 1024){
-    sizeFee = 1024
-  }
+  try{
+    const serviceCharge = parseInt(await getServiceFee(collectionId));
+    const sats = Math.ceil((fileSize / 4) * feeRate);
+    const cost = sats + 1500 + 550 + 2000;
+    let sizeFee = parseInt(Math.ceil(cost / 7));
+    let satCost = 0
+    if(sizeFee < 1024){
+      sizeFee = 1024
+    }
 
-  if(satType !== "random"){
-     satCost = await getSatCost(satType)
-  }
+    if(satType !== "random"){
+      satCost = await getSatCost(satType)
+    }
 
-  if(usePoints === true){
-    serviceCharge = 1000
-    //cost = cost + 1000
+    if(usePoints === true){
+      serviceCharge = 1000
+      //cost = cost + 1000
+    }
+    const total = serviceCharge + cost + sizeFee + price + satCost;
+    return {
+      serviceCharge,
+      inscriptionCost: cost + sizeFee,
+      sizeFee: sizeFee,
+      postageFee: 550,
+      satCost: satCost,
+      total: total,
+    };
+  }catch(e){
+    console.log(e.message)
   }
-  const total = serviceCharge + cost + sizeFee + price + satCost;
-  return {
-    serviceCharge,
-    inscriptionCost: cost + sizeFee,
-    sizeFee: sizeFee,
-    postageFee: 550,
-    satCost: satCost,
-    total: total,
-  };
 };
 
 const updateMintStage1 = async (collectionId) => {
