@@ -140,14 +140,23 @@ const defaultInscribe = async ({inscriptionId, networkName}) => {
         return {message: `error inscribing item`, status:false, data: {ids: []}}
       }else{
         if(newInscription.data.status === false) return {message: `${newInscription.data.message}`,status: false,  data:{ids: []}}
-        n_inscriptions = newInscription.data.userResponse.data;
-        if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
-        details = n_inscriptions.map((item) => {
-            return {
-            inscription: item,
-            }; 
-        });
-        
+        if(inscription.sat !=="random"){
+          n_inscriptions = newInscription.data.userResponse.data;
+          if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
+          details = n_inscriptions.map((item) => {
+              return {
+                inscription: item,
+              }; 
+          });
+        }else{
+          n_inscriptions = newInscription.data.userResponse.data;
+          if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
+          details = n_inscriptions.inscriptions.map((item) => {
+              return {
+                inscription: item,
+              }; 
+          });
+        }
         inscription.inscription = details;
         inscription.sent = true;
         inscription.inscribed = true;
@@ -247,13 +256,23 @@ const collectionInscribe = async ({inscriptionId, networkName}) => {
         return {message: newInscription.data.userResponse.data, status:false, data:{ids: []}}
       }else{
         if(newInscription.data.status === false) return {message: `${newInscription.data.message}`, status:false, data:{ids: []}}
-        n_inscriptions = newInscription.data.userResponse.data;
-        if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`, status:false, data:{ids: []}}
-        details = n_inscriptions.map((item) => {
-            return {
-            inscription: item,
-            }; 
-        });
+        if(inscription.sat !=="random"){
+          n_inscriptions = newInscription.data.userResponse.data;
+          if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
+          details = n_inscriptions.map((item) => {
+              return {
+                inscription: item,
+              }; 
+          });
+        }else{
+          n_inscriptions = newInscription.data.userResponse.data;
+          if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
+          details = n_inscriptions.inscriptions.map((item) => {
+              return {
+                inscription: item,
+              }; 
+          });
+        }
 
         await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, {$inc: {mintCount: inscription.fileNames.length}}, {new: true});
         await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: inscription.selected}}}, { new: true }); 

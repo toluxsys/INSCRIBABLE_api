@@ -223,8 +223,6 @@ const checkWallet = async (collectionId, address) => {
       }
     }
 
-    
-
     let regex = /[^,\r\n]+/g;
     fs.readdirSync(process.cwd()+`/src/address/${collectionId}`).forEach((file) => {
       let _addr = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${file}`, { encoding: 'utf8'})
