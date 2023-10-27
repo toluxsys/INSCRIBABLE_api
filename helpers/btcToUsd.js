@@ -17,7 +17,6 @@ const btcToUsd = async (btcAmount) => {
     return usdEquivalent;
   } catch (err) {
     console.error(`Error fetching BTC to USD exchange rate: ${err}`);
-    throw err;
   }
 };
 
@@ -30,8 +29,7 @@ const usdToSat = async (usdAmount) => {
     const btcEquivalent = parseFloat((usdAmount/btcToUsdExchangeRate).toFixed(8))
     return {satoshi: parseInt(btcEquivalent * 1e8), btc: btcEquivalent}
   } catch (err) {
-    console.error(`Error fetching BTC to USD exchange rate: ${err}`);
-    throw err;
+    console.error(`Error fetching USD to BTC exchange rate: ${err}`);
   }
 };
 
