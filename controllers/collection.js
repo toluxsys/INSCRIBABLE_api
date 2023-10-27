@@ -590,16 +590,15 @@ module.exports.addMintDetails = async (req, res) => {
   try{
     const {collectionId, mintDetails} = req.body;
     let saved = await addMintDetails(collectionId, mintDetails);
-    //let mintStage = await updateMintStage(collectionId, mintDetails.details[0].name);
-    let collection = await Collection.findOne({collectionId: collectionId})
+    let collection = await Collection.findOne({id: collectionId})
     if(!collection) return res.status(200).json({status: false, message: "collection not found"})
-    collection.mintDetails.concat(saved)
+    collection.mintDetails = collection.mintDetails.concat(saved)
     await collection.save();
     if(!saved) return res.status(200).json({status: false, message: "mint details not added"});
     return res.status(200).json({status: true, message: "mint details added"});
   }catch(e){
     console.log(e.message)
-  return res.status(200).json({ status: false, message: e.message });
+    return res.status(200).json({ status: false, message: e.message });
   };
 }
 
