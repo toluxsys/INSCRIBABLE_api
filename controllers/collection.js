@@ -87,8 +87,8 @@ const getSatCost = async (type) => {
 const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType, usePoints) => {
   const serviceCharge = parseInt(await getServiceFee(collectionId));
   const sats = Math.ceil((fileSize / 4) * feeRate);
-  const cost = sats + 1500 + 550 + 1000;
-  let sizeFee = parseInt(Math.ceil(cost / 8));
+  const cost = sats + 1500 + 550 + 2000;
+  let sizeFee = parseInt(Math.ceil(cost / 7));
   let satCost = 0
   if(sizeFee < 1024){
     sizeFee = 1024
@@ -119,41 +119,40 @@ const updateMintStage1 = async (collectionId) => {
     if(!collection) {
       return "collection not found"
     }else{
-        const mintStage = await MintDetails.findOne({_id: collection.mintStage});
-      if(!mintStage) return "mint stage not found"
-        const stages = collection.mintDetails;
-        let nextStageIndex = stages.indexOf(collection.mintStage) - 1;
-        const currentTime = moment();
-        const startTime = collection.startAt;
-        const timeDifference = currentTime.diff(startTime , 'seconds');
-        const duration = mintStage.duration;
-      if(nextStageIndex < 0){
-        if(collection.startMint === false) {
-          return "mint stage updated";
-        }else{
-          if(timeDifference >= duration){
-            collection.startMint = false;
-            collection.ended = true;
-            await collection.save();
-            return "mint stage updated";
-          }else{
-            return "stage mint not complete";
-          } 
-        }
+      
+      if(collection.ended === true) return "mint ended";
+      if(collection.ended === false) return "mint is yet to start"
+      
+      const stages = collection.mintDetails;
+      if(!stages) return "mint stages not added"
+      const mintStage = await MintDetails.findOne({_id: collection.mintStage});
+      if(!mintStage) return "mint stage not set"
+       
+      const currentTime = moment();
+      const startTime = collection.startAt;
+      const timeDifference = currentTime.diff(startTime , 'seconds');
+      const duration = mintStage.duration;
+      
+      if(timeDifference >= duration){
+        collection.startMint = false;
+        collection.ended = true;
+        await collection.save();
+        return "mint stage updated";
+      } 
+        
+      let nextStageIndex = stages.indexOf(collection.mintStage) + 1;
+        
+      if(nextStageIndex+1 > stages.length){
+        collection.startMint = false;
+        collection.ended = true;
+        await collection.save()
+        return "mint stage updated";
       }else{
-        if(collection.startMint === false) {
-          return "mint stage updated";
-        }else{
-          let nextStage = stages[nextStageIndex];
-          if(timeDifference >= duration){
-            collection.mintStage = nextStage;
-            collection.startAt = new Date();
-            await collection.save();
-            return "mint stage updated";
-          }else{
-            return "stage mint not complete";
-          }
-        }
+        let nextStage = stages[nextStageIndex];
+        collection.mintStage = nextStage;
+        collection.startAt = new Date();
+        await collection.save();
+        return "mint stage updated";
       };
     }
   }catch(e){
@@ -551,7 +550,7 @@ module.exports.addCollection = async (req, res) => {
       collectionDetails: collectionDetails,
       collectionAddress: collectionAddress,
       description: description,
-      mintStage: ids[ids.length-1],
+      mintStage: ids[0],
       mintDetails:ids,
       category: category,
       featuredCid: data.cid,
@@ -591,8 +590,11 @@ module.exports.addMintDetails = async (req, res) => {
   try{
     const {collectionId, mintDetails} = req.body;
     let saved = await addMintDetails(collectionId, mintDetails);
-    let mintStage = await updateMintStage(collectionId, mintDetails.details[0].name);
-    await Collection.findOneAndUpdate({id: collectionId}, {mintStage: mintStage}, {new: true});
+    //let mintStage = await updateMintStage(collectionId, mintDetails.details[0].name);
+    let collection = await Collection.findOne({collectionId: collectionId})
+    if(!collection) return res.status(200).json({status: false, message: "collection not found"})
+    collection.mintDetails.concat(saved)
+    await collection.save();
     if(!saved) return res.status(200).json({status: false, message: "mint details not added"});
     return res.status(200).json({status: true, message: "mint details added"});
   }catch(e){
