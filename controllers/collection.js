@@ -1170,7 +1170,7 @@ module.exports.getImages = async(req, res) => {
     const {collectionId} = req.body;
     const collection = await Collection.findOne({id: collectionId});
     if(!collection) return res.status(200).json({status: false, message: "collection not found"})
-    if(collection.startMint === false || collection.ended === true) return res.status(200).json({status: true, message:"ok", userResponse: []})
+    //if(collection.startMint === false || collection.ended === true) return res.status(200).json({status: true, message:"ok", userResponse: []})
     let minted = collection.minted;
     let selectedItems = await SelectedItems.find({collectionId: collectionId});
     let items = [];
