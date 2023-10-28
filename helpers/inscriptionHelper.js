@@ -346,8 +346,10 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
         if(balance.status[0].confirmed === false){
             //let result
             if(exists === false){
-              _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{$pull: {selected: {$in: inscription.selected}}}, {new: true});
-              await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, { $inc: { mintCount: inscription.fileNames.length} }, {new: true});
+              _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
+              let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
+              address.mintCount = address.mintCount + inscription.fileNames.length
+              await address.save()
               await SelectedItems.deleteOne({_id: inscription.selected});
             }
             _txid = balance.txid[0].split(`:`)[0];
