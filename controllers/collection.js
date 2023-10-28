@@ -884,7 +884,7 @@ module.exports.selectItem = async (req, res) => {
         }    
       })
       if(s_selected.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_selected});
-      if(s_minted.length >= 1) return res.status(200).json({status: false, message: `items already inscribed`, userResponse: s_minted});
+      if(s_minted.length >= 1) return res.status(200).json({status: false, message: `items already selected`, userResponse: s_minted});
       items.forEach((newItem, index) => {
         for (const imageName of imageNames) {
           if (newItem.name === imageName) {

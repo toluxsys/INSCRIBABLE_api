@@ -7,11 +7,11 @@ const apiUrl = process.env.COINGECKO_API_URL;
 const btcToUsd = async (btcAmount) => {
   try {
     let btcToUsdExchangeRate = 0
-    let btc = await BtcPrice.find({})[0]
+    let btc = await BtcPrice.find({})
     if(!btc){
       btcToUsdExchangeRate = await updateBtcPrice()
     }else{
-      btcToUsdExchangeRate = btc.value
+      btcToUsdExchangeRate = btc[0].value
     }
     if (typeof btcToUsdExchangeRate == "string") return 0
     const usdEquivalent = parseFloat(
@@ -26,11 +26,11 @@ const btcToUsd = async (btcAmount) => {
 const usdToSat = async (usdAmount) => {
   try {
     let btcToUsdExchangeRate = 0
-    let btc = await BtcPrice.find({})[0]
+    let btc = await BtcPrice.find({})
     if(!btc){
       btcToUsdExchangeRate = await updateBtcPrice()
     }else{
-      btcToUsdExchangeRate = btc.value
+      btcToUsdExchangeRate = btc[0].value
     }
     if (typeof btcToUsdExchangeRate == "string") return {satoshi: 0, btc: 0}
     const btcEquivalent = parseFloat((usdAmount/btcToUsdExchangeRate).toFixed(8))
