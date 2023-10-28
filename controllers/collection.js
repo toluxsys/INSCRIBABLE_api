@@ -244,7 +244,7 @@ const checkWallet = async (collectionId, address) => {
         });
       }
     });
-   
+
     let res = await downloadAllAddressFile(params, collectionId);
     if(res === false) {
       return data = {
@@ -380,8 +380,7 @@ const verifyMint = async (collectionId, address, amount) => {
 
       //clean up address
       let regex = /[^,\r\n]+/g;
-      let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}.txt`, { encoding: 'utf8'})
-      console.log(_allowedAddress)
+      let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
       
       if(_allowedAddress.length === 0){
         return data = {
