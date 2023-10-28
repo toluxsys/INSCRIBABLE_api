@@ -1186,11 +1186,11 @@ const getSatCost = async (type) => {
         price = x.price
       }
     })
-    //let res = await usdToSat(price)
+    let res = await usdToSat(price)
     
     //convert usd to sat
-    //return res.satoshi
-    return 0
+    return res.satoshi
+    //return 0
   }catch(e){
     console.log(e.message)
   }

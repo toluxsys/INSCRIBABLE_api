@@ -106,8 +106,8 @@ const getSatCost = async (type) => {
     sats.forEach((x)=> {
       if (x.satType === type) price = x.price
     })
-    //return (await usdToSat(price)).satoshi
-    return 0
+    return (await usdToSat(price)).satoshi
+    //return 0
   }catch(e){
     console.log(e.message)
   }
