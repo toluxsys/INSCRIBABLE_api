@@ -35,7 +35,6 @@ const storage = multer.diskStorage({
     // remove space from filename and replace with underscore
     let id = uuidv4()
     const filename = Date.now().toString()+"-"+id +`.${file.originalname.split(".")[1]}`;
-    console.log(filename);
     cb(null, filename);
   },
 });

@@ -1,19 +1,22 @@
 const dotenv = require("dotenv").config();
 const axios = require("axios");
+const BtcPrice = require("../model/btcPrice")
 
 const apiUrl = process.env.COINGECKO_API_URL;
 
 const btcToUsd = async (btcAmount) => {
   try {
-    const response = await axios.get(
-      `${apiUrl}/simple/price?ids=bitcoin&vs_currencies=usd`
-    );
-    const btcToUsdExchangeRate = response.data.bitcoin.usd;
-
+    let btcToUsdExchangeRate = 0
+    let btc = await BtcPrice.find({})[0]
+    if(!btc){
+      btcToUsdExchangeRate = await updateBtcPrice()
+    }else{
+      btcToUsdExchangeRate = btc.value
+    }
+    if (typeof btcToUsdExchangeRate == "string") return 0
     const usdEquivalent = parseFloat(
       (btcAmount * btcToUsdExchangeRate).toFixed(2)
     );
-
     return usdEquivalent;
   } catch (err) {
     console.error(`Error fetching BTC to USD exchange rate: ${err}`);
@@ -22,10 +25,14 @@ const btcToUsd = async (btcAmount) => {
 
 const usdToSat = async (usdAmount) => {
   try {
-    const response = await axios.get(
-      `${apiUrl}/simple/price?ids=bitcoin&vs_currencies=usd`
-    );
-    const btcToUsdExchangeRate = response.data.bitcoin.usd;
+    let btcToUsdExchangeRate = 0
+    let btc = await BtcPrice.find({})[0]
+    if(!btc){
+      btcToUsdExchangeRate = await updateBtcPrice()
+    }else{
+      btcToUsdExchangeRate = btc.value
+    }
+    if (typeof btcToUsdExchangeRate == "string") return {satoshi: 0, btc: 0}
     const btcEquivalent = parseFloat((usdAmount/btcToUsdExchangeRate).toFixed(8))
     return {satoshi: parseInt(btcEquivalent * 1e8), btc: btcEquivalent}
   } catch (err) {
@@ -33,4 +40,26 @@ const usdToSat = async (usdAmount) => {
   }
 };
 
-module.exports = { btcToUsd , usdToSat};
+const updateBtcPrice = async () => {
+  try{
+    let response = await axios.get(
+      `${apiUrl}/simple/price?ids=bitcoin&vs_currencies=usd`
+    );
+    let value = response.data.bitcoin.usd;
+    if(value == undefined) return "value is undefined"
+    let btc = await BtcPrice.find({})
+    if(btc.length === 0){
+      let saved = new BtcPrice({
+        value: value
+      })
+      await saved.save()
+    }else{
+      await BtcPrice.findOneAndUpdate({_id: btc[0]._id}, {$set: {value: value}}, {new: true});
+    }
+    return value;
+  }catch(e){
+    console.log(e.message)
+  }
+}
+
+module.exports = { btcToUsd , usdToSat, updateBtcPrice};

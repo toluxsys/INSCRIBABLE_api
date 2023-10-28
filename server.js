@@ -9,6 +9,8 @@ const uniInscriptionRoute = require("./routes/uniInscriptionRoute.js")
 const rewardRoute = require("./routes/rewardRoute.js")
 const RabbitMqClient = require("./helpers/queue/rabbitMqClient.js");
 const RabbitMqConsumer = require("./helpers/queue/rabbitMqConsumer.js");
+const {updateBtcPrice} = require("./helpers/btcToUsd.js")
+const interval = 120000
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -31,13 +33,24 @@ mongoose
     await RabbitMqClient.initilize()
     await RabbitMqConsumer.initilize()
   })
-  .catch(console.error);
+.catch(console.error);
 
 
 app.use(`/api/inscript`, inscriptRoute);
 app.use(`/api/collection`, collectionRoute);
 app.use(`/api/explore`, explorerRoute);
 app.use(`/api/reward`, rewardRoute);
+
+consumeMessage1 = async  () => {
+  timerId = setTimeout(async function consumeMessage1() {
+    await updateBtcPrice()
+    timerId = setTimeout(consumeMessage1, interval);
+  }, interval);
+}
+
+consumeMessage1().then().catch((e)=> {
+  console.log("Price update error")
+})
 
 //endpoint for universal api route
 app.use(`/api`, uniInscriptionRoute);
