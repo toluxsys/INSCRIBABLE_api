@@ -34,7 +34,7 @@ class Consumer {
     initilize = async () => {
         try{
             if(this.isInitilized === false){
-                this.conn = await ampq.connect(`amqp://localhost:5672`);
+                this.conn = await ampq.connect(options);
                 this.channel = await this.conn.createChannel();
             }else{
                 return;
