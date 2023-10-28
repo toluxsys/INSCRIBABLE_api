@@ -107,7 +107,6 @@ const getSatCost = async (type) => {
       if (x.satType === type) price = x.price
     })
     return (await usdToSat(price)).satoshi
-    //return 0
   }catch(e){
     console.log(e.message)
   }

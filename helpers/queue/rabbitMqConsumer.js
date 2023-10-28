@@ -179,8 +179,8 @@ class Consumer {
                         let res = await inscribe({inscriptionId: content.orderId, networkName: content.networkName})
                         if(!res) {
                             this.channel.reject(msg, true, false);
-                            //await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: "inscription did not complete"})))
-                            //this.channel.ack(msg)
+                        }else if(res.message == "Request failed with status code 404"){
+                            this.channel.reject(msg, true, false);  
                         }else if(res.message !== "inscription complete"){
                             await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
                             this.channel.ack(msg)

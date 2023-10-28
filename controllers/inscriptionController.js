@@ -1187,10 +1187,8 @@ const getSatCost = async (type) => {
       }
     })
     let res = await usdToSat(price)
-    
     //convert usd to sat
     return res.satoshi
-    //return 0
   }catch(e){
     console.log(e.message)
   }
