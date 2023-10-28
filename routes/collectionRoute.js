@@ -90,6 +90,7 @@ router.get("/getFeatured", controller.getFeaturedCollections);
 router.get("/sats", controller.getAvailableSat);
 router.post("/updateSatCost", controller.updateSatCost);
 router.get("/getSatCost", controller.getSatCost);
+router.get("/inscribedFiles/:collectionId",controller.getInscribedImages )
 
 
 module.exports = router;

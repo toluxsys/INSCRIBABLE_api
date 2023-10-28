@@ -28,18 +28,47 @@ const MintDetails = require("../model/mintDetails");
 const {inscribe} = require("../helpers/inscriptionHelper")
 const ObjectId = require('mongoose').Types.ObjectId; 
 
-const getLinks = async (cid, totalSupply) => {
-  const client = await import("ipfs-http-client");
+
+const writeImageFiles = (path, data) => {
   try {
+      if(!existsSync(process.cwd()+`/src/imageLinks/`)) {
+      fs.mkdirSync(
+        process.cwd()+`/src/imageLinks/`,
+        { recursive: true },
+        (err) => {
+          console.log(err);
+        }
+      );
+    }
+
+    fs.writeFileSync(path, data, (err) => {
+      console.log(err.message);
+    })
+  } catch (e) {
+    console.log(e.message);
+  }
+}
+
+const getLinks = async (cid, totalSupply) => {
+  try {
+    const client = await import("ipfs-http-client");
     let links = [];
     const url = "https://dweb.link/api/v0";
     const ipfs = client.create({ url });
 
-    for await (const link of ipfs.ls(cid)) {
-      links.push(link);
+    if(!existsSync(process.cwd()+`/src/imageLinks/${cid}.json`)) {
+      for await (const link of ipfs.ls(cid)) {
+        links.push(link);
+      }
+      if(links.length === totalSupply) return links
+      let data = links.splice(links.length - totalSupply, totalSupply);
+      let filePath = `./src/imageLinks/${cid}.json`
+      writeImageFiles(filePath, JSON.stringify(data))
+      return data
+    }else{
+      let data = JSON.parse(fs.readFileSync(process.cwd()+`/src/imageLinks/${cid}.json`))
+      return data;
     }
-    if(links.length === totalSupply) return links
-    return links.splice(links.length - totalSupply, totalSupply);
   } catch (e) {
     console.log(e.message);
   }
@@ -52,7 +81,6 @@ const getServiceFee = async (collectionId) => {
     return serviceFee.serviceFee.toString();
   }catch(e){
     console.log(e.message);
-    throw new Error(e.message);
   }
 }
 
@@ -336,7 +364,7 @@ const verifyMint = async (collectionId, address, amount) => {
         }
     }else{
       //download address list
-      if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`)){
+      if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${stage_name}.txt`)){
         let d_address = await downloadAddressFile(stage_name, collectionId);
         if(!d_address) {
           return data = {
@@ -353,7 +381,8 @@ const verifyMint = async (collectionId, address, amount) => {
 
       //clean up address
       let regex = /[^,\r\n]+/g;
-      let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}`, { encoding: 'utf8'})
+      let _allowedAddress = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${stage_name}.txt`, { encoding: 'utf8'})
+      console.log(_allowedAddress)
       
       if(_allowedAddress.length === 0){
         return data = {
@@ -458,7 +487,6 @@ const updateMintStage = async (collectionId, stage) => {
     return stageId
   }catch(e){
     console.log(e.message);
-    throw new Error(e.message);
   }
 }
 
@@ -1462,7 +1490,7 @@ module.exports.getCollectionInscription = async (req, res) => {
 
 module.exports.getInscribedImages = async (req, res) => {
   try{
-    const {collectionId} = req.body;
+    const collectionId = req.params.collectionId;
     const collection = await Collection.findOne({id: collectionId});
     return res.status(200).json({status: true, message: "ok", userResponse: collection.minted});
   }catch(e){

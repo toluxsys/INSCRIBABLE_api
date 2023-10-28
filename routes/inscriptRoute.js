@@ -2,7 +2,6 @@ const express = require("express");
 const controller = require("../controllers/inscriptionController");
 const path = require("path");
 const router = express.Router();
-//const fileUpload = require("express-fileupload");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const basicAuth = require('express-basic-auth')
@@ -34,14 +33,16 @@ const storage = multer.diskStorage({
   },
   filename: async function (req, file, cb) {
     // remove space from filename and replace with underscore
-    const filename = Date.now().toString()+"-"+file.originalname.replace(/\s/g, "_");
+    let id = uuidv4()
+    const filename = Date.now().toString()+"-"+id +`.${file.originalname.split(".")[1]}`;
+    console.log(filename);
     cb(null, filename);
   },
 });
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 60 * 1024 * 1024 }, // 60MB
+  limits: { fileSize: 450 * 1024 }, // 450kb
   // fileFilter: (req, file, cb) => {
   //       if (file.mimetype == "audio/vnd.wav" || file.mimetype == "audio/mp3") {
   //           console.log(file.buffer)

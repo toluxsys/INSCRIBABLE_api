@@ -10,8 +10,6 @@ const rewardRoute = require("./routes/rewardRoute.js")
 const RabbitMqClient = require("./helpers/queue/rabbitMqClient.js");
 const RabbitMqConsumer = require("./helpers/queue/rabbitMqConsumer.js");
 
-const {checkPayment} = require("./helpers/inscriptionHelper.js")
-
 const app = express();
 const port = process.env.PORT || 5000;
 const host = "0.0.0.0";
@@ -34,6 +32,7 @@ mongoose
     await RabbitMqConsumer.initilize()
   })
   .catch(console.error);
+
 
 app.use(`/api/inscript`, inscriptRoute);
 app.use(`/api/collection`, collectionRoute);
