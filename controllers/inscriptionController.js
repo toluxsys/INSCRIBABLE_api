@@ -622,11 +622,9 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
     }
 
     if(files.length >= 100) return res.status(200).json({status: false, message: `file Upload Above Limit`});
-    files.forEach((file) => {
-      if (!imageMimetype.includes(file.mimetype) && optimize === `true`){
-        return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
-      }
-    })
+    // files.forEach((file) => {
+    //   if (!imageMimetype.includes(file.mimetype) && optimize === `true`) return res.status(200).json({status:false, message: `cannot optimaize ${file.mimetype}`});
+    // })
     const data = await getBulkInscriptionCost(files, feeRate, optimize, hasReward);
     
     const details = {
@@ -646,7 +644,7 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
     });
   } catch (e) {
     console.log(e);
-    return res.status(400).json({ status: false, message: e.message });
+    return res.status(200).json({ status: false, message: e.message });
   }
 };
 

@@ -43,7 +43,7 @@ const upload = multer({
   storage: storage,
 }).array("unCompImage", 20);
 
-router.post("/upload", upload, controller.upload);
+router.post("/upload", upload,controller.upload);
 router.post("/upload/multiple",upload, controller.uploadMultiple);
 router.post("/inscribe", controller.inscribe1);
 router.post("/sendInscription", controller.sendInscription);
