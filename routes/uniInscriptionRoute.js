@@ -24,5 +24,6 @@ router.post("/inscribe", controller.inscribeItem);
 router.post("/checkPayment", controller.verifyPayment);
 router.post("/address_orders", controller.getAllAddressOrder)
 router.post("/getOrder", controller.getOrder);
+router.post ("/getUserOrder", controller.getReceiverOrder)
 
 module.exports = router;

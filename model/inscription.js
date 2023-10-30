@@ -32,6 +32,9 @@ const inscriptionSchema = new mongoose.Schema(
     receiver: {
       type: String,
     },
+    addedToQueue: {
+      type: Boolean
+    },
     stage: {
       type: String,
     },

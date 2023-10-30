@@ -304,6 +304,8 @@ const verifyMint = async (collectionId, address, amount) => {
         message: "No mint stage set"
     };
     let c_address;
+    
+    
     let stage_name = `addr-`+collectionId+`-`+mintStage.name+`.txt`;
     if(mintStage.name === "public" || mintStage.name === "Public"){ 
       let s_address = await Address.findOne({mintStage: collection.mintStage, address: address});
@@ -417,19 +419,12 @@ const verifyMint = async (collectionId, address, amount) => {
         }else{
           c_address = s_address;   
         }
-        let selected = await SelectedItems.find({address: c_address.address, collectionId: c_address.collectionId})
+        let selected = await SelectedItems.find({address: c_address.address, collectionId: collectionId})
         let itemCount = 0
-        selected.forEach(x => itemCount = itemCount + x.items.length)
-        
-        if (itemCount >= mintStage.mintLimit){
-          return data = {
-            valid: false,
-            price: mintStage.price,
-            mintCount: c_address.mintCount,
-            message: "complete previous order or wait fifteen(15) min for item to be made available"
-          }
-        }
-        
+        selected.forEach(x => {
+          itemCount = itemCount + x.items.length
+        })
+
         if (c_address.mintCount >= mintStage.mintLimit){
           return data = {
             valid: false,
@@ -439,6 +434,15 @@ const verifyMint = async (collectionId, address, amount) => {
           }
         }
         
+        if (itemCount >= mintStage.mintLimit){
+          return data = {
+            valid: false,
+            price: mintStage.price,
+            mintCount: c_address.mintCount,
+            message: "complete previous order or wait fifteen(15) min for item to be made available"
+          }
+        }
+                
         if (amount > mintStage.mintLimit) {
           return data = {
             valid: false,

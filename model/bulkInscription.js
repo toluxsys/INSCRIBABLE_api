@@ -34,6 +34,9 @@ const bulkInscription = new mongoose.Schema(
     stage: {
       type: String,
     },
+    addedToQueue: {
+      type: Boolean
+    },
     inscription: { type: Array },
     error: {
       type: Boolean,
