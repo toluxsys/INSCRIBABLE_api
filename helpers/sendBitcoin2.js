@@ -155,7 +155,9 @@ const getWalletBalance = async (address, network) => {
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
-      status.push(element.status);
+      if(element.status !== undefined){
+        status.push(element.status);
+      }
     }
 
     return { totalAmountAvailable, utxos, status };

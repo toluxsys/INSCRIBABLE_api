@@ -2,6 +2,7 @@ const {checkPayment, inscribe} = require("../helpers/inscriptionHelper")
 const Inscription = require("../model/inscription");
 const BulkInscription = require("../model/bulkInscription");
 const { getType } = require("../helpers/getType");
+const {getUserOrder} = require("../helpers/mintAnalysis")
 
 
 module.exports.verifyPayment = async (req, res) => {
@@ -111,6 +112,17 @@ module.exports.getOrder = async (req, res) => {
             }
         }
         return res.status(200).json({status: true, message: "ok", data: data})
+    }catch(e){
+        return res.status(200).json({status:false, message: e.message})
+    }
+}
+
+
+module.exports.getReceiverOrder = async (req, res) => {
+    try{
+        const {collectionId, receiverAddress} = req.body
+        let orders = await getUserOrder(collectionId, receiverAddress)
+        return res.status(200).json({status: true, message: "ok", data: orders})
     }catch(e){
         return res.status(200).json({status:false, message: e.message})
     }

@@ -46,7 +46,7 @@ class RabbitMqClient {
         return this.instance;
     }
 
-    addToQueue = async (data, routingKey) => {
+    addToQueue = async ({data, routingKey, options}) => {
         try{
             if(!this.isInitilized){
                 await this.initilize()

@@ -8,6 +8,7 @@ const { getType } = require("../getType");
 const { MongoClient } = require('mongodb');
 const dotenv = require("dotenv").config();
 const interval = 3000
+let maxRetries = 4
 
 
 const options = {
@@ -75,64 +76,6 @@ class Consumer {
             console.log(e.message)
         }
     };
-    
-    // consumeMessage = async (queueName, bindingKey) => {
-    //     try{
-    //         if(!validBindingKeys.includes(bindingKey)){
-    //             return {message: "invalid bindingKey key", status: false}
-    //         }
-
-    //         let exchangeName = process.env.EXCHANGE_NAME || "inscriptions" 
-
-    //         //check that exchange exists or create exchange
-    //         await this.channel.assertExchange(exchangeName);
-
-    //         //check that queue exists or create queue
-    //         let q = await this.channel.assertQueue(queueName)
-
-    //         //bind queue and exchange
-    //         await this.channel.bindQueue(q.queue, exchangeName, bindingKey)
-    //         await this.channel.prefetch(1)
-            
-    //         await this.channel.consume(q.queue, async (msg) => {
-    //             let content = JSON.parse(msg.content.toString()) 
-    //             let status = await this.getStatus(content.txid);
-    //             console.log("[RECEIVED CLIENT]","orderId:",content.orderId, "paymentStatus:", status)
-    //             if(status === true){
-    //                 const type = getType(content.orderId);
-    //                 let inscription;
-    //                 if (type === `single`) {
-    //                   inscription = await Inscription.findOne({ id: content.orderId });
-    //                 } else if (type === `bulk`) {
-    //                   inscription = await BulkInscription.findOne({ id: content.orderId });
-    //                 }else{
-    //                     inscription = ""
-    //                 }
-
-    //                 if(inscription === ""){
-    //                     this.channel.ack(msg)
-    //                 }else if(inscription.inscribed === true) {
-    //                     this.channel.ack(msg)
-    //                 }else{
-    //                     let res = await inscribe({inscriptionId: content.orderId, networkName: content.networkName})
-    //                     if(!res) {
-    //                         await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: "inscription did not complete"})))
-    //                         this.channel.ack(msg)
-    //                     }else if(res.message !== "inscription complete"){
-    //                         await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
-    //                         this.channel.ack(msg)
-    //                     }else{
-    //                         this.channel.ack(msg)
-    //                     }
-    //                 }
-    //             }else{
-    //                 this.channel.reject(msg, true, false);
-    //             }
-    //         })
-    //     }catch(e){
-    //         console.log(e)
-    //     }
-    // }
 
     consumeMessage = async (queueName, bindingKey) => {
         try{
@@ -164,9 +107,9 @@ class Consumer {
                     const type = getType(content.orderId);
                     let inscription;
                     if (type === `single`) {
-                      inscription = await Inscription.findOne({ id: content.orderId });
+                        inscription = await Inscription.findOne({ id: content.orderId });
                     } else if (type === `bulk`) {
-                      inscription = await BulkInscription.findOne({ id: content.orderId });
+                        inscription = await BulkInscription.findOne({ id: content.orderId });
                     }else{
                         inscription = ""
                     }
@@ -177,19 +120,16 @@ class Consumer {
                         this.channel.ack(msg)
                     }else{
                         let res = await inscribe({inscriptionId: content.orderId, networkName: content.networkName})
-                        if(!res) {
-                            this.channel.reject(msg, true, false);
-                        }else if(res.message == "Request failed with status code 404"){
-                            this.channel.reject(msg, true, false);  
-                        }else if(res.message !== "inscription complete"){
-                            await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
+                        if(res == undefined){
                             this.channel.ack(msg)
+                            await this.channel.publish(exchangeName, "paymentReceived", Buffer.from(JSON.stringify(content)))  
+                        }else if(res.message !== "inscription complete"){
+                            this.channel.ack(msg)
+                            await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
                         }else{
                             this.channel.ack(msg)
                         }
                     }
-                }else{
-                    this.channel.reject(msg, true, false);
                 }
             }
         }catch(e){
