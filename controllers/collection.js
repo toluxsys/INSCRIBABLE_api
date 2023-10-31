@@ -569,7 +569,7 @@ module.exports.addCollection = async (req, res) => {
     files.map(x=> {
       if(x.fieldname === "banner"){
         bannerName = x.filename
-      }else{
+      }else if(x.fieldname === "featured"){
         featuredName = x.filename
       }
     })
@@ -594,7 +594,7 @@ module.exports.addCollection = async (req, res) => {
       startAt: startAt,
       banner: process.env.IPFS_IMAGE_URL + data.cid + `/${bannerName}`,
       featuredImage:
-        process.env.IPFS_IMAGE_URL + data.cid + `/${bannerName}`,
+        process.env.IPFS_IMAGE_URL + data.cid + `/${featuredName}`,
     });
     await collection.save();
     return res
