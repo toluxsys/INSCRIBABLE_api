@@ -55,9 +55,6 @@ const collection = new mongoose.Schema(
     category: {
       type: String,
     },
-    mintCount: {
-      type: Number,
-    },
     itemCid: {
       type: String
     },
@@ -75,6 +72,10 @@ const collection = new mongoose.Schema(
     },
     startAt: {
       type: Date,
+    },
+    mintCount: {
+      type: Number,
+      default: 0
     },
     ended: {
       type: Boolean,

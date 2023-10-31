@@ -1430,6 +1430,7 @@ module.exports.getCollection = async (req, res) => {
     });
 
     let mintedCount = collection.minted.length;
+  
     if(collection.ended === true && mintedCount === 0){
       mintedCount = collection.collectionDetails.totalSupply
     }
@@ -1871,4 +1872,20 @@ module.exports.getSatCost = async (req, res) => {
   }
 }
 
-
+module.exports.increaseCollectionCount = async (req, res) => {
+  try{
+    let {collectionId, count} = req.body
+    let collection = await Collection.findOne({id: collectionId})
+    if(!collection) return res.status(200).json({status: false, message: "collection not found"})
+    let increaseCount = []
+    for(let i = 1; i <= count; i++){
+      let img = `${i}.png`
+      increaseCount.push(img)
+    }
+    collection.minted = collection.minted.concat(increaseCount)
+    await collection.save()
+    return res.status(200).json({status: true, message: "count increased", data: collection.minted.length})
+  }catch(e){
+    console.log(e.message)
+  }
+}
