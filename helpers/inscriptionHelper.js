@@ -159,7 +159,7 @@ const defaultInscribe = async ({inscriptionId, networkName}) => {
           await inscription.save();
         }else{
           n_inscriptions = newInscription.data.userResponse.data;
-          if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
+          if(newInscription.data.message !== "ok") return {message: `error inscribing item`,status: false,  data:{ids: []}}
           details = n_inscriptions.inscriptions.map((item) => {
               return {
                 inscription: item,
