@@ -61,10 +61,10 @@ const getLinks = async (cid, totalSupply) => {
         links.push(link);
       }
       if(links.length === totalSupply) return links
-      let data = links.splice(links.length - totalSupply, totalSupply);
+      //let data = links.splice(links.length - totalSupply, totalSupply);
       let filePath = `./src/imageLinks/${cid}.json`
-      writeImageFiles(filePath, JSON.stringify(data))
-      return data
+      writeImageFiles(filePath, JSON.stringify(links))
+      return links
     }else{
       let data = JSON.parse(fs.readFileSync(process.cwd()+`/src/imageLinks/${cid}.json`))
       return data;
