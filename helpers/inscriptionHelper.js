@@ -261,6 +261,7 @@ const collectionInscribe = async ({inscriptionId, networkName}) => {
           imageNames: imageNames,
           changeAddress: changeAddress
         });
+        console.log(newInscription)
       }
 
       if(newInscription.data.status == false){
@@ -285,11 +286,11 @@ const collectionInscribe = async ({inscriptionId, networkName}) => {
           await inscription.save();
         }else{
           n_inscriptions = newInscription.data.userResponse.data;
-          if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
+          if(newInscription.data.message !== "ok") return {message: `error inscribing item`,status: false,  data:{ids: []}}
           details = n_inscriptions.inscriptions.map((item) => {
-            return {
-              inscription: item,
-            }; 
+              return {
+                inscription: item,
+              }; 
           });
 
           inscription.error = false
@@ -310,6 +311,7 @@ const collectionInscribe = async ({inscriptionId, networkName}) => {
         };
       }
     } catch(e) {
+        //if(e.message === ) 
         console.log(e.message);
     }
 };

@@ -123,8 +123,6 @@ class Consumer {
                         if(res == undefined){
                             this.channel.ack(msg)
                             await this.channel.publish(exchangeName, "paymentReceived", Buffer.from(JSON.stringify(content)))
-                        }else if (res.message !== "inscription complete"){
-
                         }else if(res.message !== "inscription complete"){
                             this.channel.ack(msg)
                             await this.channel.publish(exchangeName, "error", Buffer.from(JSON.stringify({id: content.orderId, message: res.message})))
