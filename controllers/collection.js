@@ -60,7 +60,7 @@ const getLinks = async (cid, totalSupply) => {
       for await (const link of ipfs.ls(cid)) {
         links.push(link);
       }
-      if(links.length === totalSupply) return links
+      //if(links.length === totalSupply) return links
       //let data = links.splice(links.length - totalSupply, totalSupply);
       let filePath = `./src/imageLinks/${cid}.json`
       writeImageFiles(filePath, JSON.stringify(links))

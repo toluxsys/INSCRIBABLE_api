@@ -142,37 +142,21 @@ const defaultInscribe = async ({inscriptionId, networkName}) => {
       }else if (typeof newInscription.data.userResponse.data === 'string') {
         return {message: `error inscribing item`, status:false, data: {ids: []}}
       }else{
-        if(inscription.sat !=="random"){
-          n_inscriptions = newInscription.data.userResponse.data;
-          if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
-          details = n_inscriptions.map((item) => {
-              return {
-                inscription: item,
-              }; 
-          });
-          inscription.inscription = details;
-          inscription.sent = true;
-          inscription.inscribed = true;
-          inscription.error = false
-          inscription.errorMessage =  ""
-          inscription.stage = "stage 3";
-          await inscription.save();
-        }else{
-          n_inscriptions = newInscription.data.userResponse.data;
-          if(newInscription.data.message !== "ok") return {message: `error inscribing item`,status: false,  data:{ids: []}}
-          details = n_inscriptions.inscriptions.map((item) => {
-              return {
-                inscription: item,
-              }; 
-          });
-          inscription.inscription = details;
-          inscription.sent = true;
-          inscription.inscribed = true;
-          inscription.error = false
-          inscription.errorMessage =  ""
-          inscription.stage = "stage 3";
-          await inscription.save();
-        } 
+     
+        n_inscriptions = newInscription.data.userResponse.data;
+        if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
+        details = n_inscriptions.map((item) => {
+            return {
+              inscription: item,
+            }; 
+        });
+        inscription.inscription = details;
+        inscription.sent = true;
+        inscription.inscribed = true;
+        inscription.error = false
+        inscription.errorMessage =  ""
+        inscription.stage = "stage 3";
+        await inscription.save();
         return {
             message: `inscription complete`,
             status: true,  
@@ -269,39 +253,22 @@ const collectionInscribe = async ({inscriptionId, networkName}) => {
       }else if (typeof newInscription.data.userResponse.data === 'string') {
         return {message: newInscription.data.userResponse.data, status:false, data:{ids: []}}
       }else{
-        if(inscription.sat !=="random"){
-          n_inscriptions = newInscription.data.userResponse.data;
-          if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
-          details = n_inscriptions.map((item) => {
-            return {
-              inscription: item,
-            }; 
-          });
-          inscription.error = false
-          inscription.errorMessage =  ""
-          inscription.inscription = details;
-          inscription.sent = true;
-          inscription.inscribed = true;
-          inscription.stage = "stage 3";
-          await inscription.save();
-        }else{
-          n_inscriptions = newInscription.data.userResponse.data;
-          if(newInscription.data.message !== "ok") return {message: `error inscribing item`,status: false,  data:{ids: []}}
-          details = n_inscriptions.inscriptions.map((item) => {
-              return {
-                inscription: item,
-              }; 
-          });
-
-          inscription.error = false
-          inscription.errorMessage =  ""
-          inscription.inscription = details;
-          inscription.sent = true;
-          inscription.inscribed = true;
-          inscription.stage = "stage 3";
-          await inscription.save();
-        }
-
+        
+        n_inscriptions = newInscription.data.userResponse.data;
+        if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
+        details = n_inscriptions.map((item) => {
+          return {
+            inscription: item,
+          }; 
+        });
+        inscription.error = false
+        inscription.errorMessage =  ""
+        inscription.inscription = details;
+        inscription.sent = true;
+        inscription.inscribed = true;
+        inscription.stage = "stage 3";
+        await inscription.save();
+        
         await Address.findOneAndUpdate({mintStage: collection.mintStage, address: inscription.receiver}, {$inc: {mintCount: inscription.fileNames.length}}, {new: true});
         await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {inscriptions: {$each: details, $position: -1}}}, {$pull: {selected: {$in: inscription.selected}}}, { new: true }); 
         return {
