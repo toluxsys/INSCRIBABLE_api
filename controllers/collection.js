@@ -60,11 +60,11 @@ const getLinks = async (cid, totalSupply) => {
       for await (const link of ipfs.ls(cid)) {
         links.push(link);
       }
-      if(links.length === totalSupply) return links
-      let data = links.splice(links.length - totalSupply, totalSupply);
+      //if(links.length === totalSupply) return links
+      //let data = links.splice(links.length - totalSupply, totalSupply);
       let filePath = `./src/imageLinks/${cid}.json`
-      writeImageFiles(filePath, JSON.stringify(data))
-      return data
+      writeImageFiles(filePath, JSON.stringify(links))
+      return links
     }else{
       let data = JSON.parse(fs.readFileSync(process.cwd()+`/src/imageLinks/${cid}.json`))
       return data;
@@ -116,7 +116,7 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType,
   try{
     const serviceCharge = parseInt(await getServiceFee(collectionId));
     const sats = Math.ceil((fileSize / 4) * feeRate);
-    const cost = sats + 1500 + 550 + 4000;
+    const cost = sats + 1500 + 550 + 3000;
     let sizeFee = parseInt(Math.ceil(cost / 6));
     let satCost = 0
     if(sizeFee < 1024){
