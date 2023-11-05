@@ -145,11 +145,25 @@ const defaultInscribe = async ({inscriptionId, networkName}) => {
      
         n_inscriptions = newInscription.data.userResponse.data;
         if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
-        details = n_inscriptions.map((item) => {
+        if(inscription.sat !== "random"){
+          details = n_inscriptions.map((item) => {
             return {
               inscription: item,
             }; 
-        });
+          });
+        }else{
+          let ids = []
+          for(let i = 0; i< n_inscriptions.length; i++){
+            let insc_arr = n_inscriptions[i]
+            insc_arr.forEach(x => ids.push(x))
+          }
+
+          details = ids.map((item) => {
+            return {
+              inscription: item,
+            }; 
+          });
+        }
         inscription.inscription = details;
         inscription.sent = true;
         inscription.inscribed = true;
@@ -256,11 +270,26 @@ const collectionInscribe = async ({inscriptionId, networkName}) => {
         
         n_inscriptions = newInscription.data.userResponse.data;
         if(newInscription.data.userResponse.data.length === 0) return {message: `error inscribing item`,status: false,  data:{ids: []}}
-        details = n_inscriptions.map((item) => {
-          return {
-            inscription: item,
-          }; 
-        });
+        if(inscription.sat !== "random"){
+          details = n_inscriptions.map((item) => {
+            return {
+              inscription: item,
+            }; 
+          });
+        }else{
+          let ids = []
+          for(let i = 0; i< n_inscriptions.length; i++){
+            let insc_arr = n_inscriptions[i]
+            insc_arr.forEach(x => ids.push(x))
+          }
+
+          details = ids.map((item) => {
+            return {
+              inscription: item,
+            }; 
+          });
+        }
+
         inscription.error = false
         inscription.errorMessage =  ""
         inscription.inscription = details;
