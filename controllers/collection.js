@@ -1415,7 +1415,6 @@ module.exports.getCollection = async (req, res) => {
           stage: item.name,
           price: price,
           priceInSat: item.price,
-          mintLimit: item.mintLimit,
           duration: item.duration,
         })
       }else{
@@ -1423,7 +1422,6 @@ module.exports.getCollection = async (req, res) => {
           stage: item.name,
           price: item.price/1e8,
           priceInSat: item.price,
-          mintLimit: item.mintLimit,
           duration: item.duration,
         })
       }
