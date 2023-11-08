@@ -1352,7 +1352,7 @@ module.exports.getCollections = async (req, res) => {
         description: collection[0].description,
         price: price,
         category: collection[0].category,
-        mintedCount: collection[0].inscriptions.length,
+        mintedCount: collection[0].minted.length,
         bannerUrl: collection[0].banner,
         featuredUrl: collection[0].featuredImage,
         website: collection[0].collectionDetails.website,
@@ -1438,11 +1438,21 @@ module.exports.getCollection = async (req, res) => {
     let allSat = await getSats()
     let available = allSat.map(x => x.satType)
     let collectionSat = []
-    if(collection.specialSat === "random" || !available.includes(collection.specialSat)){
+    if(collection.specialSat === "random"){
       collectionSat = await _getAvailableSat()
-    }else if(available.includes(collection.specialSat)){
-      let approvedSat = await SpecialSat.findOne({satType: collection.specialSat})
-      collectionSat.push({satType: collection.specialSat, description: approvedSat.description})
+    }else{
+      let allCollectionSat = collection.specialSat.split(" ")
+      allCollectionSat = allCollectionSat.map((x) => {
+        if(x !== " "){
+          if(available.includes(x)){
+            return x
+          }
+        }
+      })
+      let approvedSat = await SpecialSat.find({satType: {$in: allCollectionSat}})
+      approvedSat.forEach(x => {
+        collectionSat.push({satType: x.satType, description: x.description})
+      })
     }
     let collectionData = {
         collectionId: collection.id,
