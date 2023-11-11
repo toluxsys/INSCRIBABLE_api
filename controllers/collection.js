@@ -1897,3 +1897,187 @@ module.exports.increaseCollectionCount = async (req, res) => {
     console.log(e.message)
   }
 }
+
+
+
+
+
+
+module.exports.mintItem = async (req, res) => {
+  try {
+    const { collectionId, receiveAddress, feeRate, mintCount, networkName, oldSats, usePoints } = req.body;
+    const collection = await Collection.findOne({ id: collectionId });
+    const mintStage = collection.mintStage;
+    const cid = collection.itemCid;
+    let inscription;
+    let inscriptionId;
+    let userResponse;
+    let paymentAddress;
+    let cost;
+    let walletKey;
+    let ORD_API_URL;
+    if(collection.ended === true) return res.status(200).json({status: false, message: "collection has ended"});
+    if(collection.minted.length === collection.collectionDetails.totalSupply) return res.status(200).json({status: false, message: "collection has been minted out"});
+    if(collection.startMint === false) return res.status(200).json({status: false, message: "Mint has not started"});
+    if(collection.paused === true) return res.status(200).json({status: false, message: "Mint has been paused"});
+    if(!receiveAddress) return res.status(200).json({status: false, message: "Receive Address is required"});
+    if(!mintStage) return res.status(200).json({status: false, message: "mint stage not set"});
+    if(verifyAddress(receiveAddress, networkName) === false) return res.status(200).json({status: false, message: "Invalid address"});
+    let verified = await verifyMint(collectionId, receiveAddress, mintCount);
+    if(verified.message === "no valid address for mint stage") return res.status(200).json({status: false, message: "no valid address for mint stage"});
+    if(verified.message === "complete pending order(s)")return res.status(200).json({status: false, message: "complete pending order(s)", userResponse: {}, pendingOrders: true})
+    if(!verified.valid) return res.status(200).json({status: false, message: verified.message});
+    let mintDetails = await MintDetails.findOne({_id: mintStage});
+    const price = mintDetails.price;
+
+    let hasReward
+    let userReward = await UserReward.findOne({address: receiveAddress})
+    if(!userReward) {
+      hasReward = false
+    }else {
+      if(usePoints !== undefined && usePoints === true){
+        if(userReward.totalPoints < inscriptionPoint) {
+          return res.status(200).json({status: false, message: "user total scribe points is less than required point"})
+        }else{
+          hasReward = true
+        }
+      }else{
+        hasReward = false
+      }
+    }
+
+    if (networkName === "mainnet")
+    ORD_API_URL = process.env.ORD_MAINNET_API_URL;
+    if (networkName === "testnet")
+    ORD_API_URL = process.env.ORD_TESTNET_API_URL;
+
+    if (mintCount > 1) {
+      inscriptionId = `b${uuidv4()}`;
+    } else {
+      inscriptionId = `s${uuidv4()}`;
+    }
+
+    cost = await inscriptionPrice(
+      feeRate,
+      collection.largestFile,
+      price,
+      collectionId,
+      oldSats,
+      hasReward
+    );
+
+    if (mintCount > 1) {
+      const total = cost.total * mintCount;
+      const cardinals = cost.inscriptionCost * mintCount;
+
+      walletKey = await addWalletToOrd(inscriptionId, networkName);
+      const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+      const r_data = {
+        collectionName: inscriptionId,
+        addrCount: 1,
+        networkName: networkName,
+      };
+      const result = await axios.post(url, r_data);
+      if (result.data.message !== "ok") {
+        return res.status(200).json({status: false, message: result.data.message});
+      }
+      paymentAddress = result.data.userResponse.data[0];
+      inscription = new BulkInscription({
+        id: inscriptionId,
+        flag: networkName,
+        inscribed: false,
+        feeRate: feeRate,
+        collectionId: collectionId,
+        inscriptionDetails: {
+          payAddress: paymentAddress,
+          cid: cid,
+        },
+        walletDetails: {
+          keyPhrase: walletKey,
+          walletName: inscriptionId,
+        },
+        cost: { costPerInscription: cost, total: total, cardinal: cardinals },
+        mintCount: mintCount,
+        feeRate: feeRate,
+        receiver: receiveAddress,
+        stage: "stage 1"
+      });
+
+      await inscription.save();
+    } else {
+        if (oldSats !== "random"){
+          const url = process.env.ORD_SAT_API_URL + `/ord/create/getMultipleReceiveAddr`;
+          const r_data = {
+            collectionName: "oldSatsWallet",
+            addrCount: 1,
+            networkName: networkName,
+          };
+          const result = await axios.post(url, r_data);
+          if (result.data.message !== "ok") {
+            return res.status(200).json({status: false, message: result.data.message});
+          }
+          paymentAddress = result.data.userResponse.data[0];
+        } else {
+          walletKey = await addWalletToOrd(inscriptionId, networkName);
+          const url = ORD_API_URL + `/ord/create/getMultipleReceiveAddr`;
+          const r_data = {
+            collectionName: inscriptionId,
+            addrCount: 1,
+            networkName: networkName,
+          };
+          const result = await axios.post(url, r_data);
+          if (result.data.message !== "ok") {
+            return res.status(200).json({status: false, message: result.data.message});
+          }
+          paymentAddress = result.data.userResponse.data[0];
+        }      
+      inscription = new Inscription({
+        id: inscriptionId,
+        flag: networkName,
+        inscribed: false,
+        feeRate: feeRate,
+        collectionId: collectionId,
+        sat: oldSats,
+
+        inscriptionDetails: {
+          payAddress: paymentAddress,
+          cid: cid,
+        },
+        walletDetails: {
+          keyPhrase: walletKey,
+          walletName: inscriptionId,
+        },
+        cost: cost,
+        receiver: receiveAddress,
+        mintCount: mintCount,
+        feeRate: feeRate,
+        stage: "stage 1"
+      });
+
+      await inscription.save();
+    }
+
+    userResponse = {
+      cost: {
+        serviceCharge: cost.serviceCharge * mintCount,
+        inscriptionCost: cost.inscriptionCost * mintCount,
+        sizeFee: cost.sizeFee * mintCount,
+        satCost: cost.satCost,
+        postageFee: cost.postageFee,
+        price: price/1e8,
+        priceInSat: price,
+        total: cost.total * mintCount,
+      },
+      paymentAddress: paymentAddress,
+      inscriptionId: inscriptionId,
+      createdAt: inscription.createdAt,
+    };
+
+    return res.status(200).json({ status:true, message: "ok", userResponse: userResponse });
+  } catch (e) {
+    console.log(e);
+    if(e.request) return res.status(200).json({status: false, message: e.message});
+    if(e.response) return res.status(200).json({status: false, message: e.response.data});
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};

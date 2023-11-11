@@ -86,6 +86,7 @@ router.get("/getMintDetails/:collectionId", controller.getMintDetails);
 router.post("/checkWhitelist", controller.checkWhitelist);
 router.post("/addFeatured", controller.addFeaturedCollection);
 router.post("/removeFeatured", controller.removeFeaturedCollection);
+router.post("/mintItem", controller.mintItem)
 router.get("/getFeatured", controller.getFeaturedCollections);
 router.get("/sats", controller.getAvailableSat);
 router.post("/updateSatCost", controller.updateSatCost);

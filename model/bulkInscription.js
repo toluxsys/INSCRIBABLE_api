@@ -37,6 +37,9 @@ const bulkInscription = new mongoose.Schema(
     addedToQueue: {
       type: Boolean
     },
+    mintCount: {
+      type: Number
+    },
     inscription: { type: Array },
     error: {
       type: Boolean,

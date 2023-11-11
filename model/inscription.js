@@ -35,6 +35,9 @@ const inscriptionSchema = new mongoose.Schema(
     addedToQueue: {
       type: Boolean
     },
+    mintCount: {
+      type: Number
+    },
     stage: {
       type: String,
     },
