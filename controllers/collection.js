@@ -569,7 +569,7 @@ module.exports.addCollection = async (req, res) => {
     files.map(x=> {
       if(x.fieldname === "banner"){
         bannerName = x.filename
-      }else if(x.fieldname === "featured"){
+      }else if(x.fieldname === "featuredImage"){
         featuredName = x.filename
       }
     })
