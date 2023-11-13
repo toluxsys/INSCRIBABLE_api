@@ -60,14 +60,22 @@ const getLinks = async (cid, totalSupply) => {
       for await (const link of ipfs.ls(cid)) {
         links.push(link);
       }
-      //if(links.length === totalSupply) return links
-      //let data = links.splice(links.length - totalSupply, totalSupply);
       let filePath = `./src/imageLinks/${cid}.json`
       writeImageFiles(filePath, JSON.stringify(links))
-      return links
+      let i_data = []
+      
+      for(let i = 0; i<totalSupply; i++){
+        i_data.push(links[i])
+      }
+      return i_data
     }else{
       let data = JSON.parse(fs.readFileSync(process.cwd()+`/src/imageLinks/${cid}.json`))
-      return data;
+      let i_data = []
+      
+      for(let i = 0; i<totalSupply; i++){
+        i_data.push(data[i])
+      }
+      return i_data
     }
   } catch (e) {
     console.log(e.message);
@@ -1489,10 +1497,18 @@ module.exports.getCollection = async (req, res) => {
 module.exports.getCollectionInscription = async (req, res) => {
   try{
     const {collectionId} = req.body;
-    const collection = await Collection.findOne({id: collectionId});
-    const inscriptions = collection.inscriptions;
-
-    return res.status(200).json({status: true, message: `ok`, userResponse: inscriptions})
+    // const collection = await Collection.findOne({id: collectionId});
+    // const inscriptions = collection.inscriptions;
+    let inscription = await Inscription.find({collectionId: collectionId, inscribed: true})
+    let bulkInscription = await BulkInscription.find({collectionId: collectionId, inscribed: true})
+    let inscriptions = inscription.concat(bulkInscription)
+    let allInscription = []
+    inscriptions.map(x => {
+       x.inscription.forEach(x => {
+        allInscription.push(x)
+      })
+    })
+    return res.status(200).json({status: true, message: `ok`, userResponse: allInscription})
   }catch(e){
     console.log(e.message);
     return res.status(200).json({status: false, message: e.message});
