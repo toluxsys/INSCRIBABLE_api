@@ -1,16 +1,17 @@
-const bitcore = require("bitcore-lib");
-const mempoolJS = require("@mempool/mempool.js");
-const dotenv = require("dotenv");
+const bitcore = require('bitcore-lib');
+const mempoolJS = require('@mempool/mempool.js');
+const dotenv = require('dotenv');
+
 dotenv.config();
 
-const { createHDWallet } = require("./walletHelper.js");
+const { createHDWallet } = require('./walletHelper.js');
 
 const init = async (network) => {
   const {
     bitcoin: { addresses, fees, transactions },
   } = mempoolJS({
-    hostname: "mempool.space",
-    network: network,
+    hostname: 'mempool.space',
+    network,
   });
 
   return { addresses, fees, transactions };
@@ -18,7 +19,7 @@ const init = async (network) => {
 
 const getRecomendedFee = async (network) => {
   try {
-    const fees = (await init(network)).fees;
+    const { fees } = await init(network);
     const feesRecommended = await fees.getFeesRecommended();
     return feesRecommended;
   } catch (e) {
@@ -29,20 +30,20 @@ const getRecomendedFee = async (network) => {
 const getWalletBalance = async (address, network) => {
   try {
     const { addresses } = await init(network);
-    const response = await addresses.getAddressTxsUtxo({ address: address });
+    const response = await addresses.getAddressTxsUtxo({ address });
     let status = [];
-    let txid = [];
+    const txid = [];
 
     let totalAmountAvailable = 0;
-    let utxos = response;
+    const utxos = response;
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
-      if(!element.status){
-        status = []
-      }else{
+      if (!element.status) {
+        status = [];
+      } else {
         status.push(element.status);
-        txid.push(element.txid + ":" + element.vout);
+        txid.push(`${element.txid}:${element.vout}`);
       }
     }
 
@@ -58,7 +59,7 @@ const checkAddress = async (address, network) => {
     const response = await addresses.getAddressTxsUtxo({ address });
 
     let totalAmountAvailable = 0;
-    let utxos = response;
+    const utxos = response;
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
@@ -73,20 +74,20 @@ const checkAddress = async (address, network) => {
 const getSpendUtxo = async (address, network) => {
   try {
     const { addresses } = await init(network);
-    let response = await addresses.getAddressTxsUtxo({ address: address });
-    let utxos = response;
-    let outputs =[];
+    const response = await addresses.getAddressTxsUtxo({ address });
+    const utxos = response;
+    const outputs = [];
 
-    if(utxos.length === 0){
-      return {message: "no available spend utxo in address", output: []}
+    if (utxos.length === 0) {
+      return { message: 'no available spend utxo in address', output: [] };
     }
 
     for (const element of utxos) {
-      let output = element.txid + ":" + element.vout;
+      const output = `${element.txid}:${element.vout}`;
       outputs.push(output);
     }
 
-    return {message: "okay", output: outputs[0]};
+    return { message: 'okay', output: outputs[0] };
   } catch (e) {
     throw new Error(e.message);
   }
@@ -97,14 +98,14 @@ const createTransaction = async (
   recieverDetails,
   changeAddr,
   fee,
-  privateKey
+  privateKey,
 ) => {
   try {
     const transaction = new bitcore.Transaction();
     recieverDetails.forEach((element) => {
       transaction.to(
         bitcore.Address.fromString(element.address),
-        element.amount
+        element.amount,
       );
     });
     transaction.from(input);
@@ -123,15 +124,15 @@ const sendBitcoin = async (payAddressId, recieverDetails, network) => {
     let serviceChargeAddress;
     let broadcastLink;
 
-    if (network === "testnet") {
+    if (network === 'testnet') {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
-    } else if (network === "mainnet") {
+    } else if (network === 'mainnet') {
       serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
     }
 
-    if (network === "testnet") {
+    if (network === 'testnet') {
       broadcastLink = process.env.TESTNET_BROADCAST_LINK;
-    } else if (network === "mainnet") {
+    } else if (network === 'mainnet') {
       broadcastLink = process.env.MAINNET_BROADCASST_LINK;
     }
 
@@ -139,16 +140,16 @@ const sendBitcoin = async (payAddressId, recieverDetails, network) => {
     const sourceAddress = await addressDetails.address;
     let fee = 0;
     let inputCount = 0;
-    let outputCount = recieverDetails.length + 1;
+    const outputCount = recieverDetails.length + 1;
     let amount = 0;
-    let available = await checkAddress(sourceAddress, network);
-    let recommendedFee = await getRecomendedFee();
-    let input = [];
-    let utxos = available.utxos;
-    let totalAmountAvailable = available.totalAmountAvailable;
+    const available = await checkAddress(sourceAddress, network);
+    const recommendedFee = await getRecomendedFee();
+    const input = [];
+    const { utxos } = available;
+    const { totalAmountAvailable } = available;
 
     for (const element of utxos) {
-      let utxo = {};
+      const utxo = {};
       utxo.satoshis = element.value;
       utxo.address = bitcore.Address.fromString(sourceAddress);
       utxo.txId = element.txid;
@@ -165,10 +166,10 @@ const sendBitcoin = async (payAddressId, recieverDetails, network) => {
     const transactionSize =
       inputCount * 180 + outputCount * 34 + 10 - inputCount;
 
-    fee = (transactionSize * recommendedFee.fastestFee)/4;
+    fee = (transactionSize * recommendedFee.fastestFee) / 4;
 
     if (totalAmountAvailable - amount - fee === 0) {
-      throw new Error("Balance is too low for this transaction");
+      throw new Error('Balance is too low for this transaction');
     }
 
     const txHex = await createTransaction(
@@ -176,7 +177,7 @@ const sendBitcoin = async (payAddressId, recieverDetails, network) => {
       recieverDetails,
       serviceChargeAddress,
       fee,
-      addressDetails.privateKey
+      addressDetails.privateKey,
     );
 
     return { link: broadcastLink, rawTx: txHex };
@@ -190,7 +191,7 @@ module.exports = {
   getWalletBalance,
   checkAddress,
   sendBitcoin,
-  getSpendUtxo
+  getSpendUtxo,
 };
 
 //  const start = async () => {

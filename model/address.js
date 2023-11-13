@@ -1,20 +1,20 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const address = new mongoose.Schema(
   {
     collectionId: {
-        type: String
+      type: String,
     },
     address: {
       type: String,
     },
-    mintStage: { type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"},
-    mintCount: {type: Number},
+    mintStage: { type: mongoose.Schema.Types.ObjectId, ref: 'MintDetails' },
+    mintCount: { type: Number },
     pendingOrders: {
-      type: Array
-    }
+      type: Array,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("Address", address);
+module.exports = mongoose.model('Address', address);

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const mintDetails = new mongoose.Schema(
   {
@@ -6,22 +6,22 @@ const mintDetails = new mongoose.Schema(
       type: String,
     },
     name: {
-        type: String
+      type: String,
     },
     mintLimit: {
-        type: Number
+      type: Number,
     },
     price: {
-        type: Number
+      type: Number,
     },
-    duration:{
-        type: Number
+    duration: {
+      type: Number,
     },
     addresses: {
       type: Array,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("MintDetails", mintDetails);
+module.exports = mongoose.model('MintDetails', mintDetails);

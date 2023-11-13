@@ -1,32 +1,32 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const userReward = new mongoose.Schema(
   {
     address: {
-        type: String
+      type: String,
     },
     totalPoints: {
-        type: Number,
-        default: 0
+      type: Number,
+      default: 0,
     },
     claimCode: {
-      type: Array
+      type: Array,
     },
     checkInCount: {
       type: Number,
-      default: 0
+      default: 0,
     },
     lastCheckIn: {
-      type: Date
+      type: Date,
     },
     taskHistory: {
-      type: Array
+      type: Array,
     },
     claimHistory: {
-      type:Array
+      type: Array,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("UserReward", userReward);
+module.exports = mongoose.model('UserReward', userReward);

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const serviceFee = new mongoose.Schema(
   {
@@ -9,7 +9,7 @@ const serviceFee = new mongoose.Schema(
       type: Number,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("collectionFee", serviceFee);
+module.exports = mongoose.model('collectionFee', serviceFee);

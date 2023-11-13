@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const paymentLink = new mongoose.Schema(
   {
@@ -11,7 +11,7 @@ const paymentLink = new mongoose.Schema(
     payAddressId: { type: Number },
     inscriptionId: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("PayLink", paymentLink);
+module.exports = mongoose.model('PayLink', paymentLink);

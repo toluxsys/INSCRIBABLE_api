@@ -5,17 +5,17 @@ const {
   payments,
   Psbt,
   address,
-} = require("bitcoinjs-lib");
-const tinysecp = require("tiny-secp256k1");
-const { ECPairFactory } = require("ecpair");
+} = require('bitcoinjs-lib');
+const tinysecp = require('tiny-secp256k1');
+const { ECPairFactory } = require('ecpair');
+const mempoolJS = require('@mempool/mempool.js');
+const dotenv = require('dotenv');
+const { default: axios } = require('axios');
 const {
   createHDWallet,
   createCollectionHDWallet,
   createPayLinkWallet,
-} = require("./walletHelper");
-const mempoolJS = require("@mempool/mempool.js");
-const dotenv = require("dotenv");
-const { default: axios } = require("axios");
+} = require('./walletHelper');
 
 initEccLib(tinysecp);
 const ECPair = ECPairFactory(tinysecp);
@@ -24,24 +24,25 @@ const init = async (network) => {
   const {
     bitcoin: { addresses, fees, transactions },
   } = mempoolJS({
-    hostname: "mempool.space",
-    network: network,
+    hostname: 'mempool.space',
+    network,
   });
 
   return { addresses, fees, transactions };
 };
 
 const getNetwork = (networkName) => {
-  if (networkName === "mainnet") {
+  if (networkName === 'mainnet') {
     return networks.bitcoin;
-  } else if (networkName === "testnet") {
+  }
+  if (networkName === 'testnet') {
     return networks.testnet;
   }
 };
 
 const getKeyPair = async (networkName, path) => {
   const wallet = await createHDWallet(networkName, path);
-  const privateKey = wallet.privateKey;
+  const { privateKey } = wallet;
   const p_key = privateKey.slice(0, 32);
   const network = getNetwork(networkName);
   return ECPair.fromPrivateKey(Buffer.from(p_key), {
@@ -51,7 +52,7 @@ const getKeyPair = async (networkName, path) => {
 
 const getPayLinkKeyPair = async (networkName, path) => {
   const wallet = await createPayLinkWallet(networkName, path);
-  const privateKey = wallet.privateKey;
+  const { privateKey } = wallet;
   const p_key = privateKey.slice(0, 32);
   const network = getNetwork(networkName);
   return ECPair.fromPrivateKey(Buffer.from(p_key), {
@@ -61,7 +62,7 @@ const getPayLinkKeyPair = async (networkName, path) => {
 
 const getCollectionKeyPair = async (networkName, path) => {
   const wallet = await createCollectionHDWallet(networkName, path);
-  const privateKey = wallet.privateKey;
+  const { privateKey } = wallet;
   const p_key = privateKey.slice(0, 32);
   const network = getNetwork(networkName);
   return ECPair.fromPrivateKey(Buffer.from(p_key), {
@@ -77,7 +78,7 @@ const createLegacyAddress = async (networkName, path) => {
       pubkey: keyPair.publicKey,
       network,
     });
-    const p2pkh_addr = p2pkh.address ?? "";
+    const p2pkh_addr = p2pkh.address ?? '';
     const script = p2pkh.output;
     return { p2pkh_addr, script };
   } catch (e) {
@@ -93,9 +94,9 @@ const createLegacyPayLinkAddress = async (networkName, path) => {
       pubkey: keyPair.publicKey,
       network,
     });
-    const p2pkh_addr = p2pkh.address ?? "";
+    const p2pkh_addr = p2pkh.address ?? '';
     const script = p2pkh.output;
-    return { p2pkh_addr: p2pkh_addr, script: script };
+    return { p2pkh_addr, script };
   } catch (e) {
     console.log(e);
   }
@@ -109,7 +110,7 @@ const createCollectionLegacyAddress = async (networkName, path) => {
       pubkey: keyPair.publicKey,
       network,
     });
-    const p2pkh_addr = p2pkh.address ?? "";
+    const p2pkh_addr = p2pkh.address ?? '';
     const script = p2pkh.output;
     return { p2pkh_addr, script };
   } catch (e) {
@@ -126,7 +127,7 @@ const createTaprootAddress = async (networkName, path) => {
       pubkey: toXOnly(tweakedSigner.publicKey),
       network,
     });
-    const p2pktr_addr = p2pktr.address ?? "";
+    const p2pktr_addr = p2pktr.address ?? '';
     const script = p2pktr.output;
     return { p2pktr_addr, script };
   } catch (e) {
@@ -136,7 +137,7 @@ const createTaprootAddress = async (networkName, path) => {
 
 const getRecomendedFee = async (network) => {
   try {
-    const fees = (await init(network)).fees;
+    const { fees } = await init(network);
     const feesRecommended = await fees.getFeesRecommended();
     return feesRecommended;
   } catch (e) {
@@ -148,14 +149,14 @@ const getWalletBalance = async (address, network) => {
   try {
     const { addresses } = await init(network);
     const response = await addresses.getAddressTxsUtxo({ address });
-    let status = [];
+    const status = [];
 
     let totalAmountAvailable = 0;
-    let utxos = response;
+    const utxos = response;
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
-      if(element.status !== undefined){
+      if (element.status !== undefined) {
         status.push(element.status);
       }
     }
@@ -173,7 +174,7 @@ const checkAddress = async (address, network) => {
     console.log(response);
 
     let totalAmountAvailable = 0;
-    let utxos = response;
+    const utxos = response;
 
     for (const element of utxos) {
       totalAmountAvailable += element.value;
@@ -196,15 +197,15 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
     let change;
     let keyPair;
 
-    if (networkName === "testnet") {
+    if (networkName === 'testnet') {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
       broadcastLink = process.env.TESTNET_BROADCAST_LINK;
-    } else if (networkName === "mainnet") {
+    } else if (networkName === 'mainnet') {
       serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
       broadcastLink = process.env.MAINNET_BROADCASST_LINK;
     }
 
-    if (type === "payLink") {
+    if (type === 'payLink') {
       addressDetails = await createLegacyPayLinkAddress(networkName, path);
       fee = 5000;
       keyPair = await getPayLinkKeyPair(networkName, path);
@@ -214,34 +215,34 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
     fee = process.env.FEE;
 
     let inputCount = 0;
-    let available = await getWalletBalance(
+    const available = await getWalletBalance(
       addressDetails.p2pkh_addr,
-      networkName
+      networkName,
     );
-    let inputs = [];
-    let outputs = [];
-    let details = receiverDetails;
-    let utxos = available.utxos;
-    let totalAmountAvailable = available.totalAmountAvailable;
+    const inputs = [];
+    const outputs = [];
+    const details = receiverDetails;
+    const { utxos } = available;
+    const { totalAmountAvailable } = available;
 
     for (const element of utxos) {
-      let utxo = {};
-      let txId = element.txid;
+      const utxo = {};
+      const txId = element.txid;
       let result;
       utxo.hash = txId;
       utxo.index = element.vout;
-      if (networkName === "testnet") {
+      if (networkName === 'testnet') {
         result = await axios.get(
-          `https://mempool.space/${networkName}/api/tx/${utxo.hash}/hex`
+          `https://mempool.space/${networkName}/api/tx/${utxo.hash}/hex`,
         );
-        utxo.nonWitnessUtxo = new Buffer.from(result.data, "hex");
+        utxo.nonWitnessUtxo = new Buffer.from(result.data, 'hex');
         inputCount += 1;
         inputs.push(utxo);
       } else {
         result = await axios.get(
-          `https://mempool.space/api/tx/${utxo.hash}/hex`
+          `https://mempool.space/api/tx/${utxo.hash}/hex`,
         );
-        utxo.nonWitnessUtxo = new Buffer.from(result.data, "hex");
+        utxo.nonWitnessUtxo = new Buffer.from(result.data, 'hex');
         inputCount += 1;
         inputs.push(utxo);
       }
@@ -249,10 +250,10 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
 
     let amount = 0;
     for (const details of receiverDetails) {
-      amount = amount + details.value;
+      amount += details.value;
     }
 
-    let changeAmount = totalAmountAvailable - amount - process.env.FEE;
+    const changeAmount = totalAmountAvailable - amount - process.env.FEE;
     if (changeAmount > 0) {
       change = {
         address: serviceChargeAddress,
@@ -271,7 +272,7 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
     }
 
     if (inputs.length === 0) {
-      return { link: broadcastLink, rawTx: "000" };
+      return { link: broadcastLink, rawTx: '000' };
     }
 
     const psbt = new Psbt({ network })
@@ -287,65 +288,61 @@ const sendBitcoin = async (networkName, path, receiverDetails, type) => {
   }
 };
 
-const sendCollectionBitcoin = async (
-  networkName,
-  path,
-  receiverDetails
-) => {
+const sendCollectionBitcoin = async (networkName, path, receiverDetails) => {
   try {
     const network = getNetwork(networkName);
     let serviceChargeAddress;
     let broadcastLink;
 
-    if (networkName === "testnet") {
+    if (networkName === 'testnet') {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
-    } else if (networkName === "mainnet") {
+    } else if (networkName === 'mainnet') {
       serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
     }
 
-    if (networkName === "testnet") {
+    if (networkName === 'testnet') {
       broadcastLink = process.env.TESTNET_BROADCAST_LINK;
-    } else if (networkName === "mainnet") {
+    } else if (networkName === 'mainnet') {
       broadcastLink = process.env.MAINNET_BROADCASST_LINK;
     }
 
     const addressDetails = await createCollectionLegacyAddress(
       networkName,
-      path
+      path,
     );
     let fee = 0;
     let inputCount = 0;
-    let outputCount = receiverDetails.length + 1;
-    let available = await getWalletBalance(
+    const outputCount = receiverDetails.length + 1;
+    const available = await getWalletBalance(
       addressDetails.p2pkh_addr,
-      networkName
+      networkName,
     );
 
-    let recommendedFee = await getRecomendedFee();
-    let inputs = [];
-    let outputs = [];
-    let details = receiverDetails;
-    let utxos = available.utxos;
-    let totalAmountAvailable = available.totalAmountAvailable;
+    const recommendedFee = await getRecomendedFee();
+    const inputs = [];
+    const outputs = [];
+    const details = receiverDetails;
+    const { utxos } = available;
+    const { totalAmountAvailable } = available;
 
     console.log(available);
 
     for (const element of utxos) {
-      let utxo = {};
-      let txId = element.txid;
+      const utxo = {};
+      const txId = element.txid;
       utxo.hash = txId;
       utxo.index = element.vout;
       const result = await axios.get(
-        `https://mempool.space/${networkName}/api/tx/${txId}/hex`
+        `https://mempool.space/${networkName}/api/tx/${txId}/hex`,
       );
-      utxo.nonWitnessUtxo = Buffer.from(result.data, "hex");
+      utxo.nonWitnessUtxo = Buffer.from(result.data, 'hex');
       inputCount += 1;
       inputs.push(utxo);
     }
 
     let amount = 0;
     for (const details of receiverDetails) {
-      amount = amount + details.value;
+      amount += details.value;
     }
 
     const transactionSize =
@@ -353,7 +350,7 @@ const sendCollectionBitcoin = async (
 
     fee = transactionSize * recommendedFee.halfHourFee;
 
-    let changeAmount = totalAmountAvailable - amount - fee;
+    const changeAmount = totalAmountAvailable - amount - fee;
 
     const change = {
       address: serviceChargeAddress,
@@ -387,9 +384,9 @@ const sendCollectionBitcoin = async (
 };
 
 function tweakSigner(signer, opts) {
-  let privateKey = signer.privateKey;
+  let { privateKey } = signer;
   if (!privateKey) {
-    throw new Error("Private key is required for tweaking signer!");
+    throw new Error('Private key is required for tweaking signer!');
   }
   if (signer.publicKey[0] === 3) {
     privateKey = tinysecp.privateNegate(privateKey);
@@ -397,10 +394,10 @@ function tweakSigner(signer, opts) {
 
   const tweakedPrivateKey = tinysecp.privateAdd(
     privateKey,
-    tapTweakHash(toXOnly(signer.publicKey), opts.tweakHash)
+    tapTweakHash(toXOnly(signer.publicKey), opts.tweakHash),
   );
   if (!tweakedPrivateKey) {
-    throw new Error("Invalid tweaked private key!");
+    throw new Error('Invalid tweaked private key!');
   }
 
   return ECPair.fromPrivateKey(Buffer.from(tweakedPrivateKey), {
@@ -410,8 +407,8 @@ function tweakSigner(signer, opts) {
 
 function tapTweakHash(pubKey, h) {
   return crypto.taggedHash(
-    "TapTweak",
-    Buffer.concat(h ? [pubKey, h] : [pubKey])
+    'TapTweak',
+    Buffer.concat(h ? [pubKey, h] : [pubKey]),
   );
 }
 

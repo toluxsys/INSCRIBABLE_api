@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const selectedItems = new mongoose.Schema(
   {
@@ -9,13 +9,13 @@ const selectedItems = new mongoose.Schema(
       type: Array,
     },
     address: {
-      type: String
+      type: String,
     },
     orderId: {
-      type: String
-    }
+      type: String,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("SelectedItems", selectedItems);
+module.exports = mongoose.model('SelectedItems', selectedItems);

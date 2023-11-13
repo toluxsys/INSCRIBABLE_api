@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const paymentIds = new mongoose.Schema(
   {
@@ -9,7 +9,7 @@ const paymentIds = new mongoose.Schema(
       type: String,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("PayIds", paymentIds);
+module.exports = mongoose.model('PayIds', paymentIds);

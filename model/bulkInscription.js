@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const bulkInscription = new mongoose.Schema(
   {
@@ -8,10 +8,10 @@ const bulkInscription = new mongoose.Schema(
     sent: { type: Boolean },
     feeRate: { type: Number },
     utxoTxid: { type: String },
-    collectionId: {type: String},
-    selected: {type: mongoose.Schema.Types.ObjectId, ref: "SelectedItem"},
-    collectionPayment: {type: String, default: "waiting"},
-    sat: {type: mongoose.Schema.Types.ObjectId, ref: "Sats"},
+    collectionId: { type: String },
+    selected: { type: mongoose.Schema.Types.ObjectId, ref: 'SelectedItem' },
+    collectionPayment: { type: String, default: 'waiting' },
+    sat: { type: mongoose.Schema.Types.ObjectId, ref: 'Sats' },
     spendTxid: { type: String },
     inscriptionDetails: {
       type: Object,
@@ -35,23 +35,23 @@ const bulkInscription = new mongoose.Schema(
       type: String,
     },
     addedToQueue: {
-      type: Boolean
+      type: Boolean,
     },
     mintCount: {
-      type: Number
+      type: Number,
     },
     inscription: { type: Array },
     error: {
       type: Boolean,
-      default: false
+      default: false,
     },
-    usePoints: {type: Boolean, default: false},
-    errorMessage:{
+    usePoints: { type: Boolean, default: false },
+    errorMessage: {
       type: String,
-      default: ""
-    }
+      default: '',
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("BulkInscription", bulkInscription);
+module.exports = mongoose.model('BulkInscription', bulkInscription);

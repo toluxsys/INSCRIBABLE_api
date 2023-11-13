@@ -1,12 +1,12 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const featuredCollections = new mongoose.Schema(
   {
-    ids:{ 
-        type: Array
-    }
+    ids: {
+      type: Array,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("FeaturedCollections", featuredCollections);
+module.exports = mongoose.model('FeaturedCollections', featuredCollections);

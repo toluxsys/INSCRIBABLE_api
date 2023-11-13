@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const collection = new mongoose.Schema(
   {
@@ -27,15 +27,15 @@ const collection = new mongoose.Schema(
       type: String,
     },
     specialSat: {
-      type: String
+      type: String,
     },
     startMint: {
       type: Boolean,
-      default: false
+      default: false,
     },
     paused: {
       type: Boolean,
-      default: false
+      default: false,
     },
     banner: {
       type: String,
@@ -56,10 +56,10 @@ const collection = new mongoose.Schema(
       type: String,
     },
     itemCid: {
-      type: String
+      type: String,
     },
     featuredCid: {
-      type: String
+      type: String,
     },
     largestFile: {
       type: Number,
@@ -75,22 +75,22 @@ const collection = new mongoose.Schema(
     },
     mintCount: {
       type: Number,
-      default: 0
+      default: 0,
     },
     ended: {
       type: Boolean,
-      default: false
+      default: false,
     },
-    template:{
-      type: Number
+    template: {
+      type: Number,
     },
-    mintStage: { type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"},
+    mintStage: { type: mongoose.Schema.Types.ObjectId, ref: 'MintDetails' },
     inscriptions: { type: Array },
-    selected: [{ type: mongoose.Schema.Types.ObjectId, ref: "SelectedItem" }],
-    mintDetails: [{ type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"}],
+    selected: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SelectedItem' }],
+    mintDetails: [{ type: mongoose.Schema.Types.ObjectId, ref: 'MintDetails' }],
     minted: { type: Array },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("Collection", collection);
+module.exports = mongoose.model('Collection', collection);
