@@ -369,11 +369,15 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
           exists = verifyList(minted, inscription.fileNames)
         }
         
-        _txid = balance.txid[0].split(`:`)[0];
-        txid = `https://mempool.space/tx/${_txid}`;
+        if(balance.txid[0] !== undefined){
+          _txid = balance.txid[0].split(`:`)[0];
+          txid = `https://mempool.space/tx/${_txid}`;
+        }else{
+          return {message: "payment address is empty", data: {txid: txid, ids: []}, status: false}
+        }
 
         if(balance.status[0].confirmed === false){       
-            if(exists === false && inscription.fileNames.length > 0){
+            if(exists === false && inscription.fileNames.length !== 0){
               _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
               let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
               address.mintCount = address.mintCount + inscription.fileNames.length
@@ -422,7 +426,7 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             };
             
         }else if (balance.status[0].confirmed === true){
-          if(exists === false && inscription.fileNames.length > 0){
+          if(exists === false && inscription.fileNames.length !== 0){
             _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
             let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
             address.mintCount = address.mintCount + inscription.fileNames.length
@@ -466,15 +470,6 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             if(addToQueue.status !== true) return {message: "error adding order to queue", data:{txid: txid, ids: []}, status: false, key: "error_adding_order_to_queue"}
             result = {
               message: `added to queue`,
-              data:{
-                  txid: txid,
-                  ids: []
-              },
-              status: true
-            };
-          }else{
-            result = {
-              message: `payment seen on mempool`,
               data:{
                   txid: txid,
                   ids: []
