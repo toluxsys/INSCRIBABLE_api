@@ -1636,6 +1636,8 @@ module.exports.getCollections = async (req, res) => {
         template: collection[0].template || 1,
         type: element.type,
         ended,
+        mintStarted: collection[0].startMint,
+        satType: collection[0].specialSat,
       });
     });
 

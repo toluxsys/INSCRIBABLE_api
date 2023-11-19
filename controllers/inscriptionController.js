@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const { existsSync } = require('fs');
 const axios = require('axios');
 const fs = require('fs');
@@ -50,10 +51,10 @@ const writeFile = (path, data) => {
 
 module.exports.inscribeText = async (req, res) => {
   try {
-    const { textBody, feeRate, receiveAddress, networkName, oldSats } =
-      req.body;
-    const id = await import('nanoid');
-    const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
+    const { textBody, feeRate, receiveAddress, networkName, oldSats, usePoints } = req.body;
+    let hasReward;
+    const task = await Task.findOne({ taskName: 'inscribe' });
+    const inscriptionPoint = task.taskPoints;
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
     const fileName = `${inscriptionId}_${new Date().getTime().toString()}.txt`;
@@ -64,6 +65,19 @@ module.exports.inscribeText = async (req, res) => {
       return res
         .status(200)
         .json({ status: false, message: 'Invalid address' });
+   
+    const userReward = await UserReward.findOne({ address: receiveAddress });
+    if (!userReward) {
+      hasReward = false;
+    } else if (usePoints !== undefined && usePoints === 'true') {
+      if (userReward.totalPoints < inscriptionPoint) {
+        hasReward = false;
+      } else {
+        hasReward = true;
+      }
+    } else {
+      hasReward = false;
+    }
 
     if (networkName === 'mainnet')
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
@@ -82,6 +96,7 @@ module.exports.inscribeText = async (req, res) => {
         feeRate,
         fileDetail.size,
         oldSats,
+        hasReward
       );
       const url = `${process.env.ORD_SAT_API_URL}/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -102,6 +117,7 @@ module.exports.inscribeText = async (req, res) => {
         feeRate,
         fileDetail.size,
         oldSats,
+        hasReward
       );
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = `${ORD_API_URL}/ord/create/getMultipleReceiveAddr`;
@@ -126,6 +142,7 @@ module.exports.inscribeText = async (req, res) => {
       receiver: receiveAddress,
       inscriptionType: 'text',
       sat: oldSats,
+      usePoints: hasReward,
       s3,
 
       inscriptionDetails: {
@@ -174,9 +191,11 @@ module.exports.brc20 = async (req, res) => {
       receiveAddress,
       networkName,
       oldSats,
+      usePoints
     } = req.body;
-    const id = await import('nanoid');
-    const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
+    let hasReward
+    const task = await Task.findOne({ taskName: 'inscribe' });
+    const inscriptionPoint = task.taskPoints;
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
     const fileName = `${inscriptionId}_${new Date().getTime().toString()}.txt`;
@@ -188,6 +207,18 @@ module.exports.brc20 = async (req, res) => {
         .status(200)
         .json({ status: false, message: 'Invalid address' });
 
+    const userReward = await UserReward.findOne({ address: receiveAddress });
+    if (!userReward) {
+      hasReward = false;
+    } else if (usePoints !== undefined && usePoints === 'true') {
+      if (userReward.totalPoints < inscriptionPoint) {
+        hasReward = false;
+      } else {
+        hasReward = true;
+      }
+    } else {
+      hasReward = false;
+    }
     if (networkName === 'mainnet')
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === 'testnet')
@@ -223,6 +254,7 @@ module.exports.brc20 = async (req, res) => {
         feeRate,
         fileDetail.size,
         oldSats,
+        hasReward
       );
 
       const url = `${process.env.ORD_SAT_API_URL}/ord/create/getMultipleReceiveAddr`;
@@ -244,6 +276,7 @@ module.exports.brc20 = async (req, res) => {
         feeRate,
         fileDetail.size,
         oldSats,
+        hasReward
       );
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = `${ORD_API_URL}/ord/create/getMultipleReceiveAddr`;
@@ -268,6 +301,7 @@ module.exports.brc20 = async (req, res) => {
       receiver: receiveAddress,
       inscriptionType: 'brc20',
       sat: oldSats,
+      usePoints: hasReward,
       s3,
 
       inscriptionDetails: {
@@ -306,9 +340,10 @@ module.exports.brc20 = async (req, res) => {
 
 module.exports.satNames = async (req, res) => {
   try {
-    const { name, feeRate, receiveAddress, networkName, oldSats } = req.body;
-    const id = await import('nanoid');
-    const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
+    const { name, feeRate, receiveAddress, networkName, oldSats, usePoints } = req.body;
+    let hasReward
+    const task = await Task.findOne({ taskName: 'inscribe' });
+    const inscriptionPoint = task.taskPoints;
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
     const fileName = `${inscriptionId}_${new Date().getTime().toString()}.txt`;
@@ -319,7 +354,18 @@ module.exports.satNames = async (req, res) => {
       return res
         .status(200)
         .json({ status: false, message: 'Invalid address' });
-
+    const userReward = await UserReward.findOne({ address: receiveAddress });
+    if (!userReward) {
+      hasReward = false;
+    } else if (usePoints !== undefined && usePoints === 'true') {
+      if (userReward.totalPoints < inscriptionPoint) {
+        hasReward = false;
+      } else {
+        hasReward = true;
+      }
+    } else {
+      hasReward = false;
+    }
     if (networkName === 'mainnet')
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === 'testnet')
@@ -352,6 +398,7 @@ module.exports.satNames = async (req, res) => {
         feeRate,
         fileDetail.size,
         oldSats,
+        hasReward
       );
       const url = `${process.env.ORD_SAT_API_URL}/ord/create/getMultipleReceiveAddr`;
       const data = {
@@ -372,6 +419,7 @@ module.exports.satNames = async (req, res) => {
         feeRate,
         fileDetail.size,
         oldSats,
+        hasReward
       );
       walletKey = await addWalletToOrd(inscriptionId, networkName);
       const url = `${ORD_API_URL}/ord/create/getMultipleReceiveAddr`;
@@ -396,6 +444,7 @@ module.exports.satNames = async (req, res) => {
       receiver: receiveAddress,
       inscriptionType: 'sns',
       sat: oldSats,
+      usePoints: hasReward,
       s3,
 
       inscriptionDetails: {
