@@ -1,5 +1,6 @@
+/* eslint-disable no-shadow */
+/* eslint-disable camelcase */
 const axios = require('axios');
-const { response } = require('express');
 const dotenv = require('dotenv').config();
 
 const ordApiUrl = 'https://ordapi.xyz/';

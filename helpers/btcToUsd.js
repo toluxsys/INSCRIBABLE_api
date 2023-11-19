@@ -48,7 +48,7 @@ const updateBtcPrice = async () => {
       `${apiUrl}/simple/price?ids=bitcoin&vs_currencies=usd`,
     );
     const value = response.data.bitcoin.usd;
-    if (value == undefined) return 'value is undefined';
+    if (value === undefined) return 'value is undefined';
     const btc = await BtcPrice.find({});
     if (btc.length === 0) {
       const saved = new BtcPrice({

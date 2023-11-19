@@ -141,17 +141,17 @@ const createFiles = async (collectionId, edition) => {
   }
 };
 
-const createMetaData = () => {
-  fs.stat(`${buildDir}/${metDataFile}`, (err) => {
-    if (err == null || err.code === 'ENOENT') {
-      fs.writeFileSync(
-        `${buildDir}/${metDataFile}`,
-        JSON.stringify(metadata, null, 2),
-      );
-    } else {
-      console.log('Oh no, error: ', err.code);
-    }
-  });
-};
+// const createMetaData = () => {
+//   fs.stat(`${buildDir}/${metDataFile}`, (err) => {
+//     if (err == null || err.code === 'ENOENT') {
+//       fs.writeFileSync(
+//         `${buildDir}/${metDataFile}`,
+//         JSON.stringify(metadata, null, 2),
+//       );
+//     } else {
+//       console.log('Oh no, error: ', err.code);
+//     }
+//   });
+// };
 
-module.exports = { createFiles, createMetaData };
+module.exports = { createFiles };

@@ -1,10 +1,11 @@
 const express = require('express');
-const controller = require('../controllers/collection');
+const dotenv = require('dotenv').config();
+const basicAuth = require('express-basic-auth');
 const path = require('path');
+const controller = require('../controllers/collection');
 
 const router = express.Router();
-const basicAuth = require('express-basic-auth');
-const dotenv = require('dotenv').config();
+
 const {
   addressFileUpload,
   collectionFileUpload,
@@ -24,7 +25,7 @@ router.use(
         password,
         process.env.API_PASSWORD,
       );
-      if (userMatches & passwordMatches) return cb(null, true);
+      if (userMatches && passwordMatches) return cb(null, true);
       return cb(null, false);
     },
     authorizeAsync: true,
@@ -74,7 +75,6 @@ router.post(
   controller.addCollection,
 );
 router.post('/addMintAddress', addressFileUpload, controller.addMintAddress);
-router.post('/upload', controller.addCollectionItems);
 router.post('/seleteItem', controller.selectItem);
 router.post('/undoSelection/:inscriptionId', controller.undoSelection);
 router.post('/getImages', controller.getImages);

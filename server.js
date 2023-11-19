@@ -12,6 +12,7 @@ const RabbitMqConsumer = require('./helpers/queue/rabbitMqConsumer.js');
 const { updateBtcPrice } = require('./helpers/btcToUsd.js');
 
 const interval = 120000;
+let timerId = 0;
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -41,7 +42,7 @@ app.use(`/api/collection`, collectionRoute);
 app.use(`/api/explore`, explorerRoute);
 app.use(`/api/reward`, rewardRoute);
 
-consumeMessage1 = async () => {
+const consumeMessage1 = async () => {
   timerId = setTimeout(async function consumeMessage1() {
     await updateBtcPrice();
     timerId = setTimeout(consumeMessage1, interval);
@@ -51,7 +52,7 @@ consumeMessage1 = async () => {
 consumeMessage1()
   .then()
   .catch((e) => {
-    console.log('Price update error');
+    console.log('Price update error: ', e.message);
   });
 
 // endpoint for universal api route

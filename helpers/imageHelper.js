@@ -1,13 +1,10 @@
-const { compress } = require('compress-images/promise');
+/* eslint-disable prefer-promise-reject-errors */
+/* eslint-disable no-case-declarations */
 const { Web3Storage, getFilesFromPath } = require('web3.storage');
 const fs = require('fs');
-const { Blob } = require('buffer');
-const { cwd } = require('process');
 const dotenv = require('dotenv').config();
 const aws = require('aws-sdk');
 const sharp = require('sharp');
-const { promises } = require('dns');
-const { collection } = require('../model/inscription');
 require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 aws.config.update({
@@ -311,7 +308,7 @@ const compressAndSaveBulk = async (file, inscriptionId, optimize) => {
     const rootCid = await storage.put(imageFiles);
 
     await Promise.all(
-      _file.map((x) => {
+      _file.forEach((x) => {
         fs.unlinkSync(x.outPath);
       }),
     );
@@ -329,7 +326,7 @@ const compressAndSaveBulk = async (file, inscriptionId, optimize) => {
 const saveFile = async (fileName, collectionId) => {
   try {
     const storage = await initStorage();
-    const filePath = `${process.cwd()}/build/files`;
+    let filePath = `${process.cwd()}/build/files`;
     if (collectionId) {
       filePath = process.cwd()`/build/files/${collectionId}`;
     }
@@ -355,7 +352,6 @@ const saveFile = async (fileName, collectionId) => {
 
 const saveFileS3 = async (fileName, collectionId) => {
   try {
-    const storage = await initStorage();
     let filePath = `${process.cwd()}/build/files`;
     if (collectionId) {
       filePath = process.cwd()`/build/files/${collectionId}`;
@@ -504,8 +500,8 @@ const compressAndSaveBulkS3 = async (file, inscriptionId, optimize) => {
 const resizeFile = async ({ file, inscriptionId, optimize }) => {
   try {
     const compData = [];
-    if (optimize == true) {
-      if (file.length == 1) {
+    if (optimize === true) {
+      if (file.length === 1) {
         const toPath = `${process.cwd()}/build/img/`;
         if (!fs.existsSync(toPath)) {
           fs.mkdirSync(toPath, { recursive: true }, (err) => {
@@ -629,7 +625,7 @@ const resizeFile = async ({ file, inscriptionId, optimize }) => {
                   outPath: toPath + x.filename,
                 });
                 break;
-              case 'image/png':
+              case 'image/webp':
                 const compWeb = await sharp(x.path)
                   .resize()
                   .webp({ quality: 70 })
@@ -650,7 +646,7 @@ const resizeFile = async ({ file, inscriptionId, optimize }) => {
         );
       }
     } else {
-      file.map((x) => {
+      file.forEach((x) => {
         compData.push({
           sizeIn: x.size,
           sizeOut: x.size,

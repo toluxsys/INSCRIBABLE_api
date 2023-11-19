@@ -1,10 +1,11 @@
 const express = require('express');
-const controller = require('../controllers/uniInscriptionController');
+const dotenv = require('dotenv').config();
 
 const router = express.Router();
 const fs = require('fs');
 const basicAuth = require('express-basic-auth');
-const dotenv = require('dotenv').config();
+
+const controller = require('../controllers/uniInscriptionController');
 
 router.use(express.urlencoded({ extended: false }));
 router.use(express.json());
@@ -20,7 +21,7 @@ router.use(
         password,
         process.env.API_PASSWORD,
       );
-      if (userMatches & passwordMatches) return cb(null, true);
+      if (userMatches && passwordMatches) return cb(null, true);
       return cb(null, false);
     },
     authorizeAsync: true,

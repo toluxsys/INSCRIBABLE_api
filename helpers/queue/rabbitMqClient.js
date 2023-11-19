@@ -15,7 +15,7 @@ const options = {
 };
 
 const validRoutingKeys = ['paymentSeen', 'paymentReceived', 'error'];
-const validQueue = ['seen', 'received', 'error'];
+// const validQueue = ['seen', 'received', 'error'];
 
 class RabbitMqClient {
   instance;
@@ -47,7 +47,7 @@ class RabbitMqClient {
     return this.instance;
   }
 
-  addToQueue = async ({ data, routingKey, options }) => {
+  addToQueue = async ({ data, routingKey }) => {
     try {
       if (!this.isInitilized) {
         await this.initilize();
@@ -85,9 +85,10 @@ class RabbitMqClient {
           inscription = '';
         }
 
-        if (inscription != '') {
+        if (inscription !== '') {
           inscription.error = true;
-          (inscription.errorMessage = errorMessage), await inscription.save();
+          inscription.errorMessage = errorMessage;
+          await inscription.save();
           this.channel.ack(msg);
         } else {
           this.channel.ack(msg);

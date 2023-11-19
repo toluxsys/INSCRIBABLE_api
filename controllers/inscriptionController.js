@@ -1,10 +1,8 @@
-const { unlinkSync, existsSync, mkdirSync } = require('fs');
+const { existsSync } = require('fs');
 const axios = require('axios');
-const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const dotenv = require('dotenv').config();
-const { ObjectId } = require('mongoose').Types;
 const Inscription = require('../model/inscription');
 const Network = require('../model/network');
 const BulkInscription = require('../model/bulkInscription');
@@ -61,7 +59,7 @@ module.exports.inscribeText = async (req, res) => {
     const fileName = `${inscriptionId}_${new Date().getTime().toString()}.txt`;
     let walletKey = '';
     let paymentAddress;
-    s3 = false;
+    const s3 = false;
     if (verifyAddress(receiveAddress, networkName) === false)
       return res
         .status(200)
@@ -140,7 +138,6 @@ module.exports.inscribeText = async (req, res) => {
         walletName: inscriptionId,
       },
       cost: inscriptionCost,
-      feeRate,
       stage: 'stage 1',
     });
 
@@ -283,7 +280,6 @@ module.exports.brc20 = async (req, res) => {
         walletName: inscriptionId,
       },
       cost: inscriptionCost,
-      feeRate,
       stage: 'stage 1',
     });
 
@@ -328,7 +324,6 @@ module.exports.satNames = async (req, res) => {
       ORD_API_URL = process.env.ORD_MAINNET_API_URL;
     if (networkName === 'testnet')
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
-    let data;
     const s_path = `./build/files/${fileName}`;
 
     if (name.split('').includes('.')) {
@@ -340,7 +335,7 @@ module.exports.satNames = async (req, res) => {
     // let verifyName = await verifySats(name + ".sats");
     // if(!verifyName) return res.status(200).json({status: false, message: `${name} already exists`});
 
-    data = {
+    const data = {
       p: 'sns',
       op: 'reg',
       name: `${name}.sats`,
@@ -413,7 +408,6 @@ module.exports.satNames = async (req, res) => {
         walletName: inscriptionId,
       },
       cost: inscriptionCost,
-      feeRate,
       stage: 'stage 1',
     });
 
@@ -447,10 +441,9 @@ module.exports.upload = async (req, res) => {
     const { receiveAddress } = req.body;
     const { oldSats } = req.body;
     const { usePoints } = req.body;
-    const compData = [];
     let hasReward;
 
-    // TOTO: Remove hard coded vale and return from ENV or DB
+    // TODO: Remove hard coded vale and return from ENV or DB
     const task = await Task.findOne({ taskName: 'inscribe' });
     const inscriptionPoint = task.taskPoints;
     if (verifyAddress(receiveAddress, networkName) === false)
@@ -462,12 +455,10 @@ module.exports.upload = async (req, res) => {
       hasReward = false;
     } else if (usePoints !== undefined && usePoints === 'true') {
       if (userReward.totalPoints < inscriptionPoint) {
-        return res.status(200).json({
-          status: false,
-          message: 'user total scribe points is less than required point',
-        });
+        hasReward = false;
+      } else {
+        hasReward = true;
       }
-      hasReward = true;
     } else {
       hasReward = false;
     }
@@ -491,7 +482,7 @@ module.exports.upload = async (req, res) => {
       message: 'ok',
       userResponse: {
         compImage: details.compImage,
-        cost: await details.inscriptionCost,
+        cost: details.inscriptionCost,
         paymentAddress: details.paymentAddress,
         inscriptionId: details.inscriptionId,
       },
@@ -523,12 +514,10 @@ module.exports.uploadMultiple = async (req, res) => {
       hasReward = false;
     } else if (usePoints !== undefined && usePoints === 'true') {
       if (userReward.totalPoints < inscriptionPoint) {
-        return res.status(200).json({
-          status: false,
-          message: 'user total scribe points is less than required point',
-        });
+        hasReward = false;
+      } else {
+        hasReward = true;
       }
-      hasReward = true;
     } else {
       hasReward = false;
     }
@@ -691,12 +680,10 @@ module.exports.inscriptionCalc = async (req, res) => {
       hasReward = false;
     } else if (usePoints !== undefined && usePoints === 'true') {
       if (userReward.totalPoints < inscriptionPoint) {
-        return res.status(200).json({
-          status: false,
-          message: 'user total scribe points is less than required point',
-        });
+        hasReward = false;
+      } else {
+        hasReward = true;
       }
-      hasReward = true;
     } else {
       hasReward = false;
     }
@@ -743,17 +730,15 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
       hasReward = false;
     } else if (usePoints !== undefined && usePoints === 'true') {
       if (userReward.totalPoints < inscriptionPoint) {
-        return res.status(200).json({
-          status: false,
-          message: 'user total scribe points is less than required point',
-        });
+        hasReward = false;
+      } else {
+        hasReward = true;
       }
-      hasReward = true;
     } else {
       hasReward = false;
     }
 
-    if (files.length >= 100)
+    if (files.length >= 10)
       return res
         .status(200)
         .json({ status: false, message: `file Upload Above Limit` });
@@ -819,7 +804,6 @@ module.exports.checkPayments = async (req, res) => {
 
 module.exports.getNetwork = async (req, res) => {
   try {
-    let stat;
     const networks = await Network.where('status').equals(`active`);
     const active = networks[0];
     return res
@@ -1084,34 +1068,6 @@ module.exports.getOrderDetails = async (req, res) => {
   }
 };
 
-module.exports.addSats = async (req, res) => {
-  try {
-    const { sats } = req.body;
-    const data = [];
-    sats.forEach((sat) => {
-      data.push({
-        output: sat.output,
-        start: sat.start,
-        end: sat.end,
-        year: sat.year,
-        rarity: sat.rarity,
-        specialAttribute: sat.specialAttribute,
-        startOffset: sat.startOffset,
-        endOffset: sat.endOffset,
-        size: sat.size,
-        count: 0,
-      });
-    });
-    const savedSats = await Sats.insertMany(data);
-    return res
-      .status(200)
-      .json({ status: true, message: 'ok', userResponse: savedSats });
-  } catch (e) {
-    console.log(e.message);
-    return res.status(400).json({ status: false, message: e.message });
-  }
-};
-
 const init = async (
   file,
   feeRate,
@@ -1124,7 +1080,6 @@ const init = async (
   try {
     const inscriptionId = `s${uuidv4()}`;
     let ORD_API_URL;
-    let compImage;
     let inscriptionCost;
     let paymentAddress;
     let walletKey = '';
@@ -1149,7 +1104,7 @@ const init = async (
     }
 
     const fileName = file[0].filename;
-    compImage = await compressAndSave(file, optData);
+    const compImage = await compressAndSave(file, optData);
     if (satType !== 'random') {
       inscriptionCost = await inscriptionPrice(
         feeRate,
@@ -1165,9 +1120,12 @@ const init = async (
       };
       const result = await axios.post(url, data);
       if (result.data.message !== 'ok') {
-        return res
-          .status(200)
-          .json({ status: false, message: result.data.message });
+        return {
+          compImage: [],
+          inscriptionCost: '',
+          paymentAddress: '',
+          inscriptionId: '',
+        };
       }
       paymentAddress = result.data.userResponse.data[0];
     } else {
@@ -1186,9 +1144,12 @@ const init = async (
       };
       const result = await axios.post(url, data);
       if (result.data.message !== 'ok') {
-        return res
-          .status(200)
-          .json({ status: false, message: result.data.message });
+        return {
+          compImage: [],
+          inscriptionCost: '',
+          paymentAddress: '',
+          inscriptionId: '',
+        };
       }
       paymentAddress = result.data.userResponse.data[0];
     }
@@ -1215,7 +1176,6 @@ const init = async (
         walletName: inscriptionId,
       },
       cost: inscriptionCost,
-      feeRate,
       receiver: receiveAddress,
       stage: 'stage 1',
     });
@@ -1244,8 +1204,6 @@ const initBulk = async (
   usePoints,
 ) => {
   try {
-    const id = await import('nanoid');
-    const nanoid = id.customAlphabet(process.env.NANO_ID_SEED);
     const inscriptionId = `b${uuidv4()}`;
     const serviceCharge = parseInt(process.env.SERVICE_CHARGE) * file.length;
     let optimized;
@@ -1295,9 +1253,12 @@ const initBulk = async (
     };
     const result = await axios.post(url, r_data);
     if (result.data.message !== 'ok') {
-      return res
-        .status(200)
-        .json({ status: false, message: result.data.message });
+      return {
+        compImage: [],
+        inscriptionCost: '',
+        paymentAddress: '',
+        inscriptionId: '',
+      };
     }
     const paymentAddress = result.data.userResponse.data[0];
     const bulkInscription = new BulkInscription({
@@ -1380,8 +1341,8 @@ const inscriptionPrice = async (feeRate, fileSize, satType, usePoints) => {
   try {
     let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
     const sats = Math.ceil((fileSize / 4) * feeRate);
-    const cost = sats + 1500 + 550 + 4000;
-    let sizeFee = parseInt(Math.ceil(cost / 2));
+    const cost = sats + 1500 + 550 + 2000;
+    let sizeFee = 250 * feeRate;
     let satCost = 0;
     if (sizeFee < 1024) {
       sizeFee = 1024;
@@ -1417,11 +1378,6 @@ const getInscriptionCost = async (
   usePoints,
 ) => {
   try {
-    let inscriptionCost;
-    let compImage;
-    let sizeIn;
-    let sizeOut;
-    let compPercentage;
     let optData;
     if (optimize === 'true') {
       optData = true;
@@ -1429,16 +1385,16 @@ const getInscriptionCost = async (
       optData = false;
     }
 
-    compImage = await compressImage(file, optData);
-    inscriptionCost = await inscriptionPrice(
+    const compImage = await compressImage(file, optData);
+    const inscriptionCost = await inscriptionPrice(
       feeRate,
       compImage.sizeOut,
       satType,
       usePoints,
     );
-    sizeIn = compImage.sizeIn / 1e3;
-    sizeOut = compImage.sizeOut / 1e3;
-    compPercentage = compImage.comPercentage;
+    const sizeIn = compImage.sizeIn / 1e3;
+    const sizeOut = compImage.sizeOut / 1e3;
+    const compPercentage = compImage.comPercentage;
     return {
       compImage: {
         sizeIn,

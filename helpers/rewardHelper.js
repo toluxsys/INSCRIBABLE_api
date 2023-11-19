@@ -1,7 +1,7 @@
 // users get points for completing task
 // users are tracked by address
 // useres can redeem points for prices linked to codes: each cupon code has details of the reward the user is tring to redeem
-
+const moment = require('moment');
 const { v4: uuidv4 } = require('uuid');
 const Task = require('../model/task');
 const UserReward = require('../model/userReward');
@@ -30,7 +30,7 @@ const redeemPointsForInscription = async ({ address, count }) => {
     await userReward.save();
     return { status: true, message: 'inscription claim complete' };
   } catch (e) {
-    comsole.log(e.message);
+    console.log(e.message);
     return { status: false, message: e.message };
   }
 };
@@ -42,7 +42,7 @@ const perform_task = async (address, taskId) => {
     // add task to user reward array
     const task = await Task.findOne({ taskId });
     if (!task) return { status: false, message: 'invalid task id' };
-    if (task.status == 'inactive')
+    if (task.status === 'inactive')
       return { status: false, message: 'task is inactive' };
     const taskHistory = {
       taskId: task.taskId,
@@ -136,7 +136,7 @@ const addTask = async ({ taskName, points, info, description }) => {
     const savedTask = await task.save();
     return { status: true, message: 'Task saved', userResponse: savedTask };
   } catch (e) {
-    comsole.log(e.message);
+    console.log(e.message);
   }
 };
 
@@ -156,11 +156,9 @@ const addClaim = async ({ description, info, claimPoint }) => {
       status: 'active',
     });
     const savedClaim = await claim.save();
-    return res
-      .status(200)
-      .json({ status: true, message: 'claim saved', userResponse: savedClaim });
+    return savedClaim;
   } catch (e) {
-    comsole.log(e.message);
+    console.log(e.message);
   }
 };
 
@@ -168,29 +166,23 @@ const removeTask = async ({ taskId }) => {
   try {
     if (!taskId) return { status: false, message: 'taskId is required' };
     const task = await Task.findOne({ taskId });
-    if (!task)
-      return res
-        .status(200)
-        .json({ status: false, message: 'invalid task id' });
-    if (task.status == 'inactive')
+    if (!task) return { status: false, message: 'invalid task id' };
+    if (task.status === 'inactive')
       return { status: false, message: 'task already inactive' };
     task.status = 'inactive';
     const updateTask = await task.save();
     return { status: true, message: 'task removed', userResponse: updateTask };
   } catch (e) {
-    comsole.log(e.message);
+    console.log(e.message);
   }
 };
 
 const removeClaim = async ({ rewardId }) => {
   try {
-    if (!rewardId)
-      return res
-        .status(200)
-        .json({ status: false, message: 'rewardId is required' });
+    if (!rewardId) return { status: false, message: 'rewardId is required' };
     const claim = await Claim.findOne({ claimId: rewardId });
     if (!claim) return { status: false, message: 'invalid reward id' };
-    if (claim.status == 'inactive')
+    if (claim.status === 'inactive')
       return { status: false, message: 'reward already inactive' };
     claim.status = 'inactive';
     const updateClaim = await claim.save();
@@ -206,7 +198,6 @@ const performTask = async ({ address, taskId }) => {
     return result;
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -314,7 +305,6 @@ const redeemPoints = async ({ address, rewardId }) => {
     };
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -357,7 +347,7 @@ const getClaims = async () => {
         info: claim.info,
         claimPoint: claim.claimPoint,
       };
-      if (claim.status == 'active') active.push(data);
+      if (claim.status === 'active') active.push(data);
     });
     return { status: true, message: 'active rewards', userResponse: active };
   } catch (e) {
@@ -377,7 +367,7 @@ const getTasks = async () => {
         info: task.info,
         taskPoints: task.taskPoints,
       };
-      if (task.status == 'active') active.push(data);
+      if (task.status === 'active') active.push(data);
     });
     return { status: true, message: 'active tasks', userResponse: active };
   } catch (e) {
@@ -387,7 +377,6 @@ const getTasks = async () => {
 
 const getUserReward = async ({ address }) => {
   try {
-    const { address } = req.body;
     const reward = await UserReward.findOne({ address });
     if (!reward)
       return { status: false, message: 'address has no reward point' };

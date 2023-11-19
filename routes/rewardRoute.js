@@ -18,7 +18,7 @@ router.use(
         password,
         process.env.API_PASSWORD,
       );
-      if (userMatches & passwordMatches) return cb(null, true);
+      if (userMatches && passwordMatches) return cb(null, true);
       return cb(null, false);
     },
     authorizeAsync: true,

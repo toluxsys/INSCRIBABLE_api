@@ -1,6 +1,5 @@
 const ampq = require('amqplib');
 const mempoolJS = require('@mempool/mempool.js');
-const { MongoClient } = require('mongodb');
 const dotenv = require('dotenv').config();
 const { inscribe } = require('../inscriptionHelper');
 const Inscription = require('../../model/inscription');
@@ -8,7 +7,6 @@ const BulkInscription = require('../../model/bulkInscription');
 const { getType } = require('../getType');
 
 const interval = 3000;
-const maxRetries = 4;
 
 const options = {
   protocol: 'amqp',
@@ -21,7 +19,7 @@ const options = {
 };
 
 const validBindingKeys = ['paymentSeen', 'paymentReceived', 'error'];
-const validQueue = ['seen', 'received', 'error'];
+// const validQueue = ['seen', 'received', 'error'];
 
 class Consumer {
   instance;
@@ -57,6 +55,7 @@ class Consumer {
     return this.instance;
   }
 
+  // eslint-disable-next-line class-methods-use-this
   init = async (network) => {
     const {
       bitcoin: { addresses, fees, transactions },
@@ -81,8 +80,6 @@ class Consumer {
 
   consumeMessage = async (queueName, bindingKey) => {
     try {
-      let result;
-
       if (!validBindingKeys.includes(bindingKey)) {
         return { message: 'invalid bindingKey key', status: false };
       }
@@ -132,7 +129,7 @@ class Consumer {
               inscriptionId: content.orderId,
               networkName: content.networkName,
             });
-            if (res == undefined) {
+            if (res === undefined) {
               this.channel.ack(msg);
               await this.channel.publish(
                 exchangeName,

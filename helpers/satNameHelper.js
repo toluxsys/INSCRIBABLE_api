@@ -8,7 +8,9 @@ const verifyName = async (name) => {
     if (response.data.name === name) {
       return false;
     }
-  } catch (err) {}
+  } catch (err) {
+    console.log(err.message);
+  }
 };
 
 module.exports = verifyName;

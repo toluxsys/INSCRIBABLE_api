@@ -1,7 +1,6 @@
 const axios = require('axios');
 const dotenv = require('dotenv').config();
 const fs = require('fs');
-const { ObjectId } = require('mongoose').Types;
 const moment = require('moment');
 const RabbitMqClient = require('./queue/rabbitMqClient.js');
 const Inscription = require('../model/inscription');
@@ -33,7 +32,6 @@ const defaultInscribe = async ({ inscriptionId, networkName }) => {
     let inscription;
     let newInscription;
     let imageName;
-    let n_inscriptions;
     let details = [];
     let balance = 0;
     let cost = 0;
@@ -179,7 +177,7 @@ const defaultInscribe = async ({ inscriptionId, networkName }) => {
       });
     }
 
-    if (newInscription.data.status == false) {
+    if (newInscription.data.status === false) {
       return {
         message: newInscription.data.message,
         status: false,
@@ -194,7 +192,7 @@ const defaultInscribe = async ({ inscriptionId, networkName }) => {
       };
     }
 
-    n_inscriptions = newInscription.data.userResponse.data;
+    const n_inscriptions = newInscription.data.userResponse.data;
     if (newInscription.data.userResponse.data.length === 0)
       return {
         message: `error inscribing item`,
@@ -239,7 +237,6 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
     let inscription;
     let newInscription;
     let imageNames;
-    let n_inscriptions;
     let details = [];
     let ORD_API_URL;
     let receiveAddress;
@@ -347,7 +344,7 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
       };
     }
 
-    n_inscriptions = newInscription.data.userResponse.data;
+    const n_inscriptions = newInscription.data.userResponse.data;
     if (newInscription.data.userResponse.data.length === 0)
       return {
         message: `error inscribing item`,
@@ -459,7 +456,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         data: { txid, ids: inscription.inscription },
         status: true,
       };
-    if (balance.totalAmountAvailable == 0)
+    if (balance.totalAmountAvailable === 0)
       return {
         message: 'payment address is empty',
         data: { txid, ids: [] },
@@ -484,7 +481,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
     });
     const { minted } = collection;
 
-    if (inscription.fileNames.length == 0) {
+    if (inscription.fileNames.length === 0) {
       exists = false;
     } else {
       exists = verifyList(minted, inscription.fileNames);
@@ -538,9 +535,9 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         inscription.spendTxid = balance.txid[0];
         await inscription.save();
         mintCount = _savedCollection.minted.length;
-      } else if (exists === false && inscription.fileNames.length == 0) {
+      } else if (exists === false && inscription.fileNames.length === 0) {
         const images = await getImages(inscription.collectionId);
-        if (images.open.length == 0) {
+        if (images.open.length === 0) {
           return {
             message: 'collection mint complete',
             data: { txid, ids: [] },
@@ -635,9 +632,9 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         inscription.spendTxid = balance.txid[0];
         await inscription.save();
         mintCount = _savedCollection.minted.length;
-      } else if (exists === false && inscription.fileNames.length == 0) {
+      } else if (exists === false && inscription.fileNames.length === 0) {
         const images = await getImages(inscription.collectionId);
-        if (images.open.length == 0) {
+        if (images.open.length === 0) {
           return {
             message: 'collection mint complete',
             data: { txid, ids: [] },
@@ -687,7 +684,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         mintCount = _savedCollection.minted.length;
       }
 
-      if (inscription.error == true) {
+      if (inscription.error === true) {
         const addToQueue = await RabbitMqClient.addToQueue({
           data: {
             orderId: inscriptionId,
@@ -788,7 +785,7 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
         data: { txid, ids: inscription.inscription },
         status: true,
       };
-    if (balance.totalAmountAvailable == 0)
+    if (balance.totalAmountAvailable === 0)
       return {
         message: 'payment address is empty',
         data: { txid: null, ids: [] },
@@ -890,7 +887,7 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
           status: true,
         };
       }
-      if (inscription.error == true) {
+      if (inscription.error === true) {
         const addToQueue = await RabbitMqClient.addToQueue({
           data: {
             orderId: inscriptionId,
@@ -907,14 +904,6 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
             status: false,
             key: 'error_adding_order_to_queue',
           };
-        result = {
-          message: `added to queue`,
-          data: {
-            txid,
-            ids: [],
-          },
-          status: true,
-        };
       } else if (inscription.collectionPayment === 'received') {
         return {
           message: `payment received`,
@@ -972,8 +961,6 @@ const getLinks = async (cid, totalSupply) => {
       for await (const link of ipfs.ls(cid)) {
         links.push(link);
       }
-      // if(links.length === totalSupply) return links
-      // let data = links.splice(links.length - totalSupply, totalSupply);
       const filePath = `./src/imageLinks/${cid}.json`;
       writeImageFiles(filePath, JSON.stringify(links));
       return links;
@@ -1065,7 +1052,6 @@ const getImages = async (collectionId) => {
     };
   } catch (e) {
     console.log(e);
-    return res.status(500).json({ status: false, message: e.message });
   }
 };
 
@@ -1142,7 +1128,6 @@ const checkPayment = async ({ inscriptionId, networkName }) => {
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
-      fileCount = 1;
       if (!inscription) {
         return {
           message: 'order not found',
@@ -1167,7 +1152,6 @@ const checkPayment = async ({ inscriptionId, networkName }) => {
       }
     } else if (type === `bulk`) {
       inscription = await BulkInscription.findOne({ id: inscriptionId });
-      fileCount = inscription.fileNames.length;
       if (!inscription) {
         return {
           message: 'order not found',

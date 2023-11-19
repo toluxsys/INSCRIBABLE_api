@@ -16,7 +16,7 @@ const perform_task = async (address, taskId) => {
     // add task to user reward array
     const task = await Task.findOne({ taskId });
     if (!task) return { status: false, message: 'invalid task id' };
-    if (task.status == 'inactive')
+    if (task.status === 'inactive')
       return { status: false, message: 'task is inactive' };
     const taskHistory = {
       taskId: task.taskId,
@@ -121,7 +121,7 @@ module.exports.addTask = async (req, res) => {
       .status(200)
       .json({ status: true, message: 'Task saved', userResponse: savedTask });
   } catch (e) {
-    comsole.log(e.message);
+    console.log(e.message);
     return res.status(500).json({ status: false, message: e.message });
   }
 };
@@ -137,6 +137,10 @@ module.exports.addClaim = async (req, res) => {
       return res
         .status(200)
         .json({ status: false, message: 'claimPoint is required' });
+    if (!info)
+      return res
+        .status(200)
+        .json({ status: false, message: 'info is required' });
     const claims = await Claim.find({});
     const claimId = claims.length + 1;
     const claim = new Claim({
@@ -151,7 +155,7 @@ module.exports.addClaim = async (req, res) => {
       .status(200)
       .json({ status: true, message: 'claim saved', userResponse: savedClaim });
   } catch (e) {
-    comsole.log(e.message);
+    console.log(e.message);
     return res.status(500).json({ status: false, message: e.message });
   }
 };
@@ -168,7 +172,7 @@ module.exports.removeTask = async (req, res) => {
       return res
         .status(200)
         .json({ status: false, message: 'invalid task id' });
-    if (task.status == 'inactive')
+    if (task.status === 'inactive')
       return res
         .status(200)
         .json({ status: false, message: 'task already inactive' });
@@ -180,7 +184,7 @@ module.exports.removeTask = async (req, res) => {
       userResponse: updateTask,
     });
   } catch (e) {
-    comsole.log(e.message);
+    console.log(e.message);
     return res.status(500).json({ status: false, message: e.message });
   }
 };
@@ -197,7 +201,7 @@ module.exports.removeClaim = async (req, res) => {
       return res
         .status(200)
         .json({ status: false, message: 'invalid reward id' });
-    if (claim.status == 'inactive')
+    if (claim.status === 'inactive')
       return res
         .status(200)
         .json({ status: false, message: 'reward already inactive' });
@@ -317,7 +321,7 @@ module.exports.redeemPoints = async (req, res) => {
     if (userReward.totalPoints < claim.claimPoint)
       return res.status(200).json({
         status: false,
-        message: `not enough points to redeem claim. n\ Total Point: ${userReward.totalPoints}`,
+        message: `not enough points to redeem claim. Total Point: ${userReward.totalPoints}`,
       });
 
     // claim code: insc-claimId-uuid
@@ -397,7 +401,7 @@ module.exports.getClaims = async (req, res) => {
         info: claim.info,
         claimPoint: claim.claimPoint,
       };
-      if (claim.status == 'active') active.push(data);
+      if (claim.status === 'active') active.push(data);
     });
     return res
       .status(200)
@@ -420,9 +424,9 @@ module.exports.getTasks = async (req, res) => {
         info: task.info,
         taskPoints: task.taskPoints,
       };
-      if (task.status == 'active' && task.taskId !== 1) {
+      if (task.status === 'active' && task.taskId !== 1) {
         active.push(data);
-      } else if (task.status == 'active' && task.taskId !== 2) {
+      } else if (task.status === 'active' && task.taskId !== 2) {
         active.push(data);
       }
     });

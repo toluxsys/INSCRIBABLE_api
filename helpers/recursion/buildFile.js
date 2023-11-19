@@ -1,9 +1,10 @@
+const fs = require('fs');
 const { saveFile, saveFileS3 } = require('../imageHelper');
 
 // draw
 const writeFile = (path, data, collectionId) => {
   try {
-    if (!existsSync(`${process.cwd()}/build/files/${collectionId}/`)) {
+    if (!fs.existsSync(`${process.cwd()}/build/files/${collectionId}/`)) {
       fs.mkdirSync(
         `${process.cwd()}/build/files/${collectionId}/`,
         { recursive: true },
