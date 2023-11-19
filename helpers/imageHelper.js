@@ -457,7 +457,6 @@ const compressAndSaveS3 = async (file, optimize) => {
 
 const compressAndSaveBulkS3 = async (file, inscriptionId, optimize) => {
   try {
-    const storage = await initStorage();
     const files = [];
     const fileSize = [];
 
@@ -569,7 +568,13 @@ const resizeFile = async ({ file, inscriptionId, optimize }) => {
             });
             break;
           default:
-            `file with type of ${mimetype} cannot be optimized`;
+            compData.push({
+              sizeIn: file[0].size,
+              sizeOut: file[0].size,
+              inPath: file[0].path,
+              outPath: file[0].path,
+              comPercentage: 0,
+            });
         }
       } else {
         await Promise.all(
@@ -640,7 +645,13 @@ const resizeFile = async ({ file, inscriptionId, optimize }) => {
                 });
                 break;
               default:
-                `file with type of ${mimetype} cannot be optimized`;
+                compData.push({
+                  sizeIn: x.size,
+                  sizeOut: x.size,
+                  inPath: x.path,
+                  outPath: x.path,
+                  comPercentage: 0,
+                });
             }
           }),
         );
