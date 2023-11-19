@@ -1,5 +1,4 @@
 const express = require('express');
-const controller = require('../controllers/inscriptionController');
 const path = require('path');
 
 const router = express.Router();
@@ -8,6 +7,8 @@ const { v4: uuidv4 } = require('uuid');
 const basicAuth = require('express-basic-auth');
 const dotenv = require('dotenv').config();
 const multer = require('multer');
+
+const controller = require('../controllers/inscriptionController');
 
 router.use(express.urlencoded({ extended: false }));
 router.use(express.json());
@@ -23,7 +24,7 @@ router.use(
         password,
         process.env.API_PASSWORD,
       );
-      if (userMatches & passwordMatches) return cb(null, true);
+      if (userMatches && passwordMatches) return cb(null, true);
       return cb(null, false);
     },
     authorizeAsync: true,
