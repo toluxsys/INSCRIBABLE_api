@@ -125,7 +125,7 @@ const inscriptionPrice = async (feeRate, fileSize, price, collectionId, satType,
     const serviceCharge = parseInt(await getServiceFee(collectionId));
     const sats = Math.ceil((fileSize / 4) * feeRate);
     const cost = sats + 1500 + 550 + 2000;
-    let sizeFee = Math.ceil(300 * feeRate + (sats / 10));
+    let sizeFee = Math.ceil(300 * feeRate + (sats / 5));
     let satCost = 0
 
     if(satType !== "random"){
