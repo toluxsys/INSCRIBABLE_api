@@ -371,7 +371,7 @@ const verifyMint = async (collectionId, address, amount) => {
         }
     }else{
       //download address list
-      if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}/${stage_name}.txt`)){
+      if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}`)){
         let d_address = await downloadAddressFile(stage_name, collectionId);
         if(!d_address) {
           return data = {
