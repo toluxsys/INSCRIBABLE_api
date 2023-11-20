@@ -238,6 +238,7 @@ const checkWallet = async (collectionId, address) => {
     let stagNames = [];
     let params = [];
     let addresses = [];
+    let regex = /[^,\r\n]+/g;
     mintStages.forEach(async (stage) => {
       if(stage.name === "public" || stage.name === "Public"){
         stagNames.push(`addr-`+collectionId+`-`+stage.name+`.txt`);
@@ -250,17 +251,17 @@ const checkWallet = async (collectionId, address) => {
       }
     });
 
-    let res = await downloadAllAddressFile(params, collectionId);
-    if(res === false) {
-      return data = {
-        valid: false,
-        price: 0,
-        mintCount: 0,
-        message: `collection addresses not found`
+    if(!fs.existsSync(process.cwd()+`/src/address/${collectionId}`)){
+      let res = await downloadAllAddressFile(params, collectionId);
+      if(res === false) {
+        return data = {
+          valid: false,
+          price: 0,
+          mintCount: 0,
+          message: `collection addresses not found`
+        }
       }
     }
-
-    let regex = /[^,\r\n]+/g;
     fs.readdirSync(process.cwd()+`/src/address/${collectionId}`).forEach((file) => {
       let _addr = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${file}`, { encoding: 'utf8'})
       let allowedAddr = _addr.match(regex)
