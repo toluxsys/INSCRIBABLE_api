@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
 const mongoose = require('mongoose');
 const inscriptRoute = require('./routes/inscriptRoute.js');
 const collectionRoute = require('./routes/collectionRoute.js');

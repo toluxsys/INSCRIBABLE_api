@@ -329,7 +329,7 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
       console.log(newInscription);
     }
 
-    if (newInscription.data.status == false) {
+    if (newInscription.data.status === false) {
       return {
         message: newInscription.data.message,
         status: false,
@@ -500,41 +500,52 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
 
     if (balance.status[0].confirmed === false) {
       if (exists === false && inscription.fileNames.length !== 0) {
-        _savedCollection = await Collection.findOneAndUpdate(
-          { id: inscription.collectionId },
-          {
-            $push: { minted: { $each: inscription.fileNames, $position: -1 } },
-          },
-          { new: true },
-        );
-        const address = await Address.findOne({
-          mintStage: collection.mintStage,
-          address: inscription.receiver,
-          collectionId: collection.id,
-        });
-        address.mintCount += inscription.fileNames.length;
-        await address.save();
-        await SelectedItems.deleteOne({ _id: inscription.selected });
+        if (inscription.mintStage === collection.mintStage) {
+          _savedCollection = await Collection.findOneAndUpdate(
+            { id: inscription.collectionId },
+            {
+              $push: {
+                minted: { $each: inscription.fileNames, $position: -1 },
+              },
+            },
+            { new: true },
+          );
+          const address = await Address.findOne({
+            mintStage: collection.mintStage,
+            address: inscription.receiver,
+            collectionId: collection.id,
+          });
+          address.mintCount += inscription.fileNames.length;
+          await address.save();
+          await SelectedItems.deleteOne({ _id: inscription.selected });
 
-        const addToQueue = await RabbitMqClient.addToQueue({
-          data: {
-            orderId: inscriptionId,
-            networkName,
-            txid: _txid,
-          },
-          routingKey: 'paymentSeen',
-        });
-        if (addToQueue.status !== true)
+          const addToQueue = await RabbitMqClient.addToQueue({
+            data: {
+              orderId: inscriptionId,
+              networkName,
+              txid: _txid,
+            },
+            routingKey: 'paymentSeen',
+          });
+          if (addToQueue.status !== true)
+            return {
+              message: 'error adding order to queue',
+              data: { txid, ids: [] },
+              status: false,
+              key: 'error_adding_order_to_queue',
+            };
+          inscription.collectionPayment = 'received';
+          inscription.spendTxid = balance.txid[0];
+          await inscription.save();
+          mintCount = _savedCollection.minted.length;
+        } else {
           return {
-            message: 'error adding order to queue',
+            message: 'order stage ended',
             data: { txid, ids: [] },
             status: false,
-            key: 'error_adding_order_to_queue',
+            key: 'order_stage_ended',
           };
-        inscription.collectionPayment = 'received';
-        inscription.spendTxid = balance.txid[0];
-        await inscription.save();
-        mintCount = _savedCollection.minted.length;
+        }
       } else if (exists === false && inscription.fileNames.length === 0) {
         const images = await getImages(inscription.collectionId);
         if (images.open.length === 0) {
@@ -596,23 +607,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         status: true,
       };
     } else if (balance.status[0].confirmed === true) {
-      if (exists === false && inscription.fileNames.length !== 0) {
-        _savedCollection = await Collection.findOneAndUpdate(
-          { id: inscription.collectionId },
-          {
-            $push: { minted: { $each: inscription.fileNames, $position: -1 } },
-          },
-          { new: true },
-        );
-        const address = await Address.findOne({
-          mintStage: collection.mintStage,
-          address: inscription.receiver,
-          collectionId: collection.id,
-        });
-        address.mintCount += inscription.fileNames.length;
-        await address.save();
-        await SelectedItems.deleteOne({ _id: inscription.selected });
-
+      if (inscription.error === true) {
         const addToQueue = await RabbitMqClient.addToQueue({
           data: {
             orderId: inscriptionId,
@@ -628,10 +623,61 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             status: false,
             key: 'error_adding_order_to_queue',
           };
-        inscription.collectionPayment = 'received';
-        inscription.spendTxid = balance.txid[0];
-        await inscription.save();
-        mintCount = _savedCollection.minted.length;
+        result = {
+          message: `added to queue`,
+          data: {
+            txid,
+            ids: [],
+          },
+          status: true,
+        };
+      } else if (exists === false && inscription.fileNames.length !== 0) {
+        if (inscription.mintStage === collection.mintStage) {
+          _savedCollection = await Collection.findOneAndUpdate(
+            { id: inscription.collectionId },
+            {
+              $push: {
+                minted: { $each: inscription.fileNames, $position: -1 },
+              },
+            },
+            { new: true },
+          );
+          const address = await Address.findOne({
+            mintStage: collection.mintStage,
+            address: inscription.receiver,
+            collectionId: collection.id,
+          });
+          address.mintCount += inscription.fileNames.length;
+          await address.save();
+          await SelectedItems.deleteOne({ _id: inscription.selected });
+
+          const addToQueue = await RabbitMqClient.addToQueue({
+            data: {
+              orderId: inscriptionId,
+              networkName,
+              txid: _txid,
+            },
+            routingKey: 'paymentSeen',
+          });
+          if (addToQueue.status !== true)
+            return {
+              message: 'error adding order to queue',
+              data: { txid, ids: [] },
+              status: false,
+              key: 'error_adding_order_to_queue',
+            };
+          inscription.collectionPayment = 'received';
+          inscription.spendTxid = balance.txid[0];
+          await inscription.save();
+          mintCount = _savedCollection.minted.length;
+        } else {
+          return {
+            message: 'order stage ended',
+            data: { txid, ids: [] },
+            status: false,
+            key: 'order_stage_ended',
+          };
+        }
       } else if (exists === false && inscription.fileNames.length === 0) {
         const images = await getImages(inscription.collectionId);
         if (images.open.length === 0) {
@@ -683,32 +729,6 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         await inscription.save();
         mintCount = _savedCollection.minted.length;
       }
-
-      if (inscription.error === true) {
-        const addToQueue = await RabbitMqClient.addToQueue({
-          data: {
-            orderId: inscriptionId,
-            networkName,
-            txid: _txid,
-          },
-          routingKey: 'paymentSeen',
-        });
-        if (addToQueue.status !== true)
-          return {
-            message: 'error adding order to queue',
-            data: { txid, ids: [] },
-            status: false,
-            key: 'error_adding_order_to_queue',
-          };
-        result = {
-          message: `added to queue`,
-          data: {
-            txid,
-            ids: [],
-          },
-          status: true,
-        };
-      }
     }
 
     if (collection.collectionDetails.totalSupply === mintCount) {
@@ -737,7 +757,6 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
     let balance;
     let cost = 0;
     let txid = '';
-    let _txid;
 
     if (type === `single`) {
       inscription = await Inscription.findOne({ id: inscriptionId });
@@ -806,7 +825,7 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
         status: false,
       };
 
-    _txid = balance.txid[0].split(`:`)[0];
+    const _txid = balance.txid[0].split(`:`)[0];
     txid = `https://mempool.space/tx/${_txid}`;
 
     const messageProperties = {

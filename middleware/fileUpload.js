@@ -21,7 +21,7 @@ const addressFileUpload = multer({
   storage: addressFileStorage,
   limits: { fileSize: 60 * 1024 * 1024 }, // 60MB
   fileFilter: (req, file, cb) => {
-    if (file.mimetype == 'text/plain') {
+    if (file.mimetype === 'text/plain') {
       cb(null, true);
     } else {
       cb(null, false);

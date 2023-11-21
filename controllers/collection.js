@@ -1,3 +1,4 @@
+/* eslint-disable no-continue */
 const { existsSync } = require('fs');
 const axios = require('axios');
 
@@ -167,39 +168,51 @@ const updateMintStage1 = async (collectionId) => {
     if (!collection) {
       return 'collection not found';
     }
-
+    if (collection.paused === true) return 'mint is paused';
     if (collection.ended === true) return 'mint ended';
-    if (collection.ended === false) return 'mint is yet to start';
+    if (collection.startMint === false) return 'mint is yet to start';
 
     const stages = collection.mintDetails;
     if (!stages) return 'mint stages not added';
+
     const mintStage = await MintDetails.findOne({ _id: collection.mintStage });
     if (!mintStage) return 'mint stage not set';
 
+    const allStages = await MintDetails.find({ collectionId });
+    let prevDuration = 0;
+    for (let i = 0; i < allStages.length; i++) {
+      if (i === 0 && allStages[i].name === mintStage.name) {
+        prevDuration = 0;
+        break;
+      } else {
+        prevDuration += allStages[i].duration;
+        if (allStages[i + 1].name === mintStage.name) {
+          break;
+        } else {
+          continue;
+        }
+      }
+    }
+
     const currentTime = moment();
     const startTime = collection.startAt;
-    const timeDifference = currentTime.diff(startTime, 'seconds');
-    const { duration } = mintStage;
+    const stageStartTime = new Date(startTime.getTime() + prevDuration);
+    const timeDifference = currentTime.diff(stageStartTime, 'seconds');
+    const duration = mintStage.duration;
 
     if (timeDifference >= duration) {
-      collection.startMint = false;
-      collection.ended = true;
+      const nextStageIndex = stages.indexOf(collection.mintStage) + 1;
+      if (nextStageIndex + 1 > stages.length) {
+        collection.startMint = false;
+        collection.ended = true;
+        await collection.save();
+        return 'mint stage updated';
+      }
+      const nextStage = stages[nextStageIndex];
+      collection.mintStage = nextStage;
       await collection.save();
       return 'mint stage updated';
     }
-
-    const nextStageIndex = stages.indexOf(collection.mintStage) + 1;
-
-    if (nextStageIndex + 1 > stages.length) {
-      collection.startMint = false;
-      collection.ended = true;
-      await collection.save();
-      return 'mint stage updated';
-    }
-    const nextStage = stages[nextStageIndex];
-    collection.mintStage = nextStage;
-    collection.startAt = new Date();
-    await collection.save();
     return 'mint stage updated';
   } catch (e) {
     console.log(e);
@@ -1102,6 +1115,7 @@ module.exports.selectItem = async (req, res) => {
         feeRate,
         collectionId,
         selected: savedSelected._id,
+        mintStage: collection.mintStage,
         inscriptionDetails: {
           payAddress: paymentAddress,
           cid,
@@ -1179,6 +1193,7 @@ module.exports.selectItem = async (req, res) => {
         feeRate,
         collectionId,
         selected: savedSelected._id,
+        mintStage: collection.mintStage,
         sat: oldSats,
 
         inscriptionDetails: {
@@ -1197,10 +1212,6 @@ module.exports.selectItem = async (req, res) => {
 
       await inscription.save();
     }
-
-    // let _savedId = [];
-    // _savedId.push(inscriptionId);
-    // await Address.findOneAndUpdate({mintStage: collection.mintStage, address: receiveAddress}, {$push: {pendingOrders: {$each: _savedId, $position: -1}}}, {new: true})
 
     const userResponse = {
       cost: {
@@ -1633,6 +1644,7 @@ module.exports.getCollections = async (req, res) => {
         discord: collection[0].collectionDetails.discord,
         createdAt: collection[0].createdAt,
         updatedAt: collection[0].updatedAt,
+        startAt: collection[0].startAt,
         template: collection[0].template || 1,
         type: element.type,
         ended,
@@ -1763,7 +1775,7 @@ module.exports.getCollection = async (req, res) => {
       ended: collection.ended,
       mintStarted: collection.startMint,
       mintStage: _mintStage,
-      startedAt: collection.startAt,
+      startAt: collection.startAt,
       stages: details,
       satType: collection.specialSat,
       template: collection.template || 1,
