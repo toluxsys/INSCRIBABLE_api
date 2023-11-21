@@ -14,6 +14,7 @@ const inscriptionSchema = new mongoose.Schema(
     collectionPayment: {type: String, default: "waiting"},
     sat: {type: String},
     spendTxid: { type: String },
+    mintStage: {type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"},
     inscriptionDetails: {
       type: Object,
     },

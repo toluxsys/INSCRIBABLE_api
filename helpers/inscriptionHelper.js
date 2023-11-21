@@ -5,6 +5,7 @@ const ObjectId = require('mongoose').Types.ObjectId;
 const RabbitMqClient = require("./queue/rabbitMqClient.js");
 const Inscription = require("../model/inscription");
 const SelectedItems = require("../model/selectedItems");
+const MintDetails = require("../model/mintDetails");
 const BulkInscription = require("../model/bulkInscription");
 const Address = require("../model/address");
 const Collection = require("../model/collection");
@@ -17,6 +18,7 @@ const {
 } = require("../helpers/sendBitcoin");
 const { getType } = require("./getType");
 const {perform_task} = require("./rewardHelper.js")
+let publicStage = ["Public", "public"]
 
 const verifyList = (arr1, arr2) => {
   const set = new Set(arr1);
@@ -355,7 +357,6 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             key: "Invalid_id"
           }
         }
-        
         if(inscription.inscribed === true) return {message: "order complete", data: {txid: txid, ids: inscription.inscription}, status: true}
         if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: txid, ids: []}, status: false}
         if(balance.totalAmountAvailable < cost) return {message: "available balance in paymentAddress is less than total amount for inscription", data: {txid: txid, ids: []}, status: false, key: "available_balance_less_than_total_amount_for_inscription"}
@@ -376,20 +377,25 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
           return {message: "payment address is empty", data: {txid: txid, ids: []}, status: false}
         }
 
-        if(balance.status[0].confirmed === false){       
+        if(balance.status[0].confirmed === false){     
             if(exists === false && inscription.fileNames.length !== 0){
-              _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
-              let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
-              address.mintCount = address.mintCount + inscription.fileNames.length
-              await address.save()
-              await SelectedItems.deleteOne({_id: inscription.selected});
-
-              let addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, txid: _txid}, routingKey: "paymentSeen"})
-              if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false, key:"error_adding_order_to_queue" }
-              inscription.collectionPayment = "received";
-              inscription.spendTxid = balance.txid[0]
-              await inscription.save();
-              mintCount = _savedCollection.minted.length;
+              if(inscription.mintStage === collection.mintStage){
+                _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
+                let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
+                address.mintCount = address.mintCount + inscription.fileNames.length
+                await address.save()
+                await SelectedItems.deleteOne({_id: inscription.selected});
+  
+                let addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, txid: _txid}, routingKey: "paymentSeen"})
+                if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false, key:"error_adding_order_to_queue" }
+                inscription.collectionPayment = "received";
+                inscription.spendTxid = balance.txid[0]
+                await inscription.save();
+                mintCount = _savedCollection.minted.length;
+              }else{
+                return {message: "mint Stage ended", data: {txid: txid, ids: []}, status: false, key:"mint Stage ended" }
+              }
+              
             }else if(exists === false && inscription.fileNames.length == 0){
               let images = await getImages(inscription.collectionId)
               if(images.open.length == 0){
@@ -425,20 +431,35 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
               status: true
             };
             
-        }else if (balance.status[0].confirmed === true){
-          if(exists === false && inscription.fileNames.length !== 0){
-            _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
-            let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
-            address.mintCount = address.mintCount + inscription.fileNames.length
-            await address.save()
-            await SelectedItems.deleteOne({_id: inscription.selected});
-
+        }else if (balance.status[0].confirmed === true){   
+          if(inscription.error == true){
             let addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, txid: _txid}, routingKey: "paymentSeen"})
-            if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false, key:"error_adding_order_to_queue" }
-            inscription.collectionPayment = "received";
-            inscription.spendTxid = balance.txid[0]
-            await inscription.save();
-            mintCount = _savedCollection.minted.length;
+            if(addToQueue.status !== true) return {message: "error adding order to queue", data:{txid: txid, ids: []}, status: false, key: "error_adding_order_to_queue"}
+            result = {
+              message: `added to queue`,
+              data:{
+                  txid: txid,
+                  ids: []
+              },
+              status: true
+            };
+          }else if(exists === false && inscription.fileNames.length !== 0){
+            if(inscription.mintStage === collection.mintStage){
+              _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
+              let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
+              address.mintCount = address.mintCount + inscription.fileNames.length
+              await address.save()
+              await SelectedItems.deleteOne({_id: inscription.selected});
+
+              let addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, txid: _txid}, routingKey: "paymentSeen"})
+              if(addToQueue.status !== true) return {message: "error adding order to queue", data: {txid: txid, ids: []}, status: false, key:"error_adding_order_to_queue" }
+              inscription.collectionPayment = "received";
+              inscription.spendTxid = balance.txid[0]
+              await inscription.save();
+              mintCount = _savedCollection.minted.length;
+            }else{
+              return {message: "order stage ended", data: {txid: txid, ids: []}, status: false, key:"order_stage_ended" }
+            }
           }else if(exists === false && inscription.fileNames.length == 0){
             let images = await getImages(inscription.collectionId)
             if(images.open.length == 0){
@@ -463,19 +484,6 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             inscription.spendTxid = balance.txid[0]
             await inscription.save();
             mintCount = _savedCollection.minted.length;
-          }
-          
-          if(inscription.error == true){
-            let addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, txid: _txid}, routingKey: "paymentSeen"})
-            if(addToQueue.status !== true) return {message: "error adding order to queue", data:{txid: txid, ids: []}, status: false, key: "error_adding_order_to_queue"}
-            result = {
-              message: `added to queue`,
-              data:{
-                  txid: txid,
-                  ids: []
-              },
-              status: true
-            };
           }
         }
 

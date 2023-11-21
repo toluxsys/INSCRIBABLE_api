@@ -156,41 +156,54 @@ const updateMintStage1 = async (collectionId) => {
     if(!collection) {
       return "collection not found"
     }else{
-      
+      if(collection.paused === true) return "mint is paused"
       if(collection.ended === true) return "mint ended";
-      if(collection.ended === false) return "mint is yet to start"
+      if(collection.startMint === false) return "mint is yet to start"
       
       const stages = collection.mintDetails;
       if(!stages) return "mint stages not added"
+
       const mintStage = await MintDetails.findOne({_id: collection.mintStage});
       if(!mintStage) return "mint stage not set"
-       
+
+      const allStages = await MintDetails.find({collectionId: collectionId})
+      let prevDuration = 0;
+      for(let i = 0; i<allStages.length; i++){
+        if(i === 0 && allStages[i].name === mintStage.name){
+          prevDuration = 0
+          break;
+        }else{
+          prevDuration += allStages[i].duration 
+          if(allStages[i+1].name === mintStage.name){
+            break;
+          }else{
+            continue;
+          }
+        }
+      }
+      
       const currentTime = moment();
       const startTime = collection.startAt;
-      const timeDifference = currentTime.diff(startTime , 'seconds');
+      const stageStartTime = new Date(startTime.getTime() + prevDuration)
+      const timeDifference = currentTime.diff(stageStartTime , 'seconds');
       const duration = mintStage.duration;
-      
+
       if(timeDifference >= duration){
-        collection.startMint = false;
-        collection.ended = true;
-        await collection.save();
+        let nextStageIndex = stages.indexOf(collection.mintStage) + 1;
+        if(nextStageIndex+1 > stages.length){
+          collection.startMint = false;
+          collection.ended = true;
+          await collection.save()
+          return "mint stage updated";
+        }else{
+          let nextStage = stages[nextStageIndex];
+          collection.mintStage = nextStage;
+          await collection.save();
+          return "mint stage updated";
+        };
+      } else {
         return "mint stage updated";
-      } 
-        
-      let nextStageIndex = stages.indexOf(collection.mintStage) + 1;
-        
-      if(nextStageIndex+1 > stages.length){
-        collection.startMint = false;
-        collection.ended = true;
-        await collection.save()
-        return "mint stage updated";
-      }else{
-        let nextStage = stages[nextStageIndex];
-        collection.mintStage = nextStage;
-        collection.startAt = new Date();
-        await collection.save();
-        return "mint stage updated";
-      };
+      }
     }
   }catch(e){
     console.log(e);
@@ -946,6 +959,7 @@ module.exports.selectItem = async (req, res) => {
         feeRate: feeRate,
         collectionId: collectionId,
         selected: savedSelected._id,
+        mintStage: collection.mintStage,
         inscriptionDetails: {
           payAddress: paymentAddress,
           cid: cid,
@@ -1012,6 +1026,7 @@ module.exports.selectItem = async (req, res) => {
         inscribed: false,
         feeRate: feeRate,
         collectionId: collectionId,
+        mintStage: collection.mintStage,
         selected: savedSelected._id,
         sat: oldSats,
 
@@ -1364,6 +1379,7 @@ module.exports.getCollections = async (req, res) => {
         website: collection[0].collectionDetails.website,
         twitter: collection[0].collectionDetails.twitter,
         discord: collection[0].collectionDetails.discord,
+        startAt: collection[0].startAt,
         createdAt: collection[0].createdAt,
         updatedAt: collection[0].updatedAt,
         template: collection[0].template || 1,
@@ -1399,7 +1415,7 @@ module.exports.getCollection = async (req, res) => {
     }else if(collectionId){
       collection = await Collection.findOne({id: collectionId});
       if(!collection) return res.status(200).json({status: false, message: "collection not found"})
-      await updateMintStage1(collectionId);
+      let result = await updateMintStage1(collectionId);
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
     }
@@ -1479,7 +1495,7 @@ module.exports.getCollection = async (req, res) => {
         ended: collection.ended,
         mintStarted: collection.startMint,
         mintStage: _mintStage,
-        startedAt: collection.startAt,
+        startAt: collection.startAt,
         stages: details, 
         satType: collection.specialSat,
         template: collection.template || 1, 
