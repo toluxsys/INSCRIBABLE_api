@@ -357,6 +357,7 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
             key: "Invalid_id"
           }
         }
+        
         if(inscription.inscribed === true) return {message: "order complete", data: {txid: txid, ids: inscription.inscription}, status: true}
         if(balance.totalAmountAvailable == 0) return {message: "payment address is empty", data: {txid: txid, ids: []}, status: false}
         if(balance.totalAmountAvailable < cost) return {message: "available balance in paymentAddress is less than total amount for inscription", data: {txid: txid, ids: []}, status: false, key: "available_balance_less_than_total_amount_for_inscription"}
@@ -379,7 +380,7 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
 
         if(balance.status[0].confirmed === false){     
             if(exists === false && inscription.fileNames.length !== 0){
-              // if(inscription.mintStage === collection.mintStage){
+              if(inscription.mintStage.toString() === collection.mintStage.toString()){
                 _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
                 let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
                 address.mintCount = address.mintCount + inscription.fileNames.length
@@ -392,10 +393,9 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
                 inscription.spendTxid = balance.txid[0]
                 await inscription.save();
                 mintCount = _savedCollection.minted.length;
-              // }else{
-              //   return {message: "mint Stage ended", data: {txid: txid, ids: []}, status: false, key:"mint Stage ended" }
-              // }
-              
+              }else{
+                return {message: "mint Stage ended", data: {txid: txid, ids: []}, status: false, key:"mint Stage ended" }
+              }
             }else if(exists === false && inscription.fileNames.length == 0){
               let images = await getImages(inscription.collectionId)
               if(images.open.length == 0){
@@ -444,7 +444,7 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
               status: true
             };
           }else if(exists === false && inscription.fileNames.length !== 0){
-            // if(inscription.mintStage === collection.mintStage){
+            if(inscription.mintStage.toString() === collection.mintStage.toString()){
               _savedCollection = await Collection.findOneAndUpdate({id: inscription.collectionId}, {$push: {minted: {$each: inscription.fileNames, $position: -1}}},{new: true});
               let address = await Address.findOne({mintStage: collection.mintStage, address: inscription.receiver, collectionId: collection.id})
               address.mintCount = address.mintCount + inscription.fileNames.length
@@ -457,9 +457,9 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
               inscription.spendTxid = balance.txid[0]
               await inscription.save();
               mintCount = _savedCollection.minted.length;
-            // }else{
-            //   return {message: "order stage ended", data: {txid: txid, ids: []}, status: false, key:"order_stage_ended" }
-            // }
+            }else{
+              return {message: "order stage ended", data: {txid: txid, ids: []}, status: false, key:"order_stage_ended" }
+            }
           }else if(exists === false && inscription.fileNames.length == 0){
             let images = await getImages(inscription.collectionId)
             if(images.open.length == 0){
@@ -804,7 +804,6 @@ const checkPayment = async ({inscriptionId, networkName}) => {
     try {
         let type = getType(inscriptionId);
         let inscription
-        let result 
 
         if (type === `single`) {
             inscription = await Inscription.findOne({ id: inscriptionId });
@@ -821,9 +820,9 @@ const checkPayment = async ({inscriptionId, networkName}) => {
               }
           }else{
             if(inscription.collectionId) {
-              result = await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
+              return await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
             }else{
-              result = await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName}) 
+              return await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName}) 
             }
           }
             
@@ -842,9 +841,9 @@ const checkPayment = async ({inscriptionId, networkName}) => {
               }
             }else{
               if(inscription.collectionId) {
-                result = await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
+                return await checkCollectionPayment({inscriptionId:inscriptionId, networkName:networkName})
               }else{
-                result = await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName}) 
+                return await checkDefaultPayment({inscriptionId:inscriptionId, networkName:networkName}) 
               }
             }
         }else{
@@ -858,7 +857,6 @@ const checkPayment = async ({inscriptionId, networkName}) => {
             key: "Invalid_id"
           }
         }
-        return result;
     } catch (e) {
       console.log(e.message);
     }
