@@ -435,6 +435,8 @@ const checkCollectionPayment = async ({inscriptionId, networkName}) => {
           if(inscription.error == true){
             let addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, txid: _txid}, routingKey: "paymentSeen"})
             if(addToQueue.status !== true) return {message: "error adding order to queue", data:{txid: txid, ids: []}, status: false, key: "error_adding_order_to_queue"}
+            inscription.error = false
+            await inscription.save();
             result = {
               message: `added to queue`,
               data:{

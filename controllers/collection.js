@@ -1381,6 +1381,7 @@ module.exports.getCollections = async (req, res) => {
         discord: collection[0].collectionDetails.discord,
         startAt: collection[0].startAt,
         createdAt: collection[0].createdAt,
+        mintStarted: collection[0].startMint,
         updatedAt: collection[0].updatedAt,
         template: collection[0].template || 1,
         type: element.type,
