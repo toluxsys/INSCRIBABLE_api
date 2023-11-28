@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 /* eslint-disable no-continue */
 const { existsSync } = require('fs');
 const axios = require('axios');
@@ -19,7 +20,11 @@ const FeaturedCollections = require('../model/featuredCollection');
 const Task = require('../model/task');
 const { getType } = require('../helpers/getType');
 const { usdToSat } = require('../helpers/btcToUsd');
-const { addWalletToOrd, verifyAddress } = require('../helpers/walletHelper');
+const {
+  addWalletToOrd,
+  verifyAddress,
+  collectionWalletDetails,
+} = require('../helpers/walletHelper');
 const {
   compressAndSaveBulk,
   uploadToS3,
@@ -27,7 +32,6 @@ const {
   downloadAllAddressFile,
   compressAndSave,
 } = require('../helpers/imageHelper');
-const { createCollectionLegacyAddress } = require('../helpers/sendBitcoin2');
 const { getSats } = require('../helpers/satHelper');
 const MintDetails = require('../model/mintDetails');
 const { inscribe } = require('../helpers/inscriptionHelper');
@@ -134,7 +138,8 @@ const inscriptionPrice = async (
     let serviceCharge = parseInt(await getServiceFee(collectionId));
     const sats = Math.ceil((fileSize / 4) * feeRate);
     const cost = sats + 1500 + 550 + 2000;
-    let sizeFee = 250 * feeRate;
+    // eslint-disable-next-line prettier/prettier
+    let sizeFee = Math.ceil(300 * feeRate + (sats / 10));
     let satCost = 0;
     if (sizeFee < 1024) {
       sizeFee = 1024;
@@ -615,12 +620,9 @@ module.exports.addCollection = async (req, res) => {
     const count = await Collection.find({}, { _id: 0 });
     const alias = `${collectionName.replace(/\s/g, '')}_${count.length}`;
 
-    const collactionAddressDetails = await createCollectionLegacyAddress(
-      networkName,
-      count.length,
-    );
-    const collectionAddress = collactionAddressDetails.p2pkh_addr;
-    const collectionAddressId = count.length;
+    const collactionAddressDetails = await collectionWalletDetails(networkName);
+    const collectionAddress = collactionAddressDetails.address;
+    const collectionAddressId = 0;
 
     const collectionDetails = {
       creatorName,
@@ -666,6 +668,7 @@ module.exports.addCollection = async (req, res) => {
       startAt,
       banner: `${process.env.IPFS_IMAGE_URL + data.cid}/${bannerName}`,
       featuredImage: `${process.env.IPFS_IMAGE_URL + data.cid}/${featuredName}`,
+      keys: {privateKey: collactionAddressDetails.privateKey, wif: collactionAddressDetails.wif}
     });
     await collection.save();
     return res

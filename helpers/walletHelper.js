@@ -1,77 +1,56 @@
-const bitcore = require('bitcore-lib');
-const Mnemonic = require('bitcore-mnemonic');
+/* eslint-disable prettier/prettier */
 const axios = require('axios');
+const mempoolJS = require('@mempool/mempool.js');
+// eslint-disable-next-line import/no-extraneous-dependencies
 const dotenv = require('dotenv');
 
 dotenv.config();
 
-const { PrivateKey, Networks } = bitcore;
+const init = async (network) => {
+  const {
+    bitcoin: { addresses, fees, transactions },
+  } = mempoolJS({
+    hostname: 'mempool.space',
+    network,
+  });
 
-const getNetwork = (networkName) => {
-  let network;
-  if (networkName === 'mainnet') {
-    network = Networks.mainnet;
-  } else if (networkName === 'testnet') {
-    network = Networks.testnet;
-  } else {
-    throw new Error(`invalid network: ${networkName}, was provided`);
+  return { addresses, fees, transactions };
+};
+
+const getUtxo = async (address, network) => {
+  try {
+    const { addresses } = await init(network);
+    const response = await addresses.getAddressTxsUtxo({ address });
+    const data = [];
+    const utxos = response;
+
+    for (const element of utxos) {
+      data.push({txid: element.txid, vout: element.vout, value: element.value, status: element.status.confirmed })
+    }
+    return data
+  } catch (e) {
+    console.log(e.message);
   }
-  return network;
 };
 
-const createWallet = (networkName) => {
-  const network = getNetwork(networkName);
-  const privateKey = new PrivateKey();
-  const address = privateKey.toAddress(network);
-  return {
-    privateKey: privateKey.toString(),
-    address: address.toString(),
-  };
-};
-
-const createHDWallet = async (networkName, path) => {
-  const network = getNetwork(networkName);
-  const passPhrase = new Mnemonic(process.env.MNEMONIC);
-  const xpriv = passPhrase
-    .toHDPrivateKey(passPhrase.toString(), network)
-    .derive(`m/${path}/0/0`);
-
-  return {
-    privateKey: xpriv.privateKey.toString(),
-    address: xpriv.publicKey.toAddress().toString(),
-    xpriv: xpriv.privateKey,
-  };
-};
-
-const createPayLinkWallet = async (networkName, path) => {
-  const network = getNetwork(networkName);
-  const passPhrase = new Mnemonic(process.env.PAY_LINK_MNEMONIC);
-  const xpriv = passPhrase
-    .toHDPrivateKey(passPhrase.toString(), network)
-    .derive(`m/${path}/0/0`);
-
-  return {
-    privateKey: xpriv.privateKey.toString(),
-    address: xpriv.publicKey.toAddress().toString(),
-    xpriv: xpriv.privateKey,
-  };
-};
-
-const createCollectionHDWallet = async (networkName, path) => {
-  const network = getNetwork(networkName);
-  const passPhrase = new Mnemonic(process.env.COLLECTION_MNEMONIC);
-  const xpriv = passPhrase
-    .toHDPrivateKey(passPhrase.toString(), network)
-    .derive(`m/${path}/0/0`);
-  return {
-    privateKey: xpriv.privateKey.toString(),
-    address: xpriv.publicKey.toAddress().toString(),
-    xpriv: xpriv.privateKey,
-  };
-};
-
-const generateKeyPhrase = async () =>
-  new Mnemonic(Mnemonic.Words.ENGLISH).toString();
+const getAddressHistory = async (collectionAddress, payAddress, network) => {
+  try{
+    const { addresses } = await init(network);
+    const history = await addresses.getAddressTxs({address: payAddress})
+    const data = [];
+    for(const x of history){
+      const vout = x.vout;
+      vout.forEach((item, index) => {
+        if(item.scriptpubkey_address === collectionAddress){
+          data.push({txid: x.txid, vout: index, value: item.value, status: x.status.confirmed})
+        }
+      })
+    }
+    return data;
+  }catch(e){
+    console.log(e)
+  }
+}
 
 const addWalletToOrd = async (walletName, networkName) => {
   try {
@@ -83,7 +62,9 @@ const addWalletToOrd = async (walletName, networkName) => {
       ORD_API_URL = process.env.ORD_TESTNET_API_URL;
 
     const url = `${ORD_API_URL}/ord/wallet/add_wallet`;
-    const key = await generateKeyPhrase();
+    // eslint-disable-next-line import/no-extraneous-dependencies
+    const qip_wallet = (await import('qip-wallet')).default;
+    const key = qip_wallet.createPassPhrase().passPhrase;
 
     const data = {
       walletName,
@@ -158,19 +139,50 @@ const verifyAddress = (address, networkName) => {
   }
 };
 
-module.exports = {
-  createWallet,
-  createHDWallet,
-  generateKeyPhrase,
-  addWalletToOrd,
-  utxoDetails,
-  createCollectionHDWallet,
-  createPayLinkWallet,
-  verifyAddress,
+/* eslint-disable prettier/prettier */
+const collectionWalletDetails = async (network) => {
+  try{
+    // eslint-disable-next-line import/no-extraneous-dependencies
+    const qip_wallet = (await import('qip-wallet')).default;
+    const phrase = qip_wallet.createPassPhrase().passPhrase;
+    const keys = qip_wallet.accountKeys({networkName:network, passPhrase:phrase, path: 0})
+    const addr = qip_wallet.createAddress({privateKey:keys.privateKey, networkName: network, addressType: 'segwit'})
+    return {privateKey: keys.privateKey, wif: keys.wif, address: addr.address}
+  }catch(e){
+    console.log(e);
+  }
+}
+
+//
+const createTransaction = async ({collectionAddress, creatorAddress, serviceChargeAddress, network}) => {
+  try {
+    // eslint-disable-next-line import/no-extraneous-dependencies
+    const qip_wallet = (await import('qip-wallet')).default;
+    const utxo = await getAddressHistory(collectionAddress, network);
+    const available = utxo.map(x => {
+      if(x.status === true) return { 
+        txid: x.txid,
+        vout: x.vout,
+        value: x.value,
+        status: x.status
+      }
+    })
+   console.log(available)
+    //input
+    //output
+    //const tx = await qip_wallet.createTransaction()
+    console.log('SEND BITCOIN')
+  } catch (e) {
+    console.log(e);
+  }
 };
 
-// console.log(
-//   createHDWallet("testnet", 2)
-//     .then((res) => console.log(res))
-//     .catch((e) => console.log(e))
-// );
+module.exports = {
+  addWalletToOrd,
+  utxoDetails,
+  verifyAddress,
+  collectionWalletDetails,
+  createTransaction
+};
+
+//getAddressHistory('3PMfTPTWWm9vkVGev6uXcVKAWYnnALjnoJ','bc1p5njpw89lxs8sqwvedke5zcupl7gnue0d0204klefy9kp7jp0kltqe4zpus','mainnet').then(x => console.log(x)).catch()

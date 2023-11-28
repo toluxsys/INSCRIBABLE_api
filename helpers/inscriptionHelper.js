@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const axios = require('axios');
 const dotenv = require('dotenv').config();
 const fs = require('fs');
@@ -500,7 +501,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
 
     if (balance.status[0].confirmed === false) {
       if (exists === false && inscription.fileNames.length !== 0) {
-        if (inscription.mintStage === collection.mintStage) {
+        if (inscription.mintStage.toString() === collection.mintStage.toString()) {
           _savedCollection = await Collection.findOneAndUpdate(
             { id: inscription.collectionId },
             {
@@ -623,6 +624,8 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             status: false,
             key: 'error_adding_order_to_queue',
           };
+        inscription.error = false;
+        await inscription.save();
         result = {
           message: `added to queue`,
           data: {
@@ -632,7 +635,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
           status: true,
         };
       } else if (exists === false && inscription.fileNames.length !== 0) {
-        if (inscription.mintStage === collection.mintStage) {
+        if (inscription.mintStage.toString() === collection.mintStage.toString()) {
           _savedCollection = await Collection.findOneAndUpdate(
             { id: inscription.collectionId },
             {

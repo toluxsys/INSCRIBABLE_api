@@ -308,7 +308,7 @@ const compressAndSaveBulk = async (file, inscriptionId, optimize) => {
     const rootCid = await storage.put(imageFiles);
 
     await Promise.all(
-      _file.forEach((x) => {
+      _file.map((x) => {
         fs.unlinkSync(x.outPath);
       }),
     );
