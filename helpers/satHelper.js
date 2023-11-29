@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const mempoolJS = require('@mempool/mempool.js');
 const fs = require('fs');
 const { MongoClient } = require('mongodb');
@@ -56,15 +57,16 @@ const getSats = async () => {
     sats.push({ satType: 'random', available: 100000, utxoCount: 1 });
 
     available.forEach((value, key) => {
-      sats.push({
-        satType: key,
-        available: value,
-        utxoCount: satCount.get(key),
-      });
+      if(value !== 0){
+        sats.push({
+          satType: key,
+          available: value,
+          utxoCount: satCount.get(key),
+        });
+      }
     });
 
     await client.close();
-
     return sats;
   } catch (e) {
     console.log(e.message);
@@ -72,3 +74,5 @@ const getSats = async () => {
 };
 
 module.exports = { getStatus, getSats };
+
+getSats().then(x => console.log(x)).catch()

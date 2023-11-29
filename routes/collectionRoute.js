@@ -74,6 +74,7 @@ router.post(
   collectionFileUpload.fields(collectionUploadFields),
   controller.addCollection,
 );
+router.post('/addCollectionItem', controller.addCollectionItems);
 router.post('/addMintAddress', addressFileUpload, controller.addMintAddress);
 router.post('/seleteItem', controller.selectItem);
 router.post('/undoSelection/:inscriptionId', controller.undoSelection);

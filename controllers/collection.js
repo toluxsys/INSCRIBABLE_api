@@ -159,8 +159,9 @@ const inscriptionPrice = async (
     // eslint-disable-next-line import/no-extraneous-dependencies
     const qip_wallet = (await import('qip-wallet')).default;
     const addrTypes = await getAddressType(addresses)
-    const transactionSize = qip_wallet.getTransactionSize({input: 1, output: addrTypes, addressType: 'segwit'})
+    const transactionSize = qip_wallet.getTransactionSize({input: 1, output: addrTypes, addressType: 'segwit'}).txBytes
     const creatorsTransactionFees = transactionSize * feeRate
+    console.log('creator Transaction fee:',creatorsTransactionFees)
 
     const total = serviceCharge + cost + creatorsTransactionFees + sizeFee + price + satCost;
     return {
@@ -791,88 +792,19 @@ module.exports.addMintAddress = async (req, res) => {
   }
 };
 
-// module.exports.addCollectionItems = async (req, res) => {
-//   try {
-//     req.setTimeout(450000);
-//     const { collectionId } = req.body;
-//     let collectionItems;
-//     let optimize;
-//     const { itemCid } = req.body;
-//     let optimized;
-//     const collection = await Collection.findOne({ id: collectionId });
-
-//     if (collection.status === 'approved')
-//       return res
-//         .status(200)
-//         .json({ status: false, message: `collection items already added` });
-
-//     if (itemCid) {
-//       collection.itemCid = itemCid;
-//     } else {
-//       collectionItems = req.files.items;
-//       optimize = req.body.optimize;
-
-//       if (!collectionItems)
-//         return res
-//           .status(200)
-//           .json({ status: false, message: 'choose item(s) to upload' });
-//       if (collectionItems.length > 100)
-//         return res.status(200).json({
-//           status: false,
-//           message:
-//             'collection items above 100, upload images to ipfs and pass CID',
-//         });
-
-//       if (optimize === `true`) {
-//         optimized = true;
-//       } else {
-//         optimized = false;
-//       }
-
-//       if (!existsSync(`${process.cwd()}/src/bulk/${collectionId}`)) {
-//         mkdirSync(
-//           `${process.cwd()}./src/bulk/${collectionId}`,
-//           { recursive: true },
-//           (err) => {
-//             console.log(err);
-//           },
-//         );
-//       }
-
-//       collectionItems.forEach(async (file, index) => {
-//         ext = path.extname(file.name);
-//         const fileName = `${index + 1}${path.extname(file.name)}`;
-//         const savePath = path.join(
-//           process.cwd(),
-//           'src',
-//           'bulk',
-//           `${collectionId}`,
-//           fileName,
-//         );
-//         await file.mv(savePath);
-//       });
-
-//       const data = await compressAndSaveBulk(collectionId, optimized);
-//       collection.itemCid = data.cid;
-//     }
-
-//     await collection.save();
-
-//     return res.status(200).json({
-//       status: true,
-//       message: `ok`,
-//       userResponse: {
-//         collectionId,
-//         collectionName: collection.name,
-//         category: collection.category,
-//         collectionImageUri: collection.featuredImage,
-//       },
-//     });
-//   } catch (e) {
-//     console.log(e.message);
-//     return res.status(500).json({ status: false, message: e.message });
-//   }
-// };
+module.exports.addCollectionItems = async (req, res) => {
+  try {
+    const { collectionId, itemCid } = req.body;
+    const collection = await Collection.findOne({id: collectionId})
+    collection.itemCid = itemCid
+    const savedCollection = await collection.save();
+    if(!savedCollection) return res.status(200).json({message: 'collection Not Added', status: false})
+    return res.status(200).json({message: 'collection items added', status: true});
+  } catch (e) {
+    console.log(e.message);
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
 
 module.exports.addCollectionServiceFee = async (req, res) => {
   try {
@@ -1314,53 +1246,61 @@ module.exports.calc = async (req, res) => {
       return res
         .status(200)
         .json({ status: false, message: 'mint stage not set' });
+    
     const mintDetails = await MintDetails.findOne({ _id: mintStage });
     const { price } = mintDetails;
 
-    if (s_selectedItems.length === 0) {
-      items.forEach((newItem) => {
-        for (const imageName of imageNames) {
-          if (newItem.name === imageName) {
-            images.push(newItem);
-            fileSize.push(newItem.size);
+    if(imageNames.length !== 0){
+      if (s_selectedItems.length === 0) {
+        items.forEach((newItem) => {
+          for (const imageName of imageNames) {
+            if (newItem.name === imageName) {
+              images.push(newItem);
+              fileSize.push(newItem.size);
+            }
           }
-        }
-      });
-    } else {
-      s_selectedItems.forEach((selected) => {
-        s_items = s_items.concat(selected.items);
-      });
-      imageNames.forEach((image) => {
-        if (s_items.includes(image)) {
-          s_selected.push(image);
-        } else if (minted.includes(image)) {
-          s_minted.push(image);
-        }
-      });
-      if (s_selected.length >= 1)
-        return res.status(200).json({
-          status: false,
-          message: `items already selected`,
-          userResponse: s_selected,
         });
-      if (s_minted.length >= 1)
-        return res.status(200).json({
-          status: false,
-          message: `items already selected`,
-          userResponse: s_minted,
+      } else {
+        s_selectedItems.forEach((selected) => {
+          s_items = s_items.concat(selected.items);
         });
-      items.forEach((newItem) => {
-        for (const imageName of imageNames) {
-          if (newItem.name === imageName) {
-            images.push(newItem);
-            fileSize.push(newItem.size);
+        imageNames.forEach((image) => {
+          if (s_items.includes(image)) {
+            s_selected.push(image);
+          } else if (minted.includes(image)) {
+            s_minted.push(image);
           }
-        }
-      });
+        });
+        if (s_selected.length >= 1)
+          return res.status(200).json({
+            status: false,
+            message: `items already selected`,
+            userResponse: s_selected,
+          });
+        if (s_minted.length >= 1)
+          return res.status(200).json({
+            status: false,
+            message: `items already selected`,
+            userResponse: s_minted,
+          });
+          items.forEach((newItem) => {
+              for (const imageName of imageNames) {
+                if (newItem.name === imageName) {
+                  images.push(newItem);
+                  fileSize.push(newItem.size);
+                }
+              }
+          });
+      }
     }
 
-    sortedImages = fileSize.sort((a, b) => a - b);
-
+    if(imageNames.length === 0 ){
+      const allFileSize = items.map((x) =>  x.size)
+      sortedImages = allFileSize.sort((a, b) => a - b);
+    }else{
+      sortedImages = fileSize.sort((a, b) => a - b);
+    }
+    
     let serviceChargeAddress;
     if (networkName === 'mainnet'){
       serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
@@ -1380,21 +1320,41 @@ module.exports.calc = async (req, res) => {
       addrDetail
     );
 
-    const userResponse = {
-      cost: {
-        serviceCharge: cost.serviceCharge * imageNames.length,
-        inscriptionCost: cost.inscriptionCost * imageNames.length,
-        sizeFee: cost.sizeFee * imageNames.length,
-        satCost: cost.satCost,
-        postageFee: cost.postageFee,
-        price: price / 1e8,
-        priceInSat: price,
-        total: cost.total * imageNames.length,
-      },
-      paymentAddress: '',
-      inscriptionId: '',
-      createdAt: '',
-    };
+    let userResponse
+    if(imageNames.length !== 0){
+      userResponse = {
+        cost: {
+          serviceCharge: cost.serviceCharge * imageNames.length,
+          inscriptionCost: cost.inscriptionCost * imageNames.length,
+          sizeFee: cost.sizeFee * imageNames.length,
+          satCost: cost.satCost,
+          postageFee: cost.postageFee,
+          price: price / 1e8,
+          priceInSat: price,
+          total: cost.total * imageNames.length,
+        },
+        paymentAddress: '',
+        inscriptionId: '',
+        createdAt: '',
+      };
+    }else{
+      //multiply by mint count
+      userResponse = {
+        cost: {
+          serviceCharge: cost.serviceCharge,
+          inscriptionCost: cost.inscriptionCost,
+          sizeFee: cost.sizeFee,
+          satCost: cost.satCost,
+          postageFee: cost.postageFee,
+          price: price / 1e8,
+          priceInSat: price,
+          total: cost.total
+        },
+        paymentAddress: '',
+        inscriptionId: '',
+        createdAt: '',
+      };
+    }
 
     return res.status(200).json({ status: true, message: 'ok', userResponse });
   } catch (e) {
@@ -1770,10 +1730,15 @@ module.exports.getCollection = async (req, res) => {
     const allSat = await getSats();
     const available = allSat.map((x) => x.satType);
     let collectionSat = [];
+    let allCollectionSat = []
     if (collection.specialSat === 'random') {
       collectionSat = await _getAvailableSat();
     } else {
-      let allCollectionSat = collection.specialSat.split(' ');
+      if(!collection.specialSat.split('').includes('_')){
+        allCollectionSat.push(collection.specialSat)
+      }else{
+        allCollectionSat = collection.specialSat.split('_');
+      }
       allCollectionSat = allCollectionSat.map((x) => {
         if (x !== ' ') {
           if (available.includes(x)) {
@@ -2242,11 +2207,13 @@ const _getAvailableSat = async () => {
           description: 'inscribe on random sats',
         });
       } else if (allowedSatNames.includes(x.satType)) {
-        publicAvailable.push({
-          satType: x.satType,
-          description: allowedSats.find((y) => y.satType === x.satType)
-            .description,
-        });
+        if(x.available !== 0){
+          publicAvailable.push({
+            satType: x.satType,
+            description: allowedSats.find((y) => y.satType === x.satType)
+              .description,
+          });
+        }
       }
     });
     return publicAvailable;

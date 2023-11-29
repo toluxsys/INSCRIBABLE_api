@@ -25,6 +25,7 @@ const {
 const { addWalletToOrd, verifyAddress } = require('../helpers/walletHelper');
 const { getRecomendedFee } = require('../helpers/sendBitcoin');
 const { getType } = require('../helpers/getType');
+const { getSats } = require('../helpers/satHelper');
 const { btcToUsd, usdToSat } = require('../helpers/btcToUsd');
 
 const imageMimetype = [`image/png`, `image/gif`, `image/jpeg`, `image/webp`];
