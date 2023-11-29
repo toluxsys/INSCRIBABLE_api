@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const ampq = require('amqplib');
 const dotenv = require('dotenv').config();
 const { getType } = require('../getType');
@@ -14,7 +15,7 @@ const options = {
   authMechnisim: ['PLAIN', 'AMQPLAIN', 'EXTERNAL'],
 };
 
-const validRoutingKeys = ['paymentSeen', 'paymentReceived', 'error'];
+const validRoutingKeys = ['paymentSeen', 'paymentReceived', 'error', 'creatorsPayment'];
 // const validQueue = ['seen', 'received', 'error'];
 
 class RabbitMqClient {

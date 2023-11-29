@@ -8,6 +8,7 @@ const uniInscriptionRoute = require('./routes/uniInscriptionRoute.js');
 const rewardRoute = require('./routes/rewardRoute.js');
 const RabbitMqClient = require('./helpers/queue/rabbitMqClient.js');
 const RabbitMqConsumer = require('./helpers/queue/rabbitMqConsumer.js');
+const CreatorsPaymentConsumer = require('./helpers/queue/creatorPaymentConsumer.js');
 const { updateBtcPrice } = require('./helpers/btcToUsd.js');
 
 const interval = 120000;
@@ -33,6 +34,7 @@ mongoose
     console.log(`Mongo DB Connected! to ${res.connection.host}`);
     await RabbitMqClient.initilize();
     await RabbitMqConsumer.initilize();
+    await CreatorsPaymentConsumer.initilize();
   })
   .catch(console.error);
 

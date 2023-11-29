@@ -35,6 +35,7 @@ const {
 const { getSats } = require('../helpers/satHelper');
 const MintDetails = require('../model/mintDetails');
 const { inscribe } = require('../helpers/inscriptionHelper');
+const {createTransaction, getAddressType, getAddressHistory, } = require('../helpers/walletHelper.js');
 
 const writeImageFiles = (path, data) => {
   try {
@@ -126,6 +127,8 @@ const getSatCost = async (type) => {
   }
 };
 
+
+//addresses is an array of the service fee address and creators address
 const inscriptionPrice = async (
   feeRate,
   fileSize,
@@ -133,30 +136,36 @@ const inscriptionPrice = async (
   collectionId,
   satType,
   usePoints,
+  addresses
 ) => {
   try {
     let serviceCharge = parseInt(await getServiceFee(collectionId));
     const sats = Math.ceil((fileSize / 4) * feeRate);
     const cost = sats + 1500 + 550 + 2000;
-    // eslint-disable-next-line prettier/prettier
     let sizeFee = Math.ceil(300 * feeRate + (sats / 10));
     let satCost = 0;
     if (sizeFee < 1024) {
       sizeFee = 1024;
     }
-
     if (satType !== 'random') {
       satCost = await getSatCost(satType);
     }
-
     if (usePoints === true) {
       serviceCharge = 1000;
       // cost = cost + 1000
     }
-    const total = serviceCharge + cost + sizeFee + price + satCost;
+
+    // This calculates the fees required to send the creator their fee for the mint
+    // eslint-disable-next-line import/no-extraneous-dependencies
+    const qip_wallet = (await import('qip-wallet')).default;
+    const addrTypes = await getAddressType(addresses)
+    const transactionSize = qip_wallet.getTransactionSize({input: 1, output: addrTypes, addressType: 'segwit'})
+    const creatorsTransactionFees = transactionSize * feeRate
+
+    const total = serviceCharge + cost + creatorsTransactionFees + sizeFee + price + satCost;
     return {
       serviceCharge,
-      inscriptionCost: cost + sizeFee,
+      inscriptionCost: cost + sizeFee + creatorsTransactionFees,
       sizeFee,
       postageFee: 550,
       satCost,
@@ -1072,6 +1081,16 @@ module.exports.selectItem = async (req, res) => {
     }
 
     sortedImages = fileSize.sort((a, b) => a - b);
+    
+    let serviceChargeAddress;
+    if (networkName === 'mainnet'){
+      serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
+    }else {
+      serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
+    }
+    
+    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress];
+    
     const cost = await inscriptionPrice(
       feeRate,
       sortedImages[sortedImages.length - 1],
@@ -1079,6 +1098,7 @@ module.exports.selectItem = async (req, res) => {
       collectionId,
       oldSats,
       hasReward,
+      addrDetail
     );
 
     if (imageNames.length > 1) {
@@ -1340,6 +1360,16 @@ module.exports.calc = async (req, res) => {
     }
 
     sortedImages = fileSize.sort((a, b) => a - b);
+
+    let serviceChargeAddress;
+    if (networkName === 'mainnet'){
+      serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
+    }else {
+      serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
+    }
+    
+    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress];
+    
     const cost = await inscriptionPrice(
       feeRate,
       sortedImages[sortedImages.length - 1],
@@ -1347,6 +1377,7 @@ module.exports.calc = async (req, res) => {
       collectionId,
       oldSats,
       hasReward,
+      addrDetail
     );
 
     const userResponse = {
@@ -2429,6 +2460,15 @@ module.exports.mintItem = async (req, res) => {
       inscriptionId = `s${uuidv4()}`;
     }
 
+    let serviceChargeAddress;
+    if (networkName === 'mainnet'){
+      serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS;
+    }else {
+      serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
+    }
+    
+    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress]
+
     const cost = await inscriptionPrice(
       feeRate,
       collection.largestFile,
@@ -2436,6 +2476,7 @@ module.exports.mintItem = async (req, res) => {
       collectionId,
       oldSats,
       hasReward,
+      addrDetail
     );
 
     if (mintCount > 1) {

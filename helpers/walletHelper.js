@@ -1,7 +1,7 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable prettier/prettier */
 const axios = require('axios');
 const mempoolJS = require('@mempool/mempool.js');
-// eslint-disable-next-line import/no-extraneous-dependencies
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -154,35 +154,91 @@ const collectionWalletDetails = async (network) => {
 }
 
 //
-const createTransaction = async ({collectionAddress, creatorAddress, serviceChargeAddress, network}) => {
+const createTransaction = async ({collAddr, payAddr, creatorAddress, networkName, feeRate, amount, privateKey, wif}) => {
   try {
     // eslint-disable-next-line import/no-extraneous-dependencies
     const qip_wallet = (await import('qip-wallet')).default;
-    const utxo = await getAddressHistory(collectionAddress, network);
-    const available = utxo.map(x => {
-      if(x.status === true) return { 
-        txid: x.txid,
-        vout: x.vout,
-        value: x.value,
-        status: x.status
+    const utxo = await getAddressHistory(collAddr, payAddr, networkName);
+    let serviceChargeAddress;
+    if(networkName === 'mainnet'){
+      serviceChargeAddress = process.env.MAINNET_SERVICE_CHARGE_ADDRESS 
+    }else{
+      serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS 
+    }
+
+    const addrType = await getAddressType([creatorAddress,serviceChargeAddress], networkName)
+    const txSize = qip_wallet.getTransactionSize({input: 1, output: addrType, addressType: 'segwit'});
+    const fee = txSize.txBytes * feeRate;
+    let available = 0
+    const input = utxo.map(x => {
+      if(x.status === true) {
+        available += x.value
+        return { 
+          txid: x.txid,
+          vout: x.vout,
+          value: x.value,
+          status: x.status
+        }
       }
     })
-   console.log(available)
-    //input
-    //output
-    //const tx = await qip_wallet.createTransaction()
-    console.log('SEND BITCOIN')
+    if(available - amount - fee < 1000){
+      return {
+        txHex: '',
+        tx: [],
+        fee: fee,
+        satSpent: 0,
+        txSize: txSize
+      }
+    }
+    const output = [{address: creatorAddress, value: amount}, {address: serviceChargeAddress, value: available - amount - fee}]
+    let tx;
+    if(privateKey){
+      tx = await qip_wallet.createTransaction({input: input, output: output, addressType: 'segwit', networkName: networkName, feeRate: feeRate, privateKey: privateKey})
+    }else if(wif){
+      tx = await qip_wallet.createTransaction({input: input, output: output, addressType: 'segwit', networkName: networkName, feeRate: feeRate, wif: wif})
+    }
+    return tx;
   } catch (e) {
-    console.log(e);
+    console.log(e.message);
   }
 };
+
+const getAddressType = async (addresses, network) => {
+  try{
+    // eslint-disable-next-line import/no-extraneous-dependencies
+    const qip_wallet = (await import('qip-wallet')).default;
+    const addrTypes = new Map();
+    const result = []
+    addresses.forEach(x => {
+      const addrType = qip_wallet.getAddressType({address: x, networkName: network})
+      if(addrTypes.get(addrType) === 0 || addrTypes.get(addrType) === undefined){
+        addrTypes.set(addrType, 1)
+      }else{
+        addrTypes.set(addrType, addrTypes.get(addrType) + 1)
+      }
+    })
+    addrTypes.forEach((value, key) => {
+      result.push({
+        outputType: key,
+        count: value
+      })
+    })
+
+    return result
+  }catch(e){
+    console.log(e.message)
+  }
+}
 
 module.exports = {
   addWalletToOrd,
   utxoDetails,
   verifyAddress,
   collectionWalletDetails,
-  createTransaction
+  createTransaction,
+  getAddressType,
+  getAddressHistory
 };
 
-//getAddressHistory('3PMfTPTWWm9vkVGev6uXcVKAWYnnALjnoJ','bc1p5njpw89lxs8sqwvedke5zcupl7gnue0d0204klefy9kp7jp0kltqe4zpus','mainnet').then(x => console.log(x)).catch()
+//createTransaction({collAddr:'tb1q92s4d7f890y80q4nts72hcx8ssvyh44dj037qv', payAddr:'tb1prggvl9lypynpgau59mh93gwk5r27t44a5r6r5c4k5hwgqcejzjwsqkku6x',creatorAddress: 'tb1prggvl9lypynpgau59mh93gwk5r27t44a5r6r5c4k5hwgqcejzjwsqkku6x',networkName:'testnet', feeRate: 65, amount:550, key: '96346ed8a28b9c0dde05604fcb6169df'}).then(x => console.log(x)).catch()
+//collectionWalletDetails('testnet').then(x => console.log(x)).catch()

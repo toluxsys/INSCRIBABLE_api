@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable prettier/prettier */
 const axios = require('axios');
 const dotenv = require('dotenv').config();
@@ -10,11 +11,13 @@ const BulkInscription = require('../model/bulkInscription');
 const Address = require('../model/address');
 const Collection = require('../model/collection');
 const Task = require('../model/task');
-
-const interval = 15;
+const {createTransaction, getAddressType, getAddressHistory} = require('./walletHelper.js')
 const { getWalletBalance, getSpendUtxo } = require('./sendBitcoin');
 const { getType } = require('./getType');
 const { perform_task } = require('./rewardHelper.js');
+const mintDetails = require('../model/mintDetails.js');
+
+const interval = 15;
 
 const verifyList = (arr1, arr2) => {
   const set = new Set(arr1);
@@ -387,16 +390,71 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
       { $pull: { selected: { $in: inscription.selected } } },
       { new: true },
     );
+
+    const mintStageDetails = await mintDetails.findOne({_id: inscription.mintStage})
+    if(collection.keys){
+      if(mintStageDetails.price !== 0){
+        const utxo = await getAddressHistory(collection.collectionAddress, inscription.inscriptionDetails.payAddress, networkName)
+        const addToQueue = await RabbitMqClient.addToQueue({data: {orderId:inscriptionId, networkName: networkName, txid: utxo[0].txid}, routingKey: 'creatorsPayment'})
+        if (addToQueue.status !== true)
+            return {
+              message: 'error adding order to queue',
+              data: { ids: details },
+              status: false,
+              key: 'error_adding_order_to_queue',
+            };
+        //add to creators queue
+      }
+    }
+   
     return {
       message: `inscription complete`,
-      status: false,
+      status: true,
       data: { ids: details },
     };
+
   } catch (e) {
-    // if(e.message === )
     console.log(e.message);
   }
 };
+
+const sendCreatorsPayment = async ({inscriptionId, networkName}) => {
+  try{
+    const inscription = await Inscription.findOne({id: inscriptionId})
+    const collection = await Collection.findOne({id: inscription.collectionId})
+    const mintStageDetails = await mintDetails.findOne({_id: inscription.mintStage})
+    
+    const tx = await createTransaction({
+      collAddr: collection.collectionAddress, 
+      payAddr: inscription.inscriptionDetails.payAddress,
+      creatorAddress: collection.collectionDetails.creatorsAddress,
+      networkName: networkName,
+      feeRate: inscription.feeRate,
+      amount: mintStageDetails.price,
+      privateKey: collection.keys.privateKey
+    })
+    let result;
+    if(tx.txHex !== ''){
+      //post transaction
+      //get txid after posting transaction
+      const txid = await axios.post(`${process.env.ORD_SAT_API_URL}/ord/broadcastTransaction`, {txHex: tx.txHex, networkName: networkName})
+      result = {
+        message: 'payment sent to creator',
+        status: true,
+        data: {txid: txid}
+      }
+    }else{
+      result = {
+        message: 'payment not sent to creator',
+        status: false,
+        data: {txid: ''}
+      }
+    }
+    return result;
+  }catch(e){
+    console.log(e.message)
+  }
+}
 
 const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
   try {
@@ -1213,7 +1271,7 @@ const checkPayment = async ({ inscriptionId, networkName }) => {
   }
 };
 
-module.exports = { inscribe, checkPayment };
+module.exports = { inscribe, checkPayment, sendCreatorsPayment };
 
 // checkPayment({inscriptionId: "se28c1b9d-b90f-4f6f-b914-a933cbb1ce89", networkName: "mainnet"}).then(res => console.log(res)).catch()
 // getImages().then(res => console.log(res)).catch()
