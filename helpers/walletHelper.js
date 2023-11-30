@@ -190,7 +190,8 @@ const createTransaction = async ({collAddr, payAddr, creatorAddress, networkName
         txSize: txSize
       }
     }
-    const output = [{address: creatorAddress, value: amount}, {address: serviceChargeAddress, value: available - amount - fee}]
+    const serviceChargeValue = available - amount
+    const output = [{address: serviceChargeAddress, value: serviceChargeValue - fee}, {address: creatorAddress, value: amount}]
     let tx;
     if(privateKey){
       tx = await qip_wallet.createTransaction({input: input, output: output, addressType: 'segwit', networkName: networkName, feeRate: feeRate, privateKey: privateKey})

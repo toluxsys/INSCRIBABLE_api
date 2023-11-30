@@ -3,6 +3,9 @@ const ampq = require('amqplib');
 const mempoolJS = require('@mempool/mempool.js');
 const dotenv = require('dotenv').config();
 const { sendCreatorsPayment } = require('../inscriptionHelper');
+const Collection = require('../../model/collection')
+const Inscription = require('../../model/inscription')
+const {createTransaction, getAddressType, getAddressHistory} = require('../walletHelper.js')
 
 const interval = 3000;
 
@@ -97,43 +100,71 @@ class Consumer {
       const msg = await this.channel.get(q.queue);
       if (msg) {
         const content = JSON.parse(msg.content.toString());
-        const status = await this.getStatus(content.txid);
-        console.log(
-          '[CREATORS PAYMENT CLIENT]:',
-          'orderId:',
-          content.orderId,
-          'paymentStatus:',
-          status,
-        );
-        if (status === true) {
-            const res = await sendCreatorsPayment({
-                inscriptionId: content.orderId,
-                networkName: content.networkName,
-            });
-            if (res === undefined) {
-                this.channel.ack(msg);
-                await this.channel.publish(
-                exchangeName,
-                'creatorsPayment',
-                Buffer.from(JSON.stringify(content)),
-                );
-            } else if (res.status === false) {
-                this.channel.ack(msg);
-                await this.channel.publish(
-                exchangeName,
-                'creatorsPayment',
-                Buffer.from(JSON.stringify(content)),
-                );
-            } else {
-                this.channel.ack(msg);
-            }
+        if(content.txid === ''){
+          console.log(
+            '[CREATORS PAYMENT CLIENT]:',
+            'orderId:',
+            content.orderId,
+            'paymentStatus:',
+            false,
+          );
+          const inscription = await Inscription.findOne({id: content.orderId})
+          const collection = await Collection.findOne({id: inscription.collectionId})
+
+          const utxo = await getAddressHistory(collection.collectionAddress, inscription.inscriptionDetails.payAddress, 'mainnet');
+          let msgData;
+          if(utxo.length === 0){
+            msgData = {orderId: content.orderId, networkName: 'mainnet', txid: ''}
+          }else{
+            msgData = {orderId: content.orderId, networkName: 'mainnet', txid: utxo[0].txid }
+          }
+          
+          this.channel.ack(msg);
+          await this.channel.publish(
+          exchangeName,
+          'creatorsPayment',
+          Buffer.from(JSON.stringify(msgData)),
+          );
+
         }else{
-            this.channel.ack(msg);
-                await this.channel.publish(
-                exchangeName,
-                'creatorsPayment',
-                Buffer.from(JSON.stringify(content)),
-            );
+          const status = await this.getStatus(content.txid);
+          console.log(
+            '[CREATORS PAYMENT CLIENT]:',
+            'orderId:',
+            content.orderId,
+            'paymentStatus:',
+            status,
+          );
+          if (status === true) {
+              const res = await sendCreatorsPayment({
+                  inscriptionId: content.orderId,
+                  networkName: content.networkName,
+              });
+              if (res === undefined) {
+                  this.channel.ack(msg);
+                  await this.channel.publish(
+                  exchangeName,
+                  'creatorsPayment',
+                  Buffer.from(JSON.stringify(content)),
+                  );
+              } else if (res.status === false) {
+                  this.channel.ack(msg);
+                  await this.channel.publish(
+                  exchangeName,
+                  'creatorsPayment',
+                  Buffer.from(JSON.stringify(content)),
+                  );
+              } else {
+                  this.channel.ack(msg);
+              }
+          }else{
+              this.channel.ack(msg);
+                  await this.channel.publish(
+                  exchangeName,
+                  'creatorsPayment',
+                  Buffer.from(JSON.stringify(content)),
+              );
+          }
         }
       }
     } catch (e) {

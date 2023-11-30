@@ -371,6 +371,9 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
       }));
     }
 
+    const creatorPayDetails = await addToCreatorsQueue({inscriptionId:inscriptionId, networkName:networkName})
+    console.log('payment added to queue:',creatorPayDetails.status)
+
     inscription.error = false;
     inscription.errorMessage = '';
     inscription.inscription = details;
@@ -378,8 +381,6 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
     inscription.inscribed = true;
     inscription.stage = 'stage 3';
     await inscription.save();
-
-    await addToCreatorsQueue({inscriptionId:inscriptionId, networkName:networkName})
 
     await Address.findOneAndUpdate(
       { mintStage: collection.mintStage, address: inscription.receiver },
@@ -413,7 +414,12 @@ const addToCreatorsQueue = async ({inscriptionId, networkName}) => {
     if(collection.keys !== null){
       if(mintStageDetails.price !== 0){
         const utxo = await getAddressHistory(collection.collectionAddress, inscription.inscriptionDetails.payAddress, networkName)
-        const addToQueue = await RabbitMqClient.addToQueue({data: {orderId:inscriptionId, networkName: networkName, txid: utxo[0].txid}, routingKey: 'creatorsPayment'})
+        let addToQueue;
+        if(utxo.length === 0) {
+          addToQueue = await RabbitMqClient.addToQueue({data: {orderId:inscriptionId, networkName: networkName, txid: ''}, routingKey: 'creatorsPayment'})
+        }else{
+          addToQueue = await RabbitMqClient.addToQueue({data: {orderId:inscriptionId, networkName: networkName, txid: utxo[0].txid}, routingKey: 'creatorsPayment'})
+        }
         if (addToQueue.status !== true) return { message: 'error adding order to queue', status: false};
         result = {
           message: 'added to queue',

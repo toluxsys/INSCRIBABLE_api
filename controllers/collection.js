@@ -1463,8 +1463,6 @@ module.exports.getImages = async (req, res) => {
         .status(200)
         .json({ status: false, message: `error getting images` });
 
-        console.log(imageNames)
-
     selectedItems.forEach((selected) => {
       const { items } = selected;
       const timestamp = selected.createdAt;
