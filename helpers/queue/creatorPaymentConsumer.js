@@ -127,6 +127,13 @@ class Consumer {
             } else {
                 this.channel.ack(msg);
             }
+        }else{
+            this.channel.ack(msg);
+                await this.channel.publish(
+                exchangeName,
+                'creatorsPayment',
+                Buffer.from(JSON.stringify(content)),
+            );
         }
       }
     } catch (e) {

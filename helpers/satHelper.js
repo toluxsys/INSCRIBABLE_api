@@ -74,5 +74,3 @@ const getSats = async () => {
 };
 
 module.exports = { getStatus, getSats };
-
-getSats().then(x => console.log(x)).catch()

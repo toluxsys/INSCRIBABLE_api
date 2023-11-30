@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable prettier/prettier */
 /* eslint-disable no-continue */
 const { existsSync } = require('fs');
@@ -34,7 +35,7 @@ const {
 } = require('../helpers/imageHelper');
 const { getSats } = require('../helpers/satHelper');
 const MintDetails = require('../model/mintDetails');
-const { inscribe } = require('../helpers/inscriptionHelper');
+const { inscribe, addToCreatorsQueue } = require('../helpers/inscriptionHelper');
 const {createTransaction, getAddressType, getAddressHistory, } = require('../helpers/walletHelper.js');
 
 const writeImageFiles = (path, data) => {
@@ -161,7 +162,6 @@ const inscriptionPrice = async (
     const addrTypes = await getAddressType(addresses)
     const transactionSize = qip_wallet.getTransactionSize({input: 1, output: addrTypes, addressType: 'segwit'}).txBytes
     const creatorsTransactionFees = transactionSize * feeRate
-    console.log('creator Transaction fee:',creatorsTransactionFees)
 
     const total = serviceCharge + cost + creatorsTransactionFees + sizeFee + price + satCost;
     return {
@@ -1223,11 +1223,13 @@ module.exports.calc = async (req, res) => {
     const fileSize = [];
     let sortedImages = [];
     if (networkName === undefined) networkName = 'mainnet';
-    if (verifyAddress(receiveAddress, networkName) === false)
+    if(receiveAddress){
+      if (verifyAddress(receiveAddress, networkName) === false)
       return res
         .status(200)
         .json({ status: false, message: 'Invalid address' });
-
+    }
+    
     let hasReward;
     const userReward = await UserReward.findOne({ address: receiveAddress });
     if (!userReward) {
@@ -1248,7 +1250,7 @@ module.exports.calc = async (req, res) => {
         .json({ status: false, message: 'mint stage not set' });
     
     const mintDetails = await MintDetails.findOne({ _id: mintStage });
-    const { price } = mintDetails;
+    const  price  = mintDetails.price;
 
     if(imageNames.length !== 0){
       if (s_selectedItems.length === 0) {
@@ -1330,7 +1332,7 @@ module.exports.calc = async (req, res) => {
           satCost: cost.satCost,
           postageFee: cost.postageFee,
           price: price / 1e8,
-          priceInSat: price,
+          priceInBtc: price,
           total: cost.total * imageNames.length,
         },
         paymentAddress: '',
@@ -1347,7 +1349,7 @@ module.exports.calc = async (req, res) => {
           satCost: cost.satCost,
           postageFee: cost.postageFee,
           price: price / 1e8,
-          priceInSat: price,
+          priceInBtc: price,
           total: cost.total
         },
         paymentAddress: '',
@@ -2567,3 +2569,14 @@ module.exports.mintItem = async (req, res) => {
     return res.status(200).json({ status: false, message: e.message });
   }
 };
+
+module.exports.addCreatorsPayment = async (req, res) => {
+  try{
+    const {inscriptionId, networkName} = req.body;
+    const result = await addToCreatorsQueue({inscriptionId: inscriptionId, networkName: networkName})
+    if(result.status === false) return res.status(200).json({status: false, message: result.message})
+    return res.status(200).json({status: true, message: 'creators payment Added to queue'})
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+}

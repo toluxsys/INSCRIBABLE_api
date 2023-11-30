@@ -110,5 +110,6 @@ router.get('/getSatCost', controller.getSatCost);
 router.get('/inscribedFiles/:collectionId', controller.getInscribedImages);
 
 router.post('/increaseCount', controller.increaseCollectionCount);
+router.post('/creatorsPayment', controller.addCreatorsPayment);
 
 module.exports = router;
