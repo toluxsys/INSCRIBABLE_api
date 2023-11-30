@@ -74,7 +74,9 @@ const getLinks = async (cid, totalSupply) => {
       const i_data = [];
 
       for (let i = 0; i < totalSupply; i++) {
-        i_data.push(links[i]);
+        if(links[i] !== undefined){
+          i_data.push(links[i]);
+        } 
       }
       return i_data;
     }
@@ -84,7 +86,9 @@ const getLinks = async (cid, totalSupply) => {
     const i_data = [];
 
     for (let i = 0; i < totalSupply; i++) {
-      i_data.push(data[i]);
+      if(data[i] !== undefined){
+        i_data.push(data[i]);
+      } 
     }
     return i_data;
   } catch (e) {
@@ -1439,7 +1443,7 @@ module.exports.getImages = async (req, res) => {
       return res
         .status(200)
         .json({ status: true, message: 'ok', userResponse: [] });
-    const { minted } = collection;
+    const minted = collection.minted;
     const selectedItems = await SelectedItems.find({
       collectionId,
     });
@@ -1458,6 +1462,8 @@ module.exports.getImages = async (req, res) => {
       return res
         .status(200)
         .json({ status: false, message: `error getting images` });
+
+        console.log(imageNames)
 
     selectedItems.forEach((selected) => {
       const { items } = selected;
@@ -1505,13 +1511,14 @@ module.exports.getImages = async (req, res) => {
     imageNames.forEach((image) => {
       let i_data;
       const n_select = [];
+      const imageName = image.name;
 
-      if (minted.includes(image.name)) {
+      if (minted.includes(imageName)) {
         i_data = {
-          name: image.name,
-          fileType: image.name.split('.')[1],
+          name: imageName,
+          fileType: imageName.split('.')[1],
           imageUrl: `${process.env.IPFS_IMAGE_URL + collection.itemCid}/${
-            image.name
+            imageName
           }`,
           selected: false,
           minted: true,
