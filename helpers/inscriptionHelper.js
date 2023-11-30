@@ -454,8 +454,6 @@ const sendCreatorsPayment = async ({inscriptionId, networkName}) => {
     })
     let result;
     if(tx.txHex !== ''){
-      //post transaction
-      //get txid after posting transaction
       const txid = await axios.post(`${process.env.ORD_SAT_API_URL}/ord/broadcastTransaction`, {txHex: tx.txHex, networkName: networkName})
       result = {
         message: 'payment sent to creator',

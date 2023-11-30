@@ -1332,7 +1332,7 @@ module.exports.calc = async (req, res) => {
           satCost: cost.satCost,
           postageFee: cost.postageFee,
           price: price / 1e8,
-          priceInBtc: price,
+          priceInSat: price,
           total: cost.total * imageNames.length,
         },
         paymentAddress: '',
@@ -1349,7 +1349,7 @@ module.exports.calc = async (req, res) => {
           satCost: cost.satCost,
           postageFee: cost.postageFee,
           price: price / 1e8,
-          priceInBtc: price,
+          priceInSat: price,
           total: cost.total
         },
         paymentAddress: '',
