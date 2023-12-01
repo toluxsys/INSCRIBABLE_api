@@ -1,5 +1,8 @@
+const moment = require('moment');
 const Inscription = require('../model/inscription');
 const BulkInscription = require('../model/bulkInscription');
+
+const interval = 10;
 
 const getUserOrder = async (collectionId, receiver) => {
   try {
@@ -28,6 +31,12 @@ const getUserOrder = async (collectionId, receiver) => {
   }
 };
 
-module.exports = { getUserOrder };
+// const InCompleteOrder = async () => {
+//   try{
 
-// getOrder("c5a937591-2db8-4618-b23a-ca30093d8c2c", {receiver: "bc1pksakuxndygren52jemwecxf9m30zwr0ak9jdr0x3dkuzpq7e6swq6xmzsq"}).then(res => console.log(res)).catch()
+//   }catch(e){
+
+//   }
+// }
+
+module.exports = { getUserOrder };

@@ -166,9 +166,9 @@ const createTransaction = async ({collAddr, payAddr, creatorAddress, networkName
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS 
     }
 
-    const addrType = await getAddressType([creatorAddress,serviceChargeAddress], networkName)
+    const addrType = await getAddressType([creatorAddress,serviceChargeAddress,serviceChargeAddress], networkName)
     const txSize = qip_wallet.getTransactionSize({input: 1, output: addrType, addressType: 'segwit'});
-    const fee = txSize.txBytes * feeRate;
+    const fee = txSize.txVBytes * feeRate;
     let available = 0
     const input = utxo.map(x => {
       if(x.status === true) {
@@ -194,9 +194,9 @@ const createTransaction = async ({collAddr, payAddr, creatorAddress, networkName
     const output = [{address: serviceChargeAddress, value: serviceChargeValue - fee}, {address: creatorAddress, value: amount}]
     let tx;
     if(privateKey){
-      tx = await qip_wallet.createTransaction({input: input, output: output, addressType: 'segwit', networkName: networkName, feeRate: feeRate, privateKey: privateKey})
+      tx = await qip_wallet.createTransaction({input: input, output: output, addressType: 'segwit', networkName: networkName, feeRate: feeRate, privateKey: privateKey, changeAddress: serviceChargeAddress})
     }else if(wif){
-      tx = await qip_wallet.createTransaction({input: input, output: output, addressType: 'segwit', networkName: networkName, feeRate: feeRate, wif: wif})
+      tx = await qip_wallet.createTransaction({input: input, output: output, addressType: 'segwit', networkName: networkName, feeRate: feeRate, wif: wif, changeAddress: serviceChargeAddress})
     }
     return tx;
   } catch (e) {

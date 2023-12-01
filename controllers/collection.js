@@ -99,6 +99,7 @@ const getLinks = async (cid, totalSupply) => {
 const getServiceFee = async (collectionId) => {
   try {
     const serviceFee = await ServiceFee.findOne({ collectionId });
+    console.log(serviceFee)
     if (!serviceFee) return process.env.COLLECTION_SERVICE_FEE;
     return serviceFee.serviceFee.toString();
   } catch (e) {
@@ -145,13 +146,12 @@ const inscriptionPrice = async (
 ) => {
   try {
     let serviceCharge = parseInt(await getServiceFee(collectionId));
+    console.log(serviceCharge)
     const sats = Math.ceil((fileSize / 4) * feeRate);
     const cost = sats + 1500 + 550 + 2000;
-    let sizeFee = Math.ceil(300 * feeRate + (sats / 10));
+    const sizeFee = Math.ceil(300 * feeRate + (sats / 10));
     let satCost = 0;
-    if (sizeFee < 1024) {
-      sizeFee = 1024;
-    }
+  
     if (satType !== 'random') {
       satCost = await getSatCost(satType);
     }
@@ -163,8 +163,8 @@ const inscriptionPrice = async (
     // This calculates the fees required to send the creator their fee for the mint
     // eslint-disable-next-line import/no-extraneous-dependencies
     const qip_wallet = (await import('qip-wallet')).default;
-    const addrTypes = await getAddressType(addresses)
-    const transactionSize = qip_wallet.getTransactionSize({input: 1, output: addrTypes, addressType: 'segwit'}).txBytes
+    const addrTypes = await getAddressType(addresses, 'mainnet')
+    const transactionSize = qip_wallet.getTransactionSize({input: 1, output: addrTypes, addressType: 'segwit'}).txVBytes
     const creatorsTransactionFees = transactionSize * feeRate
 
     const total = serviceCharge + cost + creatorsTransactionFees + sizeFee + price + satCost;
@@ -1025,7 +1025,7 @@ module.exports.selectItem = async (req, res) => {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
     }
     
-    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress];
+    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress, serviceChargeAddress];
     
     const cost = await inscriptionPrice(
       feeRate,
@@ -1290,13 +1290,13 @@ module.exports.calc = async (req, res) => {
             userResponse: s_minted,
           });
           items.forEach((newItem) => {
-              for (const imageName of imageNames) {
-                if (newItem.name === imageName) {
-                  images.push(newItem);
-                  fileSize.push(newItem.size);
-                }
+            for (const imageName of imageNames) {
+              if (newItem.name === imageName) {
+                images.push(newItem);
+                fileSize.push(newItem.size);
               }
-          });
+            }
+        });
       }
     }
 
@@ -1314,7 +1314,7 @@ module.exports.calc = async (req, res) => {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
     }
     
-    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress];
+    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress, serviceChargeAddress];
     
     const cost = await inscriptionPrice(
       feeRate,
@@ -2441,7 +2441,7 @@ module.exports.mintItem = async (req, res) => {
       serviceChargeAddress = process.env.TESTNET_SERVICE_CHARGE_ADDRESS;
     }
     
-    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress]
+    const addrDetail = [collection.collectionDetails.creatorsAddress, serviceChargeAddress, serviceChargeAddress]
 
     const cost = await inscriptionPrice(
       feeRate,
