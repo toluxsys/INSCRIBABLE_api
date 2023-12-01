@@ -18,6 +18,7 @@ const ServiceFee = require('../model/serviceFee');
 const SpecialSat = require('../model/specialSats');
 const UserReward = require('../model/specialSats');
 const FeaturedCollections = require('../model/featuredCollection');
+const RabbitMqClient = require('../helpers/queue/rabbitMqClient.js');
 const Task = require('../model/task');
 const { getType } = require('../helpers/getType');
 const { usdToSat } = require('../helpers/btcToUsd');
@@ -99,7 +100,6 @@ const getLinks = async (cid, totalSupply) => {
 const getServiceFee = async (collectionId) => {
   try {
     const serviceFee = await ServiceFee.findOne({ collectionId });
-    console.log(serviceFee)
     if (!serviceFee) return process.env.COLLECTION_SERVICE_FEE;
     return serviceFee.serviceFee.toString();
   } catch (e) {
@@ -146,7 +146,6 @@ const inscriptionPrice = async (
 ) => {
   try {
     let serviceCharge = parseInt(await getServiceFee(collectionId));
-    console.log(serviceCharge)
     const sats = Math.ceil((fileSize / 4) * feeRate);
     const cost = sats + 1500 + 550 + 2000;
     const sizeFee = Math.ceil(300 * feeRate + (sats / 10));
@@ -162,11 +161,14 @@ const inscriptionPrice = async (
 
     // This calculates the fees required to send the creator their fee for the mint
     // eslint-disable-next-line import/no-extraneous-dependencies
-    const qip_wallet = (await import('qip-wallet')).default;
-    const addrTypes = await getAddressType(addresses, 'mainnet')
-    const transactionSize = qip_wallet.getTransactionSize({input: 1, output: addrTypes, addressType: 'segwit'}).txVBytes
-    const creatorsTransactionFees = transactionSize * feeRate
-
+    let creatorsTransactionFees = 0;
+    if(price !== 0){
+      const qip_wallet = (await import('qip-wallet')).default;
+      const addrTypes = await getAddressType(addresses, 'mainnet')
+      const transactionSize = qip_wallet.getTransactionSize({input: 1, output: addrTypes, addressType: 'segwit'}).txVBytes
+      creatorsTransactionFees = transactionSize * feeRate
+    }
+    
     const total = serviceCharge + cost + creatorsTransactionFees + sizeFee + price + satCost;
     return {
       serviceCharge,
@@ -1037,6 +1039,8 @@ module.exports.selectItem = async (req, res) => {
       addrDetail
     );
 
+
+    let savedInscription;
     if (imageNames.length > 1) {
       const total = cost.total * imageNames.length;
       const cardinals = cost.inscriptionCost * imageNames.length;
@@ -1089,7 +1093,7 @@ module.exports.selectItem = async (req, res) => {
         stage: 'stage 1',
       });
 
-      await inscription.save();
+      savedInscription = await inscription.save();
     } else {
       if (oldSats !== 'random') {
         const url = `${process.env.ORD_SAT_API_URL}/ord/create/getMultipleReceiveAddr`;
@@ -1169,8 +1173,11 @@ module.exports.selectItem = async (req, res) => {
         stage: 'stage 1',
       });
 
-      await inscription.save();
+      savedInscription = await inscription.save();
     }
+
+    const addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
+    //add to queue for checking payment
 
     const userResponse = {
       cost: {
@@ -2453,6 +2460,7 @@ module.exports.mintItem = async (req, res) => {
       addrDetail
     );
 
+    let savedInscription
     if (mintCount > 1) {
       const total = cost.total * mintCount;
       const cardinals = cost.inscriptionCost * mintCount;
@@ -2491,7 +2499,7 @@ module.exports.mintItem = async (req, res) => {
         stage: 'stage 1',
       });
 
-      await inscription.save();
+      savedInscription = await inscription.save();
     } else {
       if (oldSats !== 'random') {
         const url = `${process.env.ORD_SAT_API_URL}/ord/create/getMultipleReceiveAddr`;
@@ -2545,8 +2553,11 @@ module.exports.mintItem = async (req, res) => {
         stage: 'stage 1',
       });
 
-      await inscription.save();
+      savedInscription = await inscription.save();
     }
+
+    //add to queue for checking Payment
+    const addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
 
     const userResponse = {
       cost: {

@@ -15,7 +15,7 @@ const options = {
   authMechnisim: ['PLAIN', 'AMQPLAIN', 'EXTERNAL'],
 };
 
-const validRoutingKeys = ['paymentSeen', 'paymentReceived', 'error', 'creatorsPayment'];
+const validRoutingKeys = ['paymentSeen', 'paymentReceived', 'error', 'creatorsPayment', 'pendingOrders'];
 // const validQueue = ['seen', 'received', 'error'];
 
 class RabbitMqClient {

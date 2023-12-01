@@ -1,3 +1,4 @@
+/* eslint-disable object-shorthand */
 /* eslint-disable prettier/prettier */
 const { existsSync } = require('fs');
 const axios = require('axios');
@@ -7,6 +8,7 @@ const dotenv = require('dotenv').config();
 const Inscription = require('../model/inscription');
 const Network = require('../model/network');
 const BulkInscription = require('../model/bulkInscription');
+const RabbitMqClient = require('../helpers/queue/rabbitMqClient.js');
 const SpecialSat = require('../model/specialSats');
 const UserReward = require('../model/userReward');
 const Task = require('../model/task');
@@ -159,7 +161,9 @@ module.exports.inscribeText = async (req, res) => {
       stage: 'stage 1',
     });
 
-    await inscription.save();
+      const savedInscription = await inscription.save();
+      //add to pending transaction queue
+      const addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
 
     res.status(200).json({
       status: true,
@@ -318,7 +322,10 @@ module.exports.brc20 = async (req, res) => {
       stage: 'stage 1',
     });
 
-    await inscription.save();
+    const savedInscription = await inscription.save();
+    //add to pending transaction queue
+    const addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
+
 
     res.status(200).json({
       status: true,
@@ -461,7 +468,9 @@ module.exports.satNames = async (req, res) => {
       stage: 'stage 1',
     });
 
-    await inscription.save();
+    const savedInscription = await inscription.save();
+    //add to pending transaction queue
+    const addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
 
     res.status(200).json({
       status: true,
@@ -1230,7 +1239,9 @@ const init = async (
       stage: 'stage 1',
     });
 
-    await inscription.save();
+    const savedInscription = await inscription.save();
+    // add to pending order queue
+    const addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
 
     return {
       compImage,
@@ -1339,7 +1350,9 @@ const initBulk = async (
       stage: 'stage 1',
     });
 
-    await bulkInscription.save();
+    const savedInscription = await bulkInscription.save();;
+    // add to pending order queue
+    const addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
 
     return {
       data,

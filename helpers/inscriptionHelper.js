@@ -614,6 +614,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
               message: 'error adding order to queue',
               data: { txid, ids: [] },
               status: false,
+              _txId: _txid,
               key: 'error_adding_order_to_queue',
             };
           inscription.collectionPayment = 'received';
@@ -625,6 +626,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             message: 'order stage ended',
             data: { txid, ids: [] },
             status: false,
+            _txId: _txid,
             key: 'order_stage_ended',
           };
         }
@@ -635,6 +637,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             message: 'collection mint complete',
             data: { txid, ids: [] },
             status: false,
+            _txId: _txid,
             key: 'collection_mint_complete',
           };
         }
@@ -671,6 +674,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             message: 'error adding order to queue',
             data: { txid, ids: [] },
             status: false,
+            _txId: _txid,
             key: 'error_adding_order_to_queue',
           };
         inscription.fileNames = fileNames;
@@ -686,6 +690,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
           txid,
           ids: [],
         },
+        _txId: _txid,
         status: true,
       };
     } else if (balance.status[0].confirmed === true) {
@@ -703,6 +708,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             message: 'error adding order to queue',
             data: { txid, ids: [] },
             status: false,
+            _txId: _txid,
             key: 'error_adding_order_to_queue',
           };
         inscription.error = false;
@@ -713,6 +719,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             txid,
             ids: [],
           },
+          _txId: _txid,
           status: true,
         };
       } else if (exists === false && inscription.fileNames.length !== 0) {
@@ -748,6 +755,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
               message: 'error adding order to queue',
               data: { txid, ids: [] },
               status: false,
+              _txId: _txid,
               key: 'error_adding_order_to_queue',
             };
           inscription.collectionPayment = 'received';
@@ -759,6 +767,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             message: 'order stage ended',
             data: { txid, ids: [] },
             status: false,
+            _txId: _txid,
             key: 'order_stage_ended',
           };
         }
@@ -769,6 +778,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             message: 'collection mint complete',
             data: { txid, ids: [] },
             status: false,
+            _txId: _txid,
             key: 'collection_mint_complete',
           };
         }
@@ -805,6 +815,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
             message: 'error adding order to queue',
             data: { txid, ids: [] },
             status: false,
+            _txId: _txid,
             key: 'error_adding_order_to_queue',
           };
         inscription.fileNames = fileNames;
@@ -824,6 +835,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
       return {
         message: 'collection mint complete',
         data: { txid, ids: [] },
+        _txId: _txid,
         status: false,
         key: 'collection_mint_complete',
       };

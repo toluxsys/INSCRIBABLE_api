@@ -1,8 +1,5 @@
-const moment = require('moment');
 const Inscription = require('../model/inscription');
 const BulkInscription = require('../model/bulkInscription');
-
-const interval = 10;
 
 const getUserOrder = async (collectionId, receiver) => {
   try {
@@ -30,13 +27,5 @@ const getUserOrder = async (collectionId, receiver) => {
     console.log(e);
   }
 };
-
-// const InCompleteOrder = async () => {
-//   try{
-
-//   }catch(e){
-
-//   }
-// }
 
 module.exports = { getUserOrder };
