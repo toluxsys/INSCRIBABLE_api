@@ -697,9 +697,9 @@ module.exports.addMintAddress = async (req, res) => {
     })
 
     if(!details.includes(name)) return res.status(200).json({status: false, message: "Invalid mint stage name"});
-    let fileName = addressFile[0].filename;
-    let _data = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${fileName}`);
-    await uploadToS3(fileName, _data);
+    //let fileName = addressFile[0].filename;
+    //let _data = fs.readFileSync(process.cwd()+`/src/address/${collectionId}/${fileName}`);
+    //await uploadToS3(fileName, _data);
 
     return res.status(200).json({status: true, message: "ok", userResponse: collectionId});
   }catch(e){

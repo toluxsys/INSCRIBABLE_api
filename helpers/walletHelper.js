@@ -7,15 +7,19 @@ dotenv.config();
 const { PrivateKey, Networks } = bitcore;
 
 const getNetwork = (networkName) => {
-  let network;
-  if (networkName === "mainnet") {
-    network = Networks.mainnet;
-  } else if (networkName === "testnet") {
-    network = Networks.testnet;
-  } else {
-    throw new Error(`invalid network: ${networkName}, was provided`);
+  try{
+    let network;
+    if (networkName === "mainnet") {
+      network = Networks.mainnet;
+    } else if (networkName === "testnet") {
+      network = Networks.testnet;
+    } else {
+      throw new Error(`invalid network: ${networkName}, was provided`);
+    }
+    return network;
+  }catch(e){
+    console.log(e.message)
   }
-  return network;
 };
 
 const createWallet = (networkName) => {
