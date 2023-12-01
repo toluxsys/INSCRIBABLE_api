@@ -65,7 +65,9 @@ const getLinks = async (cid, totalSupply) => {
       let i_data = []
       
       for(let i = 0; i<totalSupply; i++){
-        i_data.push(links[i])
+        if(links[i] !== undefined){
+          i_data.push(links[i])
+        }
       }
       return i_data
     }else{
@@ -73,7 +75,9 @@ const getLinks = async (cid, totalSupply) => {
       let i_data = []
       
       for(let i = 0; i<totalSupply; i++){
-        i_data.push(data[i])
+        if(data[i] !== undefined){
+          i_data.push(data[i])
+        }
       }
       return i_data
     }
