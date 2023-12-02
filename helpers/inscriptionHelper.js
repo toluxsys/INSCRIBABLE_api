@@ -1,3 +1,4 @@
+/* eslint-disable no-else-return */
 /* eslint-disable object-shorthand */
 /* eslint-disable prettier/prettier */
 const axios = require('axios');
@@ -15,6 +16,7 @@ const {createTransaction, getAddressType, getAddressHistory} = require('./wallet
 const { getWalletBalance, getSpendUtxo } = require('./sendBitcoin');
 const { getType } = require('./getType');
 const { perform_task } = require('./rewardHelper.js');
+const {subSatCount} = require('./satHelper.js');
 const mintDetails = require('../model/mintDetails.js');
 
 const interval = 15;
@@ -620,6 +622,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
           inscription.collectionPayment = 'received';
           inscription.spendTxid = balance.txid[0];
           await inscription.save();
+          await subSatCount(inscription.sat, 1)
           mintCount = _savedCollection.minted.length;
         } else {
           return {
@@ -681,6 +684,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         inscription.collectionPayment = 'received';
         inscription.spendTxid = balance.txid[0];
         await inscription.save();
+        await subSatCount(inscription.sat, 1)
         mintCount = _savedCollection.minted.length;
       }
 
@@ -761,6 +765,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
           inscription.collectionPayment = 'received';
           inscription.spendTxid = balance.txid[0];
           await inscription.save();
+          await subSatCount(inscription.sat, 1)
           mintCount = _savedCollection.minted.length;
         } else {
           return {
@@ -822,6 +827,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         inscription.collectionPayment = 'received';
         inscription.spendTxid = balance.txid[0];
         await inscription.save();
+        await subSatCount(inscription.sat, 1)
         mintCount = _savedCollection.minted.length;
       }
     }
@@ -952,6 +958,7 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
         inscription.collectionPayment = 'received';
         inscription.spendTxid = balance.txid[0];
         await inscription.save();
+        await subSatCount(inscription.sat, 1)
         return {
           message: `payment seen on mempool`,
           data: {
@@ -972,7 +979,35 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
         };
       }
     } else if (balance.status[0].confirmed === true) {
-      if (inscription.collectionPayment === 'waiting') {
+      if (inscription.error === true) {
+        const addToQueue = await RabbitMqClient.addToQueue({
+          data: {
+            orderId: inscriptionId,
+            networkName,
+            txid: _txid,
+          },
+          routingKey: 'paymentSeen',
+          option: messageProperties,
+        });
+        if (addToQueue.status !== true)
+          return {
+            message: 'error adding order to queue',
+            data: { txid, ids: [] },
+            status: false,
+            key: 'error_adding_order_to_queue',
+          };
+        inscription.error = false;
+        await inscription.save();
+        return {
+          message: `added to queue`,
+          data: {
+            txid,
+            ids: [],
+          },
+          _txId: _txid,
+          status: true,
+        };
+      } else if (inscription.collectionPayment === 'waiting') {
         const addToQueue = await RabbitMqClient.addToQueue({
           data: {
             orderId: inscriptionId,
@@ -993,33 +1028,7 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
         inscription.collectionPayment = 'received';
         inscription.spendTxid = balance.txid[0];
         await inscription.save();
-        return {
-          message: `payment received`,
-          data: {
-            txid,
-            ids: [],
-          },
-          status: true,
-        };
-      }
-      if (inscription.error === true) {
-        const addToQueue = await RabbitMqClient.addToQueue({
-          data: {
-            orderId: inscriptionId,
-            networkName,
-            txid: _txid,
-          },
-          routingKey: 'paymentSeen',
-          option: messageProperties,
-        });
-        if (addToQueue.status !== true)
-          return {
-            message: 'error adding order to queue',
-            data: { txid, ids: [] },
-            status: false,
-            key: 'error_adding_order_to_queue',
-          };
-      } else if (inscription.collectionPayment === 'received') {
+        await subSatCount(inscription.sat, 1)
         return {
           message: `payment received`,
           data: {

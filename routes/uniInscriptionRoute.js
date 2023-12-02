@@ -33,5 +33,7 @@ router.post('/checkPayment', controller.verifyPayment);
 router.post('/address_orders', controller.getAllAddressOrder);
 router.post('/getOrder', controller.getOrder);
 router.post('/getUserOrder', controller.getReceiverOrder);
+router.post('/updateSatDetails', controller.updateSatDetails);
+router.post('/addSats', controller.addSats);
 
 module.exports = router;

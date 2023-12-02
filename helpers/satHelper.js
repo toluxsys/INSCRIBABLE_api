@@ -1,9 +1,14 @@
+/* eslint-disable object-shorthand */
+/* eslint-disable arrow-body-style */
 /* eslint-disable prettier/prettier */
 const mempoolJS = require('@mempool/mempool.js');
 const fs = require('fs');
 const { MongoClient } = require('mongodb');
 const { ObjectId } = require('mongoose').Types;
 const dotenv = require('dotenv').config();
+const SpecialSat = require('../model/specialSats')
+
+const satTypes = ['rare', 'common', 'block9', 'pizza','pizza1','uncommon', '2009', '2010', '2011', 'block78', 'elon', 'palindrome', 'black'];
 
 const init = async (network) => {
   const {
@@ -55,16 +60,24 @@ const getSats = async () => {
     }
 
     sats.push({ satType: 'random', available: 100000, utxoCount: 1 });
-
-    available.forEach((value, key) => {
-      if(value !== 0){
-        sats.push({
-          satType: key,
-          available: value,
-          utxoCount: satCount.get(key),
-        });
+    const specialSat = await SpecialSat.find({})
+    specialSat.forEach((x) => {
+      if(x.count > 0){
+         sats.push({
+          satType: x.satType,
+          available: x.count
+        })
       }
-    });
+    })
+    // available.forEach((value, key) => {
+    //   if(value !== 0){
+    //     sats.push({
+    //       satType: key,
+    //       available: value,
+    //       utxoCount: satCount.get(key),
+    //     });
+    //   }
+    // });
 
     await client.close();
     return sats;
@@ -73,4 +86,110 @@ const getSats = async () => {
   }
 };
 
-module.exports = { getStatus, getSats };
+const updateSatDetails = async (satDetails) => {
+  try {
+    // [{satType: "pizza", price: 0.5}]
+    const specialSat = await SpecialSat.find({});
+    const uniqueSat = [];
+    const available = [];
+    if (!specialSat) {
+      await SpecialSat.insertMany(satDetails);
+    } else {
+      const satTypes = specialSat.map((sat) => sat.satType);
+      satDetails.forEach((type) => {
+        if (!satTypes.includes(type.satType)) {
+          uniqueSat.push(type);
+        } else {
+          available.push(type);
+        }
+      });
+      await SpecialSat.insertMany(uniqueSat);
+
+      const writeOperation = available.map((sat) => {
+        if (sat.description) {
+          return {
+            updateOne: {
+              filter: { satType: sat.satType },
+              update: { description: sat.description },
+              upsert: true,
+            },
+          };
+        }
+        if (sat.publicAvailable !== undefined) {
+          return {
+            updateOne: {
+              filter: { satType: sat.satType },
+              update: { publicAvailable: sat.publicAvailable },
+              upsert: true,
+            },
+          };
+        }
+        if (sat.price) {
+          return {
+            updateOne: {
+              filter: { satType: sat.satType },
+              update: { price: sat.price },
+              upsert: true,
+            },
+          };
+        }
+
+        if (sat.count) {
+          return {
+            updateOne: {
+              filter: { satType: sat.satType },
+              update: { count: sat.count },
+              upsert: true,
+            },
+          };
+        }
+      });
+      await SpecialSat.bulkWrite(writeOperation);
+    }
+    return ({ status: true, message: 'sat price added' });
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+//amount is the total amout in sats in the utxo
+//total is the actual total amout of special sat in the utxo
+const addSats = async (sats, type) => {
+  try{
+      const { db, client } = await initMongoDb();
+      const Sats = db.collection('sats');
+      if(!satTypes.includes(type)) return 'invalid type';
+      const data = [];
+      sats.forEach((sat) => {
+        data.push({
+            type: type,
+            txid: sat.txid,
+            amount: sat.amount,
+            total: sat.total,
+            count: 0
+        }) 
+      });
+      const savedSats = await Sats.insertMany(data);
+      await client.close();
+      return  savedSats
+  }catch(error){
+      return error.message;
+  }
+}
+
+const subSatCount = async (type, count) => {
+  try{
+      if(type !== 'random'){
+        const specialSat = await SpecialSat.findOne({satType: type})
+        specialSat.count -= count
+        await specialSat.save()
+        return 'updated'
+      }
+      return 'updated'
+  }catch(e){
+    console.log(e.message)
+  }
+}
+
+
+module.exports = { getStatus, getSats, addSats, subSatCount, updateSatDetails};

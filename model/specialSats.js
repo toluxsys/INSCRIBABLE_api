@@ -11,6 +11,9 @@ const specialSat = new mongoose.Schema(
     description: {
       type: String,
     },
+    count: {
+      type: Number,
+    },
     publicAvailable: {
       type: Boolean,
     },

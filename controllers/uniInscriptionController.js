@@ -1,8 +1,12 @@
+/* eslint-disable object-shorthand */
+/* eslint-disable prettier/prettier */
 const { checkPayment, inscribe } = require('../helpers/inscriptionHelper');
 const Inscription = require('../model/inscription');
 const BulkInscription = require('../model/bulkInscription');
+const SpecialSat = require('../model/specialSats');
 const { getType } = require('../helpers/getType');
 const { getUserOrder } = require('../helpers/mintAnalysis');
+const { addSats, updateSatDetails } = require('../helpers/satHelper')
 
 module.exports.verifyPayment = async (req, res) => {
   try {
@@ -178,3 +182,36 @@ module.exports.getReceiverOrder = async (req, res) => {
     return res.status(200).json({ status: false, message: e.message });
   }
 };
+
+module.exports.updateSatDetails = async (req, res) => {
+  try {
+    // [{satType: "pizza", price: 0.5}]
+    const { satDetails } = req.body;
+    const result = await updateSatDetails(satDetails)
+    if(result.status === false) return res.status(200).json({ status: false, message: 'error updating sat details' });
+    return res.status(200).json({ status: true, message: 'sat details updated' });
+  } catch (e) {
+    console.log(e);
+    return res.status(200).json({ status: false, message: e.message });
+  }
+};
+
+module.exports.addSats = async (req, res) => {
+  try{
+    const {sats, type} = req.body;
+    let count = 0
+    sats.forEach(x => {
+      count += x.total
+    })
+    const satDetails = {
+      satType: type,
+      count: count
+    }
+    const addedSat = await addSats(sats, type)
+    if(!addedSat) return res.status(200).json({status: false, message: 'error adding sats'})
+    await updateSatDetails(satDetails)
+
+  }catch(e){
+    return res.status(200).json({ status: false, message: e.message });
+  }
+}

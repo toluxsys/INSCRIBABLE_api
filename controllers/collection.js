@@ -2260,64 +2260,6 @@ module.exports.getAvailableSat = async (req, res) => {
   }
 };
 
-module.exports.updateSatCost = async (req, res) => {
-  try {
-    // [{satType: "pizza", price: 0.5}]
-    const { satDetails } = req.body;
-    const specialSat = await SpecialSat.find({});
-    const uniqueSat = [];
-    const available = [];
-    if (!specialSat) {
-      await SpecialSat.insertMany(satDetails);
-    } else {
-      const satTypes = specialSat.map((sat) => sat.satType);
-      satDetails.forEach((type) => {
-        if (!satTypes.includes(type.satType)) {
-          uniqueSat.push(type);
-        } else {
-          available.push(type);
-        }
-      });
-      await SpecialSat.insertMany(uniqueSat);
-
-      const writeOperation = available.map((sat) => {
-        if (sat.description) {
-          return {
-            updateOne: {
-              filter: { satType: sat.satType },
-              update: { description: sat.description },
-              upsert: true,
-            },
-          };
-        }
-        if (sat.publicAvailable !== undefined) {
-          return {
-            updateOne: {
-              filter: { satType: sat.satType },
-              update: { publicAvailable: sat.publicAvailable },
-              upsert: true,
-            },
-          };
-        }
-        if (sat.price) {
-          return {
-            updateOne: {
-              filter: { satType: sat.satType },
-              update: { price: sat.price },
-              upsert: true,
-            },
-          };
-        }
-      });
-      await SpecialSat.bulkWrite(writeOperation);
-    }
-    return res.status(200).json({ status: true, message: 'sat price added' });
-  } catch (e) {
-    console.log(e);
-    return res.status(200).json({ status: false, message: e.message });
-  }
-};
-
 module.exports.getSatCost = async (req, res) => {
   try {
     return res.status(200).json({
