@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const mongoose = require('mongoose');
 
 const inscriptionSchema = new mongoose.Schema(
@@ -15,7 +16,6 @@ const inscriptionSchema = new mongoose.Schema(
     collectionPayment: { type: String, default: 'waiting' },
     sat: { type: String },
     spendTxid: { type: String },
-    mintStage: {type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"},
     inscriptionDetails: {
       type: Object,
     },

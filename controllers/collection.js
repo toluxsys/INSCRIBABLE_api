@@ -302,7 +302,7 @@ const checkWallet = async (collectionId, address) => {
         message: `collection addresses not found`,
       };
     }
-    
+
     fs.readdirSync(`${process.cwd()}/src/address/${collectionId}`).forEach(
       (file) => {
         const _addr = fs.readFileSync(
@@ -1752,6 +1752,7 @@ module.exports.getCollection = async (req, res) => {
     }
 
     const allSat = await getSats();
+    console.log(allSat)
     const available = allSat.map((x) => x.satType);
     let collectionSat = [];
     let allCollectionSat = []
@@ -1777,6 +1778,7 @@ module.exports.getCollection = async (req, res) => {
         collectionSat.push({ satType: x.satType, description: x.description });
       });
     }
+
     const collectionData = {
       collectionId: collection.id,
       collectionName: collection.name,
