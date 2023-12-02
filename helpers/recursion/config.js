@@ -8,6 +8,3 @@
 //     { name: 'bottom lid', number: 3 },
 //     { name: 'top lid', number: 3 },
 // ];
-
-
-

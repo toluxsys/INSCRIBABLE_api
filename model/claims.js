@@ -1,30 +1,30 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const claim = new mongoose.Schema(
   {
     claimId: {
-        type: String
+      type: String,
     },
     claimCode: {
-        type: Array
+      type: Array,
     },
     usedClaimCode: {
-        type: Array
+      type: Array,
     },
     description: {
-        type: String
+      type: String,
     },
     info: {
-        type: Array
+      type: Array,
     },
     claimPoint: {
-        type: Number
+      type: Number,
     },
     status: {
-        type: String
-    }
+      type: String,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("Claim", claim);
+module.exports = mongoose.model('Claim', claim);

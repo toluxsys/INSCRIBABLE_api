@@ -1,12 +1,12 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const btcPrice = new mongoose.Schema(
   {
     value: {
-      type: Number
-    }
+      type: Number,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("BtcPrice", btcPrice);
+module.exports = mongoose.model('BtcPrice', btcPrice);

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const network = new mongoose.Schema(
   {
@@ -9,7 +9,7 @@ const network = new mongoose.Schema(
       type: String,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("Network", network);
+module.exports = mongoose.model('Network', network);

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const inscriptionSchema = new mongoose.Schema(
   {
@@ -9,10 +9,11 @@ const inscriptionSchema = new mongoose.Schema(
     feeRate: { type: Number },
     utxoTxid: { type: String },
     inscriptionType: { type: String },
-    collectionId: {type: String},
-    selected: {type: mongoose.Schema.Types.ObjectId, ref: "SelectedItem"},
-    collectionPayment: {type: String, default: "waiting"},
-    sat: {type: String},
+    collectionId: { type: String },
+    selected: { type: mongoose.Schema.Types.ObjectId, ref: 'SelectedItem' },
+    mintStage: { type: mongoose.Schema.Types.ObjectId, ref: 'MintDetails' },
+    collectionPayment: { type: String, default: 'waiting' },
+    sat: { type: String },
     spendTxid: { type: String },
     mintStage: {type: mongoose.Schema.Types.ObjectId, ref: "MintDetails"},
     inscriptionDetails: {
@@ -34,26 +35,26 @@ const inscriptionSchema = new mongoose.Schema(
       type: String,
     },
     addedToQueue: {
-      type: Boolean
+      type: Boolean,
     },
     mintCount: {
-      type: Number
+      type: Number,
     },
     stage: {
       type: String,
     },
     inscription: { type: Array },
-    usePoints: {type: Boolean, default: false},
+    usePoints: { type: Boolean, default: false },
     error: {
       type: Boolean,
-      default: false
+      default: false,
     },
-    errorMessage:{
+    errorMessage: {
       type: String,
-      default: ""
-    }
+      default: '',
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("Inscription", inscriptionSchema);
+module.exports = mongoose.model('Inscription', inscriptionSchema);

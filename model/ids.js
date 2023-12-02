@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const inscriptionIds = new mongoose.Schema(
   {
@@ -15,7 +15,7 @@ const inscriptionIds = new mongoose.Schema(
       type: String,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model("Ids", inscriptionIds);
+module.exports = mongoose.model('Ids', inscriptionIds);
