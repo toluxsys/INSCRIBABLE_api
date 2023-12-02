@@ -55,11 +55,7 @@
     "node-cron": "^3.0.2",
     "optipng-bin": "^9.0.0",
     "pngquant-bin": "^6.0.1",
-<<<<<<< HEAD
-    "qip-wallet": "^1.0.11",
-=======
     "qip-wallet": "^1.0.14",
->>>>>>> 6e9e071db1eb6d6a931ad6e6cd1774d1a2d7f429
     "sharp": "^0.32.6",
     "shelljs": "^0.8.5",
     "tiny-secp256k1": "^2.2.1",
