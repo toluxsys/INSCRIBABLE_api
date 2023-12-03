@@ -1,11 +1,14 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable arrow-body-style */
 /* eslint-disable prettier/prettier */
+/* eslint-disable no-else-return */
+/* eslint-disable object-shorthand */
+/* eslint-disable prettier/prettier */
+
 const mempoolJS = require('@mempool/mempool.js');
-const fs = require('fs');
 const { MongoClient } = require('mongodb');
 const { ObjectId } = require('mongoose').Types;
-const dotenv = require('dotenv').config();
+
 const SpecialSat = require('../model/specialSats')
 
 const satTypes = ['rare', 'common', 'block9', 'pizza','pizza1','uncommon', '2009', '2010', '2011', 'block78', 'elon', 'palindrome', 'black'];

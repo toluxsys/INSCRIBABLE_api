@@ -1752,7 +1752,6 @@ module.exports.getCollection = async (req, res) => {
     }
 
     const allSat = await getSats();
-    console.log(allSat)
     const available = allSat.map((x) => x.satType);
     let collectionSat = [];
     let allCollectionSat = []

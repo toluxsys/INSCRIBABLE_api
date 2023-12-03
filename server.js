@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -7,9 +8,10 @@ const explorerRoute = require('./routes/explorerRoute.js');
 const uniInscriptionRoute = require('./routes/uniInscriptionRoute.js');
 const rewardRoute = require('./routes/rewardRoute.js');
 const RabbitMqClient = require('./helpers/queue/rabbitMqClient.js');
-const RabbitMqConsumer = require('./helpers/queue/rabbitMqConsumer.js');
+//const RabbitMqConsumer = require('./helpers/queue/rabbitMqConsumer.js');
 const CreatorsPaymentConsumer = require('./helpers/queue/creatorPaymentConsumer.js');
 const { updateBtcPrice } = require('./helpers/btcToUsd.js');
+const { getImg } = require('./helpers/inscriptionHelper.js');
 
 const interval = 120000;
 let timerId = 0;
@@ -33,7 +35,7 @@ mongoose
   .then(async (res) => {
     console.log(`Mongo DB Connected! to ${res.connection.host}`);
     await RabbitMqClient.initilize();
-    await RabbitMqConsumer.initilize();
+    // await RabbitMqConsumer.initilize();
     await CreatorsPaymentConsumer.initilize();
   })
   .catch(console.error);
@@ -60,7 +62,7 @@ consumeMessage1()
 app.use(`/api`, uniInscriptionRoute);
 
 app.get('/', async (req, res) => {
-  res.status(200).json({ message: 'You are connected to the server' });
+  res.status(200).json({ message: 'You are connected to the server'});
 });
 
 app.listen(port, host, async () => {
