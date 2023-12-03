@@ -2,7 +2,6 @@ const express = require('express');
 const dotenv = require('dotenv').config();
 
 const router = express.Router();
-const fs = require('fs');
 const basicAuth = require('express-basic-auth');
 
 const controller = require('../controllers/uniInscriptionController');
