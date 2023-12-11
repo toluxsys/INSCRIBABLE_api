@@ -280,7 +280,7 @@ const checkWallet = async (collectionId, address) => {
     const stagNames = [];
     const params = [];
     let addresses = [];
-    let regex = /[^,\r\n]+/g;
+    const regex = /[^,\r\n]+/g;
     mintStages.forEach(async (stage) => {
       if (stage.name === 'public' || stage.name === 'Public') {
         stagNames.push(`addr-${collectionId}-${stage.name}.txt`);
@@ -1471,14 +1471,15 @@ module.exports.getImages = async (req, res) => {
         .json({ status: false, message: `error getting images` });
 
     selectedItems.forEach((selected) => {
-      const { items } = selected;
+      const { items, orderId } = selected;
       const timestamp = selected.createdAt;
-      s_items.push({ items, timestamp, id: selected._id });
+      s_items.push({ items, timestamp, orderId, id: selected._id });
     });
 
     s_items.forEach(async (item) => {
       if (checkTimeElapsed(item.timestamp) === true) {
         await SelectedItems.deleteOne({ _id: item.id });
+        await Inscription.findOneAndUpdate({id: item.orderId}, {selectionValid: false}, {new: true});
         const s_selected = [];
         item.items.forEach((image) => {
           const data = {
@@ -1654,11 +1655,9 @@ module.exports.getCollections = async (req, res) => {
         createdAt: collection[0].createdAt,
         mintStarted: collection[0].startMint,
         updatedAt: collection[0].updatedAt,
-        startAt: collection[0].startAt,
         template: collection[0].template || 1,
         type: element.type,
         ended,
-        mintStarted: collection[0].startMint,
         satType: collection[0].specialSat,
       });
     });
@@ -2438,6 +2437,7 @@ module.exports.mintItem = async (req, res) => {
         inscribed: false,
         feeRate,
         collectionId,
+        mintStage: collection.mintStage,
         inscriptionDetails: {
           payAddress: paymentAddress,
           cid,
@@ -2490,6 +2490,7 @@ module.exports.mintItem = async (req, res) => {
         inscribed: false,
         feeRate,
         collectionId,
+        mintStage: collection.mintStage,
         sat: oldSats,
 
         inscriptionDetails: {

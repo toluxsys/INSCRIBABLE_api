@@ -10,6 +10,10 @@ const bulkInscription = new mongoose.Schema(
     utxoTxid: { type: String },
     collectionId: { type: String },
     selected: { type: mongoose.Schema.Types.ObjectId, ref: 'SelectedItem' },
+    selectionValid: {
+      type: Boolean,
+      default: true,
+    },
     collectionPayment: { type: String, default: 'waiting' },
     mintStage: { type: mongoose.Schema.Types.ObjectId, ref: 'MintDetails' },
     sat: { type: mongoose.Schema.Types.ObjectId, ref: 'Sats' },

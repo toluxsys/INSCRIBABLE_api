@@ -835,7 +835,8 @@ module.exports.bulkInscriptionCalc = async (req, res) => {
 module.exports.checkPayments = async (req, res) => {
   try {
     const { inscriptionId, networkName } = req.body;
-    const result = await checkPayment({ inscriptionId, networkName });
+    const result = await checkPayment({ inscriptionId:inscriptionId, networkName:networkName });
+    console.log("checkPayment:", result)
     if (result.status === true) {
       return res.status(200).json({
         status: true,

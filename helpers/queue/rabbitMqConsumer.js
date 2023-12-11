@@ -100,12 +100,7 @@ class Consumer {
       if (msg) {
         const content = JSON.parse(msg.content.toString());
         const status = await this.getStatus(content.txid);
-        console.log(
-          '[RECEIVED CLIENT]',
-          'orderId:',
-          content.orderId,
-          'paymentStatus:',
-          status,
+        console.log('[RECEIVED CLIENT]', 'orderId:', content.orderId,'paymentStatus:',status,
         );
         if (status === true) {
           const type = getType(content.orderId);
@@ -129,14 +124,16 @@ class Consumer {
               inscriptionId: content.orderId,
               networkName: content.networkName,
             });
-            if (res === undefined) {
+
+            if(res === undefined){
               this.channel.ack(msg);
               await this.channel.publish(
                 exchangeName,
                 'paymentReceived',
                 Buffer.from(JSON.stringify(content)),
               );
-            } else if (res.message !== 'Request failed with status code 404') {
+            }else if (res.message !== 'Request failed with status code 404') {
+              console.log(res)
               this.channel.ack(msg);
               await this.channel.publish(
                 exchangeName,

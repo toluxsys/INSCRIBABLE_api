@@ -53,18 +53,22 @@ module.exports.inscribeItem = async (req, res) => {
       inscriptionId,
       networkName,
     });
+
+    if(result === undefined){
+      return res.status(200).json({
+        status: false,
+        message: 'inscription not complete',
+        userResponse: [],
+      });
+    }
+
     if (result.status === true) {
       return res.status(200).json({
-        status: true,
+        status: result.status,
         message: result.message,
         userResponse: result.data.ids,
       });
     }
-    return res.status(200).json({
-      status: false,
-      message: result.message,
-      userResponse: result.data.ids,
-    });
   } catch (e) {
     return res.status(200).json({ status: false, message: e.message });
   }
@@ -201,16 +205,18 @@ module.exports.addSats = async (req, res) => {
     const {sats, type} = req.body;
     let count = 0
     sats.forEach(x => {
-      count += x.total
+      count += parseInt(x.total)
     })
-    const satDetails = {
+    const satDetails = [{
       satType: type,
       count: count
-    }
+    }]
+    console.log(sats, type)
+    console.log(satDetails)
     const addedSat = await addSats(sats, type)
     if(!addedSat) return res.status(200).json({status: false, message: 'error adding sats'})
     await updateSatDetails(satDetails)
-
+    return res.status(200).json({message: 'Sat added', status: true})
   }catch(e){
     return res.status(200).json({ status: false, message: e.message });
   }

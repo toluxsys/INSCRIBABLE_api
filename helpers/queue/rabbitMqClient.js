@@ -35,7 +35,7 @@ class RabbitMqClient {
       }
       await this.consumeMessage('error', 'error');
       this.isInitilized = true;
-      console.log('Channel Initilized...');
+      console.log('Error Channel Initilized...');
     } catch (e) {
       console.log(e);
     }

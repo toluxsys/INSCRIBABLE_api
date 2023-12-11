@@ -12,6 +12,10 @@ const inscriptionSchema = new mongoose.Schema(
     inscriptionType: { type: String },
     collectionId: { type: String },
     selected: { type: mongoose.Schema.Types.ObjectId, ref: 'SelectedItem' },
+    selectionValid: {
+      type: Boolean,
+      default: true,
+    },
     mintStage: { type: mongoose.Schema.Types.ObjectId, ref: 'MintDetails' },
     collectionPayment: { type: String, default: 'waiting' },
     sat: { type: String },
