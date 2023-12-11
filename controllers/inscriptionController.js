@@ -836,7 +836,6 @@ module.exports.checkPayments = async (req, res) => {
   try {
     const { inscriptionId, networkName } = req.body;
     const result = await checkPayment({ inscriptionId:inscriptionId, networkName:networkName });
-    console.log("checkPayment:", result)
     if (result.status === true) {
       return res.status(200).json({
         status: true,
@@ -1403,7 +1402,8 @@ const getSatCost = async (type) => {
 
 const inscriptionPrice = async (feeRate, fileSize, satType, usePoints) => {
   try {
-    let serviceCharge = parseInt(process.env.SERVICE_CHARGE);
+    const toSat = await usdToSat(3)
+    let serviceCharge = toSat.satoshi
     const sats = Math.ceil((fileSize / 4) * feeRate);
     const cost = sats + 1500 + 550 + 2000;
     const sizeFee = Math.ceil(300 * feeRate + (sats / 10));

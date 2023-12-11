@@ -99,9 +99,11 @@ const getLinks = async (cid, totalSupply) => {
 
 const getServiceFee = async (collectionId) => {
   try {
-    const serviceFee = await ServiceFee.findOne({ collectionId });
-    if (!serviceFee) return process.env.COLLECTION_SERVICE_FEE;
-    return serviceFee.serviceFee.toString();
+    // const serviceFee = await ServiceFee.findOne({ collectionId });
+    // if (!serviceFee) return process.env.COLLECTION_SERVICE_FEE;
+    // return serviceFee.serviceFee.toString();
+    const serviceFee = await usdToSat(5)
+    return serviceFee.satoshi
   } catch (e) {
     console.log(e.message);
   }
