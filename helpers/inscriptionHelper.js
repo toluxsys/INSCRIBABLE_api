@@ -845,6 +845,7 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
       };
     }
 
+   
     if (inscription.inscribed === true)
       return {
         message: 'order complete',
@@ -957,13 +958,6 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
           routingKey: 'paymentSeen',
           option: messageProperties,
         });
-        if (addToQueue.status !== true)
-          return {
-            message: 'error adding order to queue',
-            data: { txid, ids: [] },
-            status: false,
-            key: 'error_adding_order_to_queue',
-          };
         inscription.error = false;
         await inscription.save();
         return {
@@ -975,7 +969,9 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
           _txId: _txid,
           status: true,
         };
-      } else if (inscription.collectionPayment === 'waiting') {
+      }
+      
+      if (inscription.collectionPayment === 'waiting') {
         const addToQueue = await RabbitMqClient.addToQueue({
           data: {
             orderId: inscriptionId,
@@ -985,20 +981,30 @@ const checkDefaultPayment = async ({ inscriptionId, networkName }) => {
           routingKey: 'paymentSeen',
           option: messageProperties,
         });
-        if (addToQueue.status !== true)
-          return {
-            message: 'error adding order to queue',
-            data: { txid, ids: [] },
-            status: false,
-            key: 'error_adding_order_to_queue',
-          };
-
         inscription.collectionPayment = 'received';
         inscription.spendTxid = balance.txid[0];
         await inscription.save();
         await subSatCount(inscription.sat, 1)
         return {
           message: `payment received`,
+          data: {
+            txid,
+            ids: [],
+          },
+          status: true,
+        };
+      }else{
+        const addToQueue = await RabbitMqClient.addToQueue({
+          data: {
+            orderId: inscriptionId,
+            networkName,
+            txid: _txid,
+          },
+          routingKey: 'paymentSeen',
+          option: messageProperties,
+        });
+        return {
+          message: `order added to queue`,
           data: {
             txid,
             ids: [],
