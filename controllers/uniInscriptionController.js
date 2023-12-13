@@ -211,8 +211,6 @@ module.exports.addSats = async (req, res) => {
       satType: type,
       count: count
     }]
-    console.log(sats, type)
-    console.log(satDetails)
     const addedSat = await addSats(sats, type)
     if(!addedSat) return res.status(200).json({status: false, message: 'error adding sats'})
     await updateSatDetails(satDetails)
