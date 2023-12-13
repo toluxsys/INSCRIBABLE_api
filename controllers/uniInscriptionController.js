@@ -40,6 +40,7 @@ module.exports.verifyPayment = async (req, res) => {
 
 module.exports.inscribeItem = async (req, res) => {
   try {
+    req.setTimeout(40000);
     const { inscriptionId, networkName } = req.body;
     if (!inscriptionId)
       return res
