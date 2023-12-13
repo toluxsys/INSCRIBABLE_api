@@ -426,24 +426,24 @@ const verifyMint = async (collectionId, address, amount) => {
       };
     }
     // download address list
-    if (
-      !fs.existsSync(
-        `${process.cwd()}/src/address/${collectionId}/${stage_name}.txt`,
-      )
-    ) {
-      const d_address = await downloadAddressFile(stage_name, collectionId);
-      if (!d_address) {
-        return {
-          valid: false,
-          price: '',
-          mintCount: 0,
-          message: 'addresses for stage not found',
-          userResponse: {
-            pendingOrders: [],
-          },
-        };
-      }
-    }
+    // if (
+    //   !fs.existsSync(
+    //     `${process.cwd()}/src/address/${collectionId}/${stage_name}.txt`,
+    //   )
+    // ) {
+    //   const d_address = await downloadAddressFile(stage_name, collectionId);
+    //   if (!d_address) {
+    //     return {
+    //       valid: false,
+    //       price: '',
+    //       mintCount: 0,
+    //       message: 'addresses for stage not found',
+    //       userResponse: {
+    //         pendingOrders: [],
+    //       },
+    //     };
+    //   }
+    // }
 
     // clean up address
     const regex = /[^,\r\n]+/g;
