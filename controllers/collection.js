@@ -295,15 +295,15 @@ const checkWallet = async (collectionId, address) => {
       }
     });
 
-    const res = await downloadAllAddressFile(params, collectionId);
-    if (res === false) {
-      return {
-        valid: false,
-        price: 0,
-        mintCount: 0,
-        message: `collection addresses not found`,
-      };
-    }
+    // const res = await downloadAllAddressFile(params, collectionId);
+    // if (res === false) {
+    //   return {
+    //     valid: false,
+    //     price: 0,
+    //     mintCount: 0,
+    //     message: `collection addresses not found`,
+    //   };
+    // }
 
     fs.readdirSync(`${process.cwd()}/src/address/${collectionId}`).forEach(
       (file) => {
