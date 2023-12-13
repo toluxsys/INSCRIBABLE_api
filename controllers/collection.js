@@ -1597,11 +1597,20 @@ module.exports.inscribe1 = async (req, res) => {
 
 module.exports.getCollections = async (req, res) => {
   try {
-    const { networkName } = req.query;
-    const collections = await Collection.find({
-      flag: networkName,
-      status: 'approved',
-    });
+    const { networkName, status } = req.query;
+    let collections;
+    if(status !== undefined && status === 'pending'){
+      collections = await Collection.find({
+        flag: networkName,
+        status: 'pending',
+      });
+    }else{
+      collections = await Collection.find({
+        flag: networkName,
+        status: 'approved',
+      });
+    }
+
     const collectionDetails = [];
     const _collections = [];
     const mappedObjectId = [];
