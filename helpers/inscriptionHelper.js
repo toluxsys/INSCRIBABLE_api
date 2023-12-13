@@ -1223,10 +1223,8 @@ const inscribe = async ({ inscriptionId, networkName }) => {
       inscResult = await defaultInscribe({ inscriptionId, networkName });
     }
 
-    console.log('result:', inscResult)
-
     const inscriptionTask = await Task.findOne({ taskName: 'inscribe' });
-    if (inscResult === true) {
+    if (inscResult.status === true) {
       const res = await perform_task(
         inscription.receiver,
         inscriptionTask.taskId,
