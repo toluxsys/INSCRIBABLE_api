@@ -603,7 +603,7 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         _txId: _txid,
       };
     }
-    if (balance.status!== undefined && collection.template === 1) {
+    if (balance.status!== undefined) {
       const exists = verifyList(minted, inscription.fileNames);
       if(exists === true && inscription.collectionPayment === 'received'){
         const addToQueue = await RabbitMqClient.addToQueue({
@@ -622,26 +622,27 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
         };
       }
       return await checkSelectItem({inscriptionId: inscriptionId, networkName: networkName, txid: _txid, balance})
-    }else if(balance.status !== undefined && collection.template === 2){
-      if(inscription.fileNames.length === 0){
-        return await checkMintItem({inscriptionId: inscriptionId, networkName: networkName, txid: _txid, balance})
-      }else{
-        const addToQueue = await RabbitMqClient.addToQueue({
-          data: {
-            orderId: inscriptionId,
-            networkName,
-            txid: _txid,
-          },
-          routingKey: 'paymentSeen',
-        });
-        return {
-          message: 'order added to queue',
-          data: { txid, ids: [] },
-          status: true,
-          _txId: _txid,
-        };
-      }
     }
+    // else if(balance.status !== undefined && collection.template === 2){
+    //   if(inscription.fileNames.length === 0){
+    //     return await checkMintItem({inscriptionId: inscriptionId, networkName: networkName, txid: _txid, balance})
+    //   }else{
+    //     const addToQueue = await RabbitMqClient.addToQueue({
+    //       data: {
+    //         orderId: inscriptionId,
+    //         networkName,
+    //         txid: _txid,
+    //       },
+    //       routingKey: 'paymentSeen',
+    //     });
+    //     return {
+    //       message: 'order added to queue',
+    //       data: { txid, ids: [] },
+    //       status: true,
+    //       _txId: _txid,
+    //     };
+    //   }
+    // }
   } catch (e) {
     console.log(e);
   }
