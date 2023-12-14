@@ -526,10 +526,11 @@ const ackOrder = async ({inscription, networkName, res}) => {
       };
     }
     if(res.status === false && res.message !== 'Request failed with status code 404'){
-      await RabbitMqClient.addToQueue({
-        data: {id: inscriptionId, message: res.message},
-        routingKey: 'error',
-      });
+      await Inscription.findOneAndUpdate({id: inscription.id}, {error: true, errorMessage: res.message}, {new: true})
+      // await RabbitMqClient.addToQueue({
+      //   data: {id: inscriptionId, message: res.message},
+      //   routingKey: 'error',
+      // });
       return {
         message: res.message,
         status: false,
