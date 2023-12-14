@@ -620,8 +620,17 @@ const checkCollectionPayment = async ({ inscriptionId, networkName }) => {
           status: true,
           _txId: _txid,
         };
+      }else if(exists === true && inscription.collectionPayment === 'waiting'){
+        return {
+          message: 'item has been minted',
+          data: { txid, ids: [] },
+          status: false,
+          _txId: _txid,
+          key: 'item_minted',
+        };
+      }else{
+        return await checkSelectItem({inscriptionId: inscriptionId, networkName: networkName, txid: _txid, balance})
       }
-      return await checkSelectItem({inscriptionId: inscriptionId, networkName: networkName, txid: _txid, balance})
     }
     // else if(balance.status !== undefined && collection.template === 2){
     //   if(inscription.fileNames.length === 0){
