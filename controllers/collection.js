@@ -1722,7 +1722,7 @@ module.exports.getCollection = async (req, res) => {
       collection = await collection.save();
     }
 
-    if(!collection.largestFile){
+    if(!collection.largestFile && collection.startMint === true){
       const imageLinks = await getLinks(collection.itemCid, parseInt(collection.collectionDetails.totalSupply))
       const sizes = imageLinks.map(x => x.size)
       const sortedImages = sizes.sort((a, b) => a - b);

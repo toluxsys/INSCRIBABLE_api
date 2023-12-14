@@ -184,6 +184,59 @@ const defaultInscribe = async ({ inscriptionId, networkName }) => {
       });
     }
 
+    const res = newInscription.data;
+    const ack = await ackOrder({inscription: inscription, networkName: networkName, res: res })
+    if(ack.status === false){
+      return ack;
+    }
+    // if (res === undefined) {
+    //   await this.channel.publish(
+    //     process.env.EXCHANGE_NAME,
+    //     'paymentReceived',
+    //     Buffer.from(JSON.stringify({orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]})),
+    //   );
+    //   return {
+    //     message: res.message,
+    //     status: false,
+    //     data: { ids: [] },
+    //   };
+    // } 
+    // if(res.message.split(' ')[2] === 'available'){
+    //   await this.channel.publish(
+    //     process.env.EXCHANGE_NAME,
+    //     'paymentReceived',
+    //     Buffer.from(JSON.stringify({orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]})),
+    //   );
+    //   return {
+    //     message: res.message,
+    //     status: false,
+    //     data: { ids: [] },
+    //   };
+    // }
+    // if (res.status === false && res.message === 'Request failed with status code 404') {
+    //   await this.channel.publish(
+    //     process.env.EXCHANGE_NAME,
+    //     'paymentReceived',
+    //     Buffer.from(JSON.stringify({orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]})),
+    //   );
+    //   return {
+    //     message: res.message,
+    //     status: false,
+    //     data: { ids: [] },
+    //   };
+    // }
+    // if(res.status === false && res.message !== 'Request failed with status code 404'){
+    //     await this.channel.publish(
+    //       process.env.EXCHANGE_NAME,
+    //       'error',
+    //       Buffer.from(JSON.stringify({id: inscriptionId, message: res.message})),
+    //     ); 
+    //     return {
+    //       message: res.message,
+    //       status: false,
+    //       data: { ids: [] },
+    //     };
+    // }
     if (newInscription.data.status === false) {
       return {
         message: newInscription.data.message,
@@ -349,6 +402,12 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
       console.log(newInscription);
     }
 
+    const res = newInscription.data;
+    const ack = await ackOrder({inscription: inscription, networkName: networkName, res: res })
+    if(ack.status === false){
+      return ack;
+    }
+
     if (newInscription.data.status === false) {
       return {
         message: newInscription.data.message,
@@ -422,6 +481,65 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
     console.log(e.message);
   }
 };
+
+const ackOrder = async ({inscription, networkName, res}) => {
+  try{
+    const inscriptionId = inscription.id;
+    if (res === undefined) {
+      await RabbitMqClient.addToQueue({
+        data: {orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]},
+        routingKey: 'paymentSeen',
+      });
+      return {
+        message: res.message,
+        status: false,
+        data: { ids: [] },
+      };
+    } 
+    if(res.status === true){
+      return {
+        message: res.message,
+        status: true,
+        data: { ids: res.userResponse.data },
+      };
+    }
+    if(res.message.split(' ')[2] === 'available'){
+      await RabbitMqClient.addToQueue({
+        data: {orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]},
+        routingKey: 'paymentSeen',
+      });
+      return {
+        message: res.message,
+        status: false,
+        data: { ids: [] },
+      };
+    }
+    if (res.status === false && res.message === 'Request failed with status code 404') {
+      await RabbitMqClient.addToQueue({
+        data: {orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]},
+        routingKey: 'paymentSeen',
+      });
+      return {
+        message: res.message,
+        status: false,
+        data: { ids: [] },
+      };
+    }
+    if(res.status === false && res.message !== 'Request failed with status code 404'){
+      await RabbitMqClient.addToQueue({
+        data: {id: inscriptionId, message: res.message},
+        routingKey: 'error',
+      });
+      return {
+        message: res.message,
+        status: false,
+        data: { ids: [] },
+      };
+    }
+  }catch(e){
+    console.log(e.message)
+  }
+}
 
 const addToCreatorsQueue = async ({inscriptionId, networkName}) => {
   try{
