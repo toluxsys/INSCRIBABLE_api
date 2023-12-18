@@ -1720,6 +1720,9 @@ module.exports.getCollection = async (req, res) => {
       collection.ended = true;
       collection.started = false;
       collection = await collection.save();
+      return res
+      .status(200)
+      .json({ status: false, message: 'collection mint ended' });
     }
 
     if(!collection.largestFile && collection.startMint === true){
@@ -1755,12 +1758,7 @@ module.exports.getCollection = async (req, res) => {
       }
     });
 
-    let mintedCount = collection.minted.length;
-
-    if (collection.ended === true && mintedCount === 0) {
-      mintedCount = collection.collectionDetails.totalSupply;
-    }
-
+    const mintedCount = collection.minted.length;
     const allSat = await getSats();
     const available = allSat.map((x) => x.satType);
     let collectionSat = [];
@@ -1774,10 +1772,8 @@ module.exports.getCollection = async (req, res) => {
         allCollectionSat = collection.specialSat.split('_');
       }
       allCollectionSat = allCollectionSat.map((x) => {
-        if (x !== ' ') {
-          if (available.includes(x)) {
+        if (x !== ' ' && available.includes(x)) {
             return x;
-          }
         }
       });
       const approvedSat = await SpecialSat.find({
@@ -1983,7 +1979,7 @@ module.exports.inscribeCount = async (req, res) => {
 module.exports.getAddresses = async (req, res) => {
   try {
     const { collectionId } = req.body;
-    const collection = await Collection.findOne({ id: collectionId });
+    const collection = await Collection.findOne({ id: collectionId, collectionPayment: 'received' });
     if (!collection)
       return res
         .status(200)
@@ -1994,21 +1990,20 @@ module.exports.getAddresses = async (req, res) => {
         .json({ status: false, message: 'no special Sat for collection' });
     const inscriptions = await Inscription.find({ collectionId });
     const addresses = [];
-    await Promise.all(
-      inscriptions.map(async (inscription) => {
-        if (
-          inscription.inscribed === false &&
-          inscription.collectionPayment === 'paid'
-        ) {
-          addresses.push({
-            id: inscription._id,
-            address: inscription.receiver,
-            feeRate: inscription.feeRate,
-            spendUtxo: inscription.spendTxid,
-          });
-        }
-      }),
-    );
+  
+    inscriptions.forEach((inscription) => {
+      if (
+        inscription.inscribed === false &&
+        inscription.collectionPayment === 'received'
+      ) {
+        addresses.push({
+          id: inscription.id,
+          address: inscription.receiver,
+          feeRate: inscription.feeRate,
+          spendUtxo: inscription.spendTxid,
+        });
+      }
+    })
     return res
       .status(200)
       .json({ status: true, message: 'ok', userResponse: addresses });

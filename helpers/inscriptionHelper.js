@@ -156,8 +156,11 @@ const defaultInscribe = async ({ inscriptionId, networkName }) => {
           },
         );
       }
-    } else if (inscription.s3 === true) {
-      newInscription = await axios.post(
+    } 
+
+    if(inscription.sat && inscription.sat === 'random'){
+      if (inscription.s3 === true){
+        newInscription = await axios.post(
         `${ORD_API_URL}/ord/inscribe/changeS3`,
         {
           feeRate: inscription.feeRate,
@@ -171,89 +174,28 @@ const defaultInscribe = async ({ inscriptionId, networkName }) => {
           imageNames: inscription.fileNames,
         },
       );
-    } else {
-      newInscription = await axios.post(`${ORD_API_URL}/ord/inscribe/change`, {
-        feeRate: inscription.feeRate,
-        receiverAddress,
-        cid: inscription.inscriptionDetails.cid,
-        inscriptionId,
-        type,
-        imageName,
-        networkName,
-        changeAddress,
-      });
+      }else{
+        newInscription = await axios.post(`${ORD_API_URL}/ord/inscribe/change`, {
+          feeRate: inscription.feeRate,
+          receiverAddress,
+          cid: inscription.inscriptionDetails.cid,
+          inscriptionId,
+          type,
+          imageName,
+          networkName,
+          changeAddress,
+        });
+      }
     }
-
+    
     const res = newInscription.data;
     const ack = await ackOrder({inscription: inscription, networkName: networkName, res: res })
     if(ack.status === false){
       return ack;
     }
-    // if (res === undefined) {
-    //   await this.channel.publish(
-    //     process.env.EXCHANGE_NAME,
-    //     'paymentReceived',
-    //     Buffer.from(JSON.stringify({orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]})),
-    //   );
-    //   return {
-    //     message: res.message,
-    //     status: false,
-    //     data: { ids: [] },
-    //   };
-    // } 
-    // if(res.message.split(' ')[2] === 'available'){
-    //   await this.channel.publish(
-    //     process.env.EXCHANGE_NAME,
-    //     'paymentReceived',
-    //     Buffer.from(JSON.stringify({orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]})),
-    //   );
-    //   return {
-    //     message: res.message,
-    //     status: false,
-    //     data: { ids: [] },
-    //   };
-    // }
-    // if (res.status === false && res.message === 'Request failed with status code 404') {
-    //   await this.channel.publish(
-    //     process.env.EXCHANGE_NAME,
-    //     'paymentReceived',
-    //     Buffer.from(JSON.stringify({orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]})),
-    //   );
-    //   return {
-    //     message: res.message,
-    //     status: false,
-    //     data: { ids: [] },
-    //   };
-    // }
-    // if(res.status === false && res.message !== 'Request failed with status code 404'){
-    //     await this.channel.publish(
-    //       process.env.EXCHANGE_NAME,
-    //       'error',
-    //       Buffer.from(JSON.stringify({id: inscriptionId, message: res.message})),
-    //     ); 
-    //     return {
-    //       message: res.message,
-    //       status: false,
-    //       data: { ids: [] },
-    //     };
-    // }
-    if (newInscription.data.status === false) {
-      return {
-        message: newInscription.data.message,
-        status: false,
-        data: { ids: [] },
-      };
-    }
-    if (typeof newInscription.data.userResponse.data === 'string') {
-      return {
-        message: `error inscribing item`,
-        status: false,
-        data: { ids: [] },
-      };
-    }
 
-    const n_inscriptions = newInscription.data.userResponse.data;
-    if (newInscription.data.userResponse.data.length === 0)
+    const n_inscriptions = res.userResponse.data;
+    if (res.userResponse.data.length === 0)
       return {
         message: `error inscribing item`,
         status: false,
@@ -274,13 +216,30 @@ const defaultInscribe = async ({ inscriptionId, networkName }) => {
         inscription: item,
       }));
     }
+
+    inscription.error = false;
+    inscription.errorMessage = '';
     inscription.inscription = details;
     inscription.sent = true;
     inscription.inscribed = true;
-    inscription.error = false;
-    inscription.errorMessage = '';
     inscription.stage = 'stage 3';
     await inscription.save();
+
+    if (newInscription.data.status === false) {
+      return {
+        message: newInscription.data.message,
+        status: false,
+        data: { ids: [] },
+      };
+    }
+    if (typeof newInscription.data.userResponse.data === 'string') {
+      return {
+        message: `error inscribing item`,
+        status: false,
+        data: { ids: [] },
+      };
+    }
+
     return {
       message: `inscription complete`,
       status: true,
@@ -353,9 +312,7 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
       id: inscription.collectionId,
     });
     if(!collection) return ({status: false, message: 'collection does not exist', data: { ids: [] }})
-    //if(collection.ended === true) return ({status: false, message: 'collection mint ended', data: { ids: [] }})
     const changeAddress = collection.collectionAddress;
-
     if (balance < cost) {
       return {
         message:
@@ -366,10 +323,10 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
     }
 
     if (inscription.sat !== 'random') {
-      const spendUtxo = await getSpendUtxo(
-        inscription.inscriptionDetails.payAddress,
-        networkName,
-      );
+      // const spendUtxo = await getSpendUtxo(
+      //   inscription.inscriptionDetails.payAddress,
+      //   networkName,
+      // );
       newInscription = await axios.post(
         `${process.env.ORD_SAT_API_URL}/ord/inscribe/oldSats`,
         {
@@ -380,7 +337,8 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
           imageNames,
           type: inscription.sat,
           networkName: 'mainnet',
-          spendUtxo: spendUtxo.output,
+          //spendUtxo: spendUtxo.output,
+          spendUtxo: inscription.spendTxid,
           changeAddress,
           inscriptionId,
           walletName: 'oldSatsWallet',
@@ -399,7 +357,6 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
         imageNames,
         changeAddress,
       });
-      console.log(newInscription);
     }
 
     const res = newInscription.data;
@@ -408,24 +365,8 @@ const collectionInscribe = async ({ inscriptionId, networkName }) => {
       return ack;
     }
 
-    if (newInscription.data.status === false) {
-      return {
-        message: newInscription.data.message,
-        status: false,
-        data: { ids: [] },
-      };
-    }
-
-    if (typeof newInscription.data.userResponse.data === 'string') {
-      return {
-        message: newInscription.data.userResponse.data,
-        status: false,
-        data: { ids: [] },
-      };
-    }
-
-    const n_inscriptions = newInscription.data.userResponse.data;
-    if (newInscription.data.userResponse.data.length === 0)
+    const n_inscriptions = res.userResponse.data;
+    if (res.userResponse.data.length === 0)
       return {
         message: `error inscribing item`,
         status: false,
@@ -491,18 +432,11 @@ const ackOrder = async ({inscription, networkName, res}) => {
         routingKey: 'paymentSeen',
       });
       return {
-        message: res.message,
+        message: 'inscription not complet',
         status: false,
         data: { ids: [] },
       };
     } 
-    if(res.status === true){
-      return {
-        message: res.message,
-        status: true,
-        data: { ids: res.userResponse.data },
-      };
-    }
     if(res.message.split(' ')[2] === 'available'){
       await RabbitMqClient.addToQueue({
         data: {orderId: inscriptionId, networkName:networkName, txid: inscription.spendTxid.split(':')[0]},
@@ -525,18 +459,33 @@ const ackOrder = async ({inscription, networkName, res}) => {
         data: { ids: [] },
       };
     }
-    if(res.status === false && res.message !== 'Request failed with status code 404'){
+    if(res.status === false){
       await Inscription.findOneAndUpdate({id: inscription.id}, {error: true, errorMessage: res.message}, {new: true})
-      // await RabbitMqClient.addToQueue({
-      //   data: {id: inscriptionId, message: res.message},
-      //   routingKey: 'error',
-      // });
       return {
         message: res.message,
         status: false,
         data: { ids: [] },
       };
     }
+
+
+    if(res.status === true && typeof res.userResponse.data === 'string'){
+      const errorMessage = splitErrorMessage(res.userResponse.data);
+      await Inscription.findOneAndUpdate({id: inscriptionId}, {error: true, errorMessage: errorMessage[1]}, {new: true})
+      return {
+        message: errorMessage[1],
+        status: false,
+        data: { ids: [] },
+      };
+    }
+    if(res.status === true){
+      return {
+        message: res.message,
+        status: true,
+        data: { ids: res.userResponse.data },
+      };
+    }
+    
   }catch(e){
     console.log(e.message)
   }
@@ -1303,6 +1252,12 @@ const getImages = async (collectionId) => {
   }
 };
 
+const splitErrorMessage = (errorMessage) => {
+  const errorLines = errorMessage.split('\n');
+  const filteredLines = errorLines.filter(line => line.trim() !== '');
+  return filteredLines;
+}
+
 // Exported Method
 const inscribe = async ({ inscriptionId, networkName }) => {
   try {
@@ -1371,7 +1326,6 @@ const inscribe = async ({ inscriptionId, networkName }) => {
       },
       status: inscResult.status,
     };
-
     return data;
   } catch (e) {
     console.log(e);

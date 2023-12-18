@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 const express = require('express');
 const path = require('path');
 
@@ -42,9 +43,7 @@ const storage = multer.diskStorage({
   async filename(req, file, cb) {
     // remove space from filename and replace with underscore
     const id = uuidv4();
-    const filename = `${Date.now().toString()}-${id}.${
-      file.originalname.split('.')[1]
-    }`;
+    const filename = `${Date.now().toString()}_${id}${path.extname(file.originalname).toLowerCase()}`;
     cb(null, filename);
   },
 });

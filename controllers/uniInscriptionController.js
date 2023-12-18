@@ -62,14 +62,13 @@ module.exports.inscribeItem = async (req, res) => {
         userResponse: [],
       });
     }
-
-    if (result.status === true) {
-      return res.status(200).json({
-        status: result.status,
-        message: result.message,
-        userResponse: result.data.ids,
-      });
-    }
+   
+    return res.status(200).json({
+      status: result.status,
+      message: result.message,
+      userResponse: result.data.ids,
+    });
+    
   } catch (e) {
     return res.status(200).json({ status: false, message: e.message });
   }

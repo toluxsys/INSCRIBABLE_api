@@ -8,7 +8,6 @@ const explorerRoute = require('./routes/explorerRoute.js');
 const uniInscriptionRoute = require('./routes/uniInscriptionRoute.js');
 const rewardRoute = require('./routes/rewardRoute.js');
 const RabbitMqClient = require('./helpers/queue/rabbitMqClient.js');
-//const RabbitMqConsumer = require('./helpers/queue/rabbitMqConsumer.js');
 const CreatorsPaymentConsumer = require('./helpers/queue/creatorPaymentConsumer.js');
 const { updateBtcPrice } = require('./helpers/btcToUsd.js');
 //const {check, getImg} = require('./helpers/inscriptionHelper.js')

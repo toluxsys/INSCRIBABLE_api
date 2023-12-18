@@ -1,3 +1,4 @@
+/* eslint-disable no-lonely-if */
 // users get points for completing task
 // users are tracked by address
 // useres can redeem points for prices linked to codes: each cupon code has details of the reward the user is tring to redeem
@@ -83,18 +84,29 @@ const perform_task = async (address, taskId) => {
           message: 'point claimed',
         };
       }
-    } else if (task.taskName === 'checkIn') {
-      const validCheckIn = await canCheckIn({ address });
-      if (validCheckIn.status === false) {
-        savedReward = {
-          status: false,
-          message: 'last check was less than 24 hours',
-          data: reward,
-        };
+    } else {
+      if (task.taskName === 'checkIn') {
+        const validCheckIn = await canCheckIn({ address });
+        if (validCheckIn.status === false) {
+          savedReward = {
+            status: false,
+            message: 'last check was less than 24 hours',
+            data: reward,
+          };
+        } else {
+          reward.totalPoints += task.taskPoints;
+          reward.lastCheckIn = Date.now();
+          reward.checkInCount += 1;
+          reward.taskHistory.push(taskHistory);
+          const updateReward = await reward.save();
+          savedReward = {
+            status: true,
+            message: 'point claimed',
+            data: updateReward,
+          };
+        }
       } else {
         reward.totalPoints += task.taskPoints;
-        reward.lastCheckIn = Date.now();
-        reward.checkInCount += 1;
         reward.taskHistory.push(taskHistory);
         const updateReward = await reward.save();
         savedReward = {
@@ -103,15 +115,6 @@ const perform_task = async (address, taskId) => {
           data: updateReward,
         };
       }
-    } else {
-      reward.totalPoints += task.taskPoints;
-      reward.taskHistory.push(taskHistory);
-      const updateReward = await reward.save();
-      savedReward = {
-        status: true,
-        message: 'point claimed',
-        data: updateReward,
-      };
     }
     return savedReward;
   } catch (e) {
@@ -256,7 +259,7 @@ const claimCheckinPoints = async ({ address }) => {
         },
       };
     }
-    result = await perform_task(address, task.taskId);
+    // result = await perform_task(address, task.taskId);
     return {
       status: false,
       message: 'last checkin was less than 24 hours',
@@ -270,6 +273,7 @@ const claimCheckinPoints = async ({ address }) => {
   }
 };
 
+// rewardId and claimId are the same
 const redeemPoints = async ({ address, rewardId }) => {
   try {
     const userReward = await UserReward.findOne({ address });
@@ -316,14 +320,14 @@ const redeemClaimCode = async ({ address, claimCode }) => {
     if (!claim) return { status: false, message: 'invalid code' };
     if (claim.status !== `active`)
       return { status: false, message: `reward is inactive` };
+    if (!claim.claimCode.includes(claimCode))
+      return { status: false, message: 'invalid code' };
     if (!userReward)
       return { status: false, message: `address has no reward point` };
     if (!userReward.claimCode.includes(claimCode))
       return { status: false, message: 'address not valid for code' };
     if (claim.usedClaimCode.includes(claimCode))
       return { status: false, message: 'code has been used' };
-    if (!claim.claimCode.includes(claimCode))
-      return { status: false, message: 'invalid code' };
     await Claim.findOneAndUpdate(
       { claimId },
       { $push: { usedClaimCode: claimCode } },
@@ -340,14 +344,16 @@ const getClaims = async () => {
     const claims = await Claim.find({});
     const active = [];
     claims.forEach((claim) => {
-      const data = {
-        claimId: claim.claimId,
-        status: claim.status,
-        description: claim.description,
-        info: claim.info,
-        claimPoint: claim.claimPoint,
-      };
-      if (claim.status === 'active') active.push(data);
+      if (claim.status === 'active') {
+        const data = {
+          claimId: claim.claimId,
+          status: claim.status,
+          description: claim.description,
+          info: claim.info,
+          claimPoint: claim.claimPoint,
+        };
+        active.push(data);
+      }
     });
     return { status: true, message: 'active rewards', userResponse: active };
   } catch (e) {

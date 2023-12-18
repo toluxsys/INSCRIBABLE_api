@@ -1241,7 +1241,7 @@ const init = async (
 
     const savedInscription = await inscription.save();
     // add to pending order queue
-    const addToQueue = await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
+    await RabbitMqClient.addToQueue({data: {orderId: inscriptionId, networkName: networkName, timestamp: savedInscription.createdAt}, routingKey: 'pendingOrders'})
 
     return {
       compImage,
