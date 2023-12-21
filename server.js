@@ -10,7 +10,7 @@ const rewardRoute = require('./routes/rewardRoute.js');
 const RabbitMqClient = require('./helpers/queue/rabbitMqClient.js');
 const CreatorsPaymentConsumer = require('./helpers/queue/creatorPaymentConsumer.js');
 const { updateBtcPrice } = require('./helpers/btcToUsd.js');
-//const {check, getImg} = require('./helpers/inscriptionHelper.js')
+//const {check} = require('./helpers/inscriptionHelper.js')
 
 const interval = 120000;
 let timerId = 0;
@@ -34,7 +34,6 @@ mongoose
   .then(async (res) => {
     console.log(`Mongo DB Connected! to ${res.connection.host}`);
     await RabbitMqClient.initilize();
-    //await RabbitMqConsumer.initilize();
     await CreatorsPaymentConsumer.initilize();
   })
   .catch(console.error);
@@ -61,8 +60,6 @@ consumeMessage1()
 app.use(`/api`, uniInscriptionRoute);
 
 app.get('/', async (req, res) => {
-  //const result = await getImg('c5924550f-c4d8-4fd9-841e-559112bd58c2')
-  //await check()
   res.status(200).json({ message: 'You are connected to the server'});
 });
 

@@ -36,7 +36,7 @@ class Consumer {
   initilize = async () => {
     try {
       if (this.isInitilized === false) {
-        this.conn = await ampq.connect(options);
+        this.conn = await ampq.connect(options.hostname);
         this.channel = await this.conn.createChannel();
       } else {
         return;

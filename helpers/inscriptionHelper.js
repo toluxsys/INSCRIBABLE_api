@@ -5,6 +5,7 @@ const axios = require('axios');
 const dotenv = require('dotenv').config();
 const fs = require('fs');
 const moment = require('moment');
+const mempoolJS = require('@mempool/mempool.js');
 const RabbitMqClient = require('./queue/rabbitMqClient.js');
 const Inscription = require('../model/inscription');
 const SelectedItems = require('../model/selectedItems');
@@ -18,6 +19,19 @@ const { getType } = require('./getType');
 const { perform_task } = require('./rewardHelper.js');
 const {subSatCount} = require('./satHelper.js');
 const mintDetails = require('../model/mintDetails.js');
+const inscription = require('../model/inscription');
+
+
+const init = async (network) => {
+  const {
+    bitcoin: { addresses, fees, transactions },
+  } = mempoolJS({
+    hostname: 'mempool.space',
+    network,
+  });
+
+  return { addresses, fees, transactions };
+};
 
 const interval = 15;
 
@@ -2179,28 +2193,153 @@ const checkPayment = async ({ inscriptionId, networkName }) => {
 //   }
 // }
 
-// let _interval = 3000;
+
+
+// const _interval = 1000;
 // let timerId = 0
 // let checkedIds = []
-// let unInscribed = [];
-// const check = async  () => {
-//   timerId = setTimeout(async function check() {
-//     if(unInscribed.length === 0){
-//       unInscribed = await Inscription.find({collectionId: "c5924550f-c4d8-4fd9-841e-559112bd58c2", collectionPayment: "received", inscribed: false})
-//       console.log(unInscribed.length);
+
+// let shroomIds = require('../shroomtxids.json')
+// // let unInscribed = [];
+
+// const checkConfig = async (collectionId) => {
+//   //const collectionId = 'c5924550f-c4d8-4fd9-841e-559112bd58c2'
+//   const insPath = `${process.cwd()}/src/inscriptionIds/${collectionId}`
+
+//     const regex = /[^,\r\n]+/g;
+//     const checked = fs.readFileSync(
+//       `${insPath}/checked.txt`,
+//       { encoding: 'utf8' },
+//     );
+
+//     let savedChecked = []
+
+//     if(checked.length !== 0){
+//       const c_checked = checked.match(regex);
+//       savedChecked = savedChecked.concat(c_checked); 
+//       checkedIds = savedChecked 
 //     }
-//     let id = unInscribed[unInscribed.length-1].id
-//     if(!checkedIds.includes(id)){
-//       let checking = await checkPayment({inscriptionId:id, networkName:"mainnet"})
-//       console.log(checking)
+    
+//     const s_shroomId = []
+//     shroomIds = shroomIds.forEach(x => {
+//       if(!savedChecked.includes(x)){
+//         s_shroomId.push(x)
+//       }
+//     })
+//     shroomIds = s_shroomId
+//   return {shroomIds: shroomIds}
+// }
+
+// const check = async  () => {
+
+//   const collectionAddress = '3NpKH4dv5Ni5WqqWYuN7TsDZBsQcZNAfWE'
+//   const collectionId = 'c5924550f-c4d8-4fd9-841e-559112bd58c2'
+//   const insPath = `${process.cwd()}/src/inscriptionIds/${collectionId}`
+
+//   if(checkedIds.length === 0){
+//     const result = await checkConfig(collectionId)
+//     shroomIds = result.shroomIds
+//   }
+//     const regex = /[^,\r\n]+/g;
+//     const checked = fs.readFileSync(
+//       `${insPath}/checked.txt`,
+//       { encoding: 'utf8' },
+//     );
+
+//     const c_checked = checked.match(regex);
+//     let savedChecked = []
+//     savedChecked = savedChecked.concat(c_checked);
+  
+//   //const collection = await Collection.findOne({id: collectionId})
+//   timerId = setTimeout(async function check() {
+//     // if(unInscribed.length === 0){
+//     //   unInscribed = await Inscription.find({collectionId: 'c5924550f-c4d8-4fd9-841e-559112bd58c2', collectionPayment: 'received', inscribed: false})
+//     //   console.log(unInscribed.length);
+//     // }
+//     const id = shroomIds[shroomIds.length-1]
+//     // const payAddress = unInscribed[unInscribed.length-1].inscriptionDetails.payAddress;
+//     // const receiver = unInscribed[unInscribed.length-1].receiver;
+//     if(!savedChecked.includes(id)){
+//       console.log("Checking")
+//       const { transactions, addresses } = await init('mainnet')
+//       const history = await transactions.getTx({txid: id})
+//       //console.log(history)
+//       for(let i = 0; i<history.vout.length; i++){
+//         let collectionAddressIndex;
+//         if(history.vout[i].scriptpubkey_address === collectionAddress){
+//           collectionAddressIndex = i
+//           let x = history.vout[collectionAddressIndex - 1]
+//           const insPath = `${process.cwd()}/src/inscriptionIds/${collectionId}`
+//           const result = await addresses.getAddressTxs({address: x.scriptpubkey_address})
+//           const inscriptionId = `${result[0].txid}i0`
+//           if(!fs.existsSync(insPath)){
+//             fs.mkdirSync(
+//               insPath,
+//               { recursive: true },
+//               (err) => {
+//                 console.log(err);
+//               },
+//             );
+    
+//             fs.writeFileSync(`${insPath}/ids.txt`, `${inscriptionId}\n`, (err) => {
+//               console.log(err.message);
+//             });
+
+//             fs.writeFileSync(`${insPath}/checked.txt`, `${id}\n`, (err) => {
+//               console.log(err.message);
+//             });
+//           }else{
+//             const regex = /[^,\r\n]+/g;
+//             const _ids = fs.readFileSync(
+//               `${insPath}/ids.txt`,
+//               { encoding: 'utf8' },
+//             );
+//             const completed = _ids.match(regex);
+//             let savedIds = []
+//             savedIds = savedIds.concat(completed);
+            
+//             if(!savedIds.includes(inscriptionId)){
+//               fs.appendFile(`${insPath}/ids.txt`, `${inscriptionId}\n`, (err) => {
+//                 if (err) throw err;
+//                 console.log(`Inscription:`, inscriptionId);
+//               });
+
+//               fs.appendFile(`${insPath}/checked.txt`, `${id}\n`, (err) => {
+//                 if (err) throw err;
+//                 console.log('checkedTxid:', id);
+//               });
+//             }
+//           }
+//         }
+//       }
 //       checkedIds.push(id)
-//       unInscribed.pop()
+//       shroomIds.pop()
+//     }else{
+//       console.log("Checked")
+//       checkedIds.push(id)
+//       shroomIds.pop()
 //     }
 //       timerId = setTimeout(check, _interval);
 //    }, _interval);
 // }
 
-module.exports = { inscribe, checkPayment, sendCreatorsPayment, addToCreatorsQueue };
+// const getAddressTx = async (address) => {
+//   try{
+//       const url = `https://blockchain.info/rawaddr/${address}?limit=1100`
+//       const response = await axios.get(url)
+//       const data = response.data
+//       const rawTx = data.txs
+//       const hashes = rawTx.map(x => x.hash)
+//       console.log(hashes.length)
+//       return hashes
+//   }catch(e){
+//     console.log(e.message)
+//   }
+// }
+
+//getAddressTx('3NpKH4dv5Ni5WqqWYuN7TsDZBsQcZNAfWE').then().catch()
+
+module.exports = { inscribe, checkPayment, sendCreatorsPayment, addToCreatorsQueue};
 
 
 
