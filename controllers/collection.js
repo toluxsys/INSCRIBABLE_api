@@ -1725,13 +1725,13 @@ module.exports.getCollection = async (req, res) => {
       .json({ status: false, message: 'collection mint ended' });
     }
 
-    if(!collection.largestFile && collection.startMint === true){
-      const imageLinks = await getLinks(collection.itemCid, parseInt(collection.collectionDetails.totalSupply))
-      const sizes = imageLinks.map(x => x.size)
-      const sortedImages = sizes.sort((a, b) => a - b);
-      collection.largestFile = sortedImages[sortedImages.length - 1]
-      collection = await collection.save();
-    }
+    // if(!collection.largestFile && collection.startMint === true){
+    //   const imageLinks = await getLinks(collection.itemCid, parseInt(collection.collectionDetails.totalSupply))
+    //   const sizes = imageLinks.map(x => x.size)
+    //   const sortedImages = sizes.sort((a, b) => a - b);
+    //   collection.largestFile = sortedImages[sortedImages.length - 1]
+    //   collection = await collection.save();
+    // }
 
     const mappedObjectId = mintDetails.map((val) => val.toString());
     const s_mintDetails = await MintDetails.find({
