@@ -11,6 +11,13 @@ const addressFileStorage = multer.diskStorage({
     cb(null, directory);
   },
   async filename(req, file, cb) {
+    // const trimmedString = req.body.name.trim();
+    // let a_name;
+    // if (trimmedString.includes(' ')) {
+    //   a_name = trimmedString.replace(/ /g, '_');
+    // } else {
+    //   a_name = trimmedString;
+    // }
     const name = `addr-${req.body.collectionId}-${req.body.name}.txt`;
     const filename = name;
     cb(null, filename);

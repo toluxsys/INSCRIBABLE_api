@@ -63,8 +63,8 @@ const getLinks = async (cid, totalSupply) => {
   try {
     const client = await import('ipfs-http-client');
     const links = [];
-    const url = 'https://dweb.link/api/v0';
-    const ipfs = client.create({ url });
+    const url = `http://${process.env.IPFS_HOST}:5001/api/v0`
+    const ipfs = client.create({host:  `${process.env.IPFS_HOST}`, port: 5001, protocol: 'http', timeout: 50000});
 
     if (!existsSync(`${process.cwd()}/src/imageLinks/${cid}.json`)) {
       for await (const link of ipfs.ls(cid)) {
@@ -99,11 +99,11 @@ const getLinks = async (cid, totalSupply) => {
 
 const getServiceFee = async (collectionId) => {
   try {
-    // const serviceFee = await ServiceFee.findOne({ collectionId });
-    // if (!serviceFee) return process.env.COLLECTION_SERVICE_FEE;
-    // return serviceFee.serviceFee.toString();
-    const serviceFee = await usdToSat(5)
-    return serviceFee.satoshi
+    const serviceFee = await ServiceFee.findOne({ collectionId });
+    if (!serviceFee) return process.env.COLLECTION_SERVICE_FEE;
+    return serviceFee.serviceFee.toString();
+    // const serviceFee = await usdToSat(5)
+    // return serviceFee.satoshi
   } catch (e) {
     console.log(e.message);
   }
@@ -2017,7 +2017,7 @@ module.exports.startMint = async (req, res) => {
     const { collectionId } = req.body;
     await Collection.findOneAndUpdate(
       { id: collectionId },
-      { startMint: true },
+      { startMint: true, ended: false },
       { new: true },
     );
     return res.status(200).json({ status: true, message: 'ok' });

@@ -5,6 +5,7 @@ const axios = require('axios');
 const dotenv = require('dotenv').config();
 const fs = require('fs');
 const moment = require('moment');
+const yaml = require('js-yaml');
 const mempoolJS = require('@mempool/mempool.js');
 const RabbitMqClient = require('./queue/rabbitMqClient.js');
 const Inscription = require('../model/inscription');
@@ -743,13 +744,15 @@ const checkSelectItem = async ({inscriptionId, networkName, txid, balance}) => {
   try{
     const inscription = await Inscription.findOne({id: inscriptionId})
     const collection = await Collection.findOne({id: inscription.collectionId})
-    if(inscription.selectionValid === false) 
+    if(inscription.selectionValid === false) {
       return {
         message: 'time elapsed for selected item',
         data: { txid, ids: [] },
         status: false,
         _txId:`https://mempool.space/tx/${txid}`,
-        key: 'time_elapsed_for_selected_item',}
+        key: 'time_elapsed_for_selected_item'
+      }
+    }
     if (inscription.mintStage.toString() === collection.mintStage.toString()) {
       const _savedCollection = await Collection.findOneAndUpdate(
         { id: inscription.collectionId },
@@ -1165,8 +1168,8 @@ const getLinks = async (cid, totalSupply) => {
   try {
     const client = await import('ipfs-http-client');
     const links = [];
-    const url = 'https://dweb.link/api/v0';
-    const ipfs = client.create({ url });
+    const url = `http://${process.env.IPFS_HOST}:5001/api/v0`
+    const ipfs = client.create({host:  `${process.env.IPFS_HOST}`, port: 5001, protocol: 'http', timeout: 50000});
 
     if (!fs.existsSync(`${process.cwd()}/src/imageLinks/${cid}.json`)) {
       for await (const link of ipfs.ls(cid)) {
@@ -1181,7 +1184,7 @@ const getLinks = async (cid, totalSupply) => {
     );
     return data;
   } catch (e) {
-    console.log(e.message);
+    console.log(e);
   }
 };
 
@@ -2338,6 +2341,74 @@ const checkPayment = async ({ inscriptionId, networkName }) => {
 // }
 
 //getAddressTx('3NpKH4dv5Ni5WqqWYuN7TsDZBsQcZNAfWE').then().catch()
+
+// Your JavaScript object
+// const data = {
+//   key1: 'value1',
+//   key2: {
+//     key3: 'value3',
+//     key4: 'value4'
+//   }
+// };
+
+// // Convert the JavaScript object to YAML
+// const yamlData = yaml.dump(data);
+
+// // Specify the file path
+// const filePath = 'output.yaml';
+
+// // Write the YAML data to the file
+// fs.writeFileSync(filePath, yamlData);
+
+// console.log(`YAML file created at ${filePath}`);
+
+// const createBatchFile = async () => {
+//   try{ 
+//     let addresses = fs.readFileSync(`${process.cwd()}/duplicates.txt`, { encoding: 'utf8' })  
+//     const regex = /[^,\r\n]+/g; 
+    
+//     let allAddress =  addresses.match(regex); 
+//     const fileNames = fs.readdirSync(`${process.cwd()}/dup`)
+
+//     let allData = []
+//     let data = {
+//       mode: 'shared-output',
+//       postage: 550,
+//       inscription: ''
+//     }
+//     if(allAddress.length > fileNames.length){
+//       return `not emough files for addresses`
+//     }
+//     for(let i = 0; i < allAddress.length; i++){
+//       const address = allAddress[i]
+//       const file = fileNames[i]
+//       const addObj = {
+//         file: `/home/ubuntu/Downloads/shroombatch/${file}`,
+//         destination: `${address}`,
+//       }
+
+//       const addressConfig = yaml.dump(addObj);
+//       allData.push(`  - ${addressConfig}`)
+//       //allData.push({key: 'file', value: file}, {key: 'destination', value: address})
+//     }
+//     console.log(allData.length)
+    
+//     //data['inscription'] = inscription
+//     const yamlData = yaml.dump(data);
+//     const filePath = `${process.cwd()}/src/batchOutputs/output.yaml`
+//     if(!fs.existsSync(filePath)){
+//       fs.writeFileSync(filePath, yamlData);
+//     }else{
+//       allData.forEach(x => {
+//         fs.appendFile(`${filePath}`, `${x}\n`, (err) => {
+//           if (err) throw err;
+//         });
+//       })
+//     }
+//   }catch(e){
+//       console.log(e.message)
+//   }
+// }
 
 module.exports = { inscribe, checkPayment, sendCreatorsPayment, addToCreatorsQueue};
 

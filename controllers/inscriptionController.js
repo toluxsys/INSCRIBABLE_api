@@ -1402,8 +1402,9 @@ const getSatCost = async (type) => {
 
 const inscriptionPrice = async (feeRate, fileSize, satType, usePoints) => {
   try {
-    const toSat = await usdToSat(3)
-    let serviceCharge = toSat.satoshi
+    // const toSat = await usdToSat(3)
+    // let serviceCharge = toSat.satoshi
+    let serviceCharge = process.env.SERVICE_CHARGE
     const sats = Math.ceil((fileSize / 4) * feeRate);
     const cost = sats + 1500 + 550 + 2000;
     const sizeFee = Math.ceil(300 * feeRate + (sats / 10));
