@@ -1168,9 +1168,15 @@ const getLinks = async (cid, totalSupply) => {
   try {
     const client = await import('ipfs-http-client');
     const links = [];
-    const url = `http://${process.env.IPFS_HOST}:5001/api/v0`
-    const ipfs = client.create({host:  `${process.env.IPFS_HOST}`, port: 5001, protocol: 'http', timeout: 50000});
+    const url = `http://${process.env.IPFS_HOST}:3000/api/v0`
+    const ipfs = client.create({host: `${process.env.IPFS_HOST}`, port: 5001, protocol: 'http', timeout: 500000000});
+    //const ipfs = client.create({url:'https://dweb.link/api/v0'})
+    //const ipfs = client.create({ host: 'https://ipfs.io', port: 5001, protocol: 'http' })
 
+    
+    // let res = await axios.get('https://gateway.pinata.cloud/ipfs/QmQ9P6DR2jAqUdLej1bzms59rjXUuJ7AzVR3z9yXSfkjuf/')
+    // console.log(res.data)
+  
     if (!fs.existsSync(`${process.cwd()}/src/imageLinks/${cid}.json`)) {
       for await (const link of ipfs.ls(cid)) {
         links.push(link);
@@ -2342,25 +2348,6 @@ const checkPayment = async ({ inscriptionId, networkName }) => {
 
 //getAddressTx('3NpKH4dv5Ni5WqqWYuN7TsDZBsQcZNAfWE').then().catch()
 
-// Your JavaScript object
-// const data = {
-//   key1: 'value1',
-//   key2: {
-//     key3: 'value3',
-//     key4: 'value4'
-//   }
-// };
-
-// // Convert the JavaScript object to YAML
-// const yamlData = yaml.dump(data);
-
-// // Specify the file path
-// const filePath = 'output.yaml';
-
-// // Write the YAML data to the file
-// fs.writeFileSync(filePath, yamlData);
-
-// console.log(`YAML file created at ${filePath}`);
 
 // const createBatchFile = async () => {
 //   try{ 
@@ -2410,6 +2397,35 @@ const checkPayment = async ({ inscriptionId, networkName }) => {
 //   }
 // }
 
+// const convertToJson = (cid) => {
+//   const data = fs.readFileSync(`${process.cwd()}/botCid.txt`, { encoding: 'utf8' })  
+//   const regex = /[^,\r\n]+/g;
+//   const allData = data.match(regex)
+//   const result = []
+//   allData.forEach(x => {
+//     const item = x.split(' ')
+//     result.push({
+//       name: item[2],
+//       size: item[1],
+//       cid: item[0],
+//       path: cid +'/'+ item[2],
+//       type: 'file'
+//     })
+//   })
+
+//   const filePath = `${process.cwd()}/src/imageLinks/${cid}.json`
+//   if(!fs.existsSync(filePath)){
+//     fs.mkdirSync(filePath ,{ recursive: true })
+//     fs.writeFileSync(filePath, JSON.stringify(result));
+//   }else{
+//     fs.writeFileSync(filePath, JSON.stringify(result));
+//   }
+
+//   return result
+// }
+ 
+//convertToJson('QmYNxqoqJmkAUZwfQA1HTTDjXTtfKzKxeMHAzEHQbYCLC5')
+//getLinks("QmQ9P6DR2jAqUdLej1bzms59rjXUuJ7AzVR3z9yXSfkjuf").then(res => console.log(res)).catch()
 module.exports = { inscribe, checkPayment, sendCreatorsPayment, addToCreatorsQueue};
 
 
