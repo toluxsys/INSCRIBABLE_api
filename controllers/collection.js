@@ -191,9 +191,9 @@ const updateMintStage1 = async (collectionId) => {
     if (!collection) {
       return 'collection not found';
     }
-    if (collection.paused === true) return 'mint is paused';
-    if (collection.ended === true) return 'mint ended';
-    if (collection.startMint === false) return 'mint is yet to start';
+    // if (collection.paused === true) return 'mint is paused';
+    // if (collection.ended === true) return 'mint ended';
+    // if (collection.startMint === false) return 'mint is yet to start';
 
     const stages = collection.mintDetails;
     if (!stages) return 'mint stages not added';
@@ -218,8 +218,8 @@ const updateMintStage1 = async (collectionId) => {
     }
 
     const currentTime = moment();
-    const startTime = collection.startAt;
-    const stageStartTime = new Date(startTime.getTime() + prevDuration);
+    const startTime = moment(collection.startAt).utc();
+    const stageStartTime = startTime.clone().add(prevDuration, 'seconds');
     const timeDifference = currentTime.diff(stageStartTime, 'seconds');
     const duration = mintStage.duration;
 
@@ -1702,7 +1702,7 @@ module.exports.getCollection = async (req, res) => {
         return res
           .status(200)
           .json({ status: false, message: 'collection not found' });
-      await updateMintStage1(collection.id);
+      await 1(collection.id);
       mintStage = collection.mintStage;
       mintDetails = collection.mintDetails;
     } else if (collectionId) {
